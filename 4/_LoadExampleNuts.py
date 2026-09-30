@@ -6,16 +6,16 @@ import numpyro.distributions as dist
 from jax import random
 from jax.experimental.ode import odeint
 
-# Workaround to run this example directly from the repository without installing BayesianFramework.
-# For normal use, install from the repository folder with `python -m pip install -e .` and import with `from BayesianFramework import BayesianFramework`.
-# If VS Code does not recognize the import for autocomplete, add `"python.analysis.extraPaths": ["/path/to/BayesianFramework"]` to settings.json.
+# Workaround to run this example directly from the repository without installing BayesianEstimationTool.
+# For normal use, install from the repository folder with `python -m pip install -e .` and import with `from BayesianEstimationTool import BayesianEstimationTool`.
+# If VS Code does not recognize the import for autocomplete, add `"python.analysis.extraPaths": ["/path/to/BayesianEstimationTool"]` to settings.json.
 
 import sys
 from pathlib import Path
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from BayesianFramework import BayesianFramework
+from BayesianEstimationTool import BayesianEstimationTool, NutsEstimator
 
 
 # ---------------------------------------------------------------------
@@ -115,7 +115,7 @@ def SquaredErrorFn(modelOut,data):
 # was used when the framework was saved.
 # ---------------------------------------------------------------------
 
-bf=BayesianFramework.Load("SimpleTumorGrowth.npz",ModelFn=ModelFn,GlobalParamFn=GlobalFn,modelDataFull=data)
+bf=BayesianEstimationTool.Load("SimpleTumorGrowthNuts.npz",ModelFn=ModelFn,GlobalParamFn=GlobalFn,modelDataFull=data)
 
 
 # ---------------------------------------------------------------------
@@ -127,16 +127,16 @@ trainSquaredError=bf.ScoreTrain(ScoreFn=SquaredErrorFn)
 
 
 # ---------------------------------------------------------------------
-# Test without MCMC
+# Test without an estimator
 #
 # Use the median global parameter values from the training posterior.
 # No test observations are used for inference.
 #
-# numSamples controls the number of local samples generated for each
+# nLocalSamples controls the number of local samples generated for each
 # test patient.
 # ---------------------------------------------------------------------
 
-bf.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=None,nGlobalSamples=None,numSamples=500)
+bf.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=None,nGlobalSamples=None,nLocalSamples=500)
 
 noMCMCAbsoluteError=bf.ScoreTest(ScoreFn=AbsoluteErrorFn)
 noMCMCSquaredError=bf.ScoreTest(ScoreFn=SquaredErrorFn)
@@ -146,11 +146,11 @@ noMCMCSquaredError=bf.ScoreTest(ScoreFn=SquaredErrorFn)
 # Test with 3 observations
 #
 # Use the median global parameter values from the training posterior.
-# MCMC updates each test patient's local parameters using the first
+# NUTS updates each test patient's local parameters using the first
 # three observations.
 # ---------------------------------------------------------------------
 
-bf.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodFewFn,nGlobalSamples=None,numWarmup=500,numSamples=500,num_chains=4,printSummary=True)
+bf.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodFewFn,Estimator=NutsEstimator(numWarmup=500,numSamples=500,numChains=4),nGlobalSamples=None,printSummary=True)
 
 fewAbsoluteError=bf.ScoreTest(ScoreFn=AbsoluteErrorFn)
 fewSquaredError=bf.ScoreTest(ScoreFn=SquaredErrorFn)
@@ -162,7 +162,7 @@ fewSquaredError=bf.ScoreTest(ScoreFn=SquaredErrorFn)
 # Repeat the test inference using the first seven observations.
 # ---------------------------------------------------------------------
 
-bf.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodMoreFn,nGlobalSamples=None,numWarmup=500,numSamples=500,num_chains=4,printSummary=True)
+bf.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodMoreFn,Estimator=NutsEstimator(numWarmup=500,numSamples=500,numChains=4),nGlobalSamples=None,printSummary=True)
 
 moreAbsoluteError=bf.ScoreTest(ScoreFn=AbsoluteErrorFn)
 moreSquaredError=bf.ScoreTest(ScoreFn=SquaredErrorFn)

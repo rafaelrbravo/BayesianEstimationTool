@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "BayesianFramework"
+name = "BayesianEstimationTool"
 version = "0.1.0"
 dependencies = [
     "jax",
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["BayesianFramework"]
+packages = ["BayesianEstimationTool"]
 
 [tool.setuptools.package-dir]
-BayesianFramework = "."
+BayesianEstimationTool = "."

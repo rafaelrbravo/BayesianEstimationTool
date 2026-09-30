@@ -15,7 +15,7 @@ from pathlib import Path
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from BayesianFramework import BayesianFramework
+from BayesianEstimationTool import BayesianEstimationTool, SviEstimator
 
 
 # ---------------------------------------------------------------------
@@ -82,7 +82,7 @@ def TrainLikelihoodFn(globalParams,localParams,data,modelOut):
     npo.sample("obs",dist.Normal(modelOut["tumorSize"],globalParams["sigma"]),obs=data["tumorSize"])
 
 
-# Test MCMC only uses the first nFit observations.
+# Test SVI only uses the first nFit observations.
 
 def TestLikelihoodFn(globalParams,localParams,data,modelOut):
     nFit=3
@@ -101,7 +101,7 @@ def ScoreFn(modelOut,data):
 # Construct framework
 # ---------------------------------------------------------------------
 
-bf=BayesianFramework(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g"],GlobalParamFn=GlobalFn,rngSeed=0)
+bf=BayesianEstimationTool(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g"],GlobalParamFn=GlobalFn,rngSeed=0)
 
 # Patients 0-4 train the population model.
 # Patients 5-9 are completely held out.
@@ -119,13 +119,12 @@ bf=BayesianFramework(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g"],Gl
 # using all observations from the five training patients.
 # ---------------------------------------------------------------------
 
-bf.Train(trainIndices=jnp.arange(5),TrainLikelihoodFn=TrainLikelihoodFn,numWarmup=500,numSamples=500,num_chains=4,printSummary=True)
-
+bf.Train( trainIndices=jnp.arange(5), TrainLikelihoodFn=TrainLikelihoodFn, Estimator=SviEstimator(numSteps=10000,numSamples=2000,stepSize=0.01), printSummary=True)
 trainScores=bf.ScoreTrain(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------
-# 2. TESTING WITHOUT MCMC
+# 2. TESTING WITHOUT INFERENCE
 #
 # Do not use any test-patient observations for inference.
 #
@@ -136,13 +135,12 @@ trainScores=bf.ScoreTrain(ScoreFn=ScoreFn)
 # numSamples controls the number of local samples generated.
 # ---------------------------------------------------------------------
 
-bf.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=None,nGlobalSamples=None,numSamples=2000)
-
-noMCMCScores=bf.ScoreTest(ScoreFn=ScoreFn)
+bf.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=None, nGlobalSamples=None, nLocalSamples=2000)
+noInferenceScores=bf.ScoreTest(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------
-# 3. TESTING WITH MCMC
+# 3. TESTING WITH SVI
 #
 # Use the median global parameter values from the training posterior
 # and infer each test patient's local parameter using early observations.
@@ -154,9 +152,8 @@ noMCMCScores=bf.ScoreTest(ScoreFn=ScoreFn)
 # measurements.
 # ---------------------------------------------------------------------
 
-bf.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodFn,nGlobalSamples=None,numWarmup=500,numSamples=500,num_chains=4,printSummary=True)
-
-testMCMCScores=bf.ScoreTest(ScoreFn=ScoreFn)
+bf.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Estimator=SviEstimator(numSteps=10000,numSamples=2000,stepSize=0.01), nGlobalSamples=None, printSummary=True)
+testSviScores=bf.ScoreTest(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------
@@ -164,5 +161,5 @@ testMCMCScores=bf.ScoreTest(ScoreFn=ScoreFn)
 # ---------------------------------------------------------------------
 
 print("Training score:      ",jnp.mean(trainScores))
-print("Test score, no MCMC: ",jnp.mean(noMCMCScores))
-print("Test score, MCMC:    ",jnp.mean(testMCMCScores))
+print("Test score, no inference: ",jnp.mean(noInferenceScores))
+print("Test score, SVI:          ",jnp.mean(testSviScores))

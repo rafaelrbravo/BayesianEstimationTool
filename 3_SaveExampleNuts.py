@@ -6,16 +6,16 @@ import numpyro.distributions as dist
 from jax import random
 from jax.experimental.ode import odeint
 
-# Workaround to run this example directly from the repository without installing BayesianFramework.
-# For normal use, install from the repository folder with `python -m pip install -e .` and import with `from BayesianFramework import BayesianFramework`.
-# If VS Code does not recognize the import for autocomplete, add `"python.analysis.extraPaths": ["/path/to/BayesianFramework"]` to settings.json.
+# Workaround to run this example directly from the repository without installing BayesianEstimationTool.
+# For normal use, install from the repository folder with `python -m pip install -e .` and import with `from BayesianEstimationTool import BayesianEstimationTool`.
+# If VS Code does not recognize the import for autocomplete, add `"python.analysis.extraPaths": ["/path/to/BayesianEstimationTool"]` to settings.json.
 
 import sys
 from pathlib import Path
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from BayesianFramework import BayesianFramework
+from BayesianEstimationTool import BayesianEstimationTool, NutsEstimator
 
 
 # ---------------------------------------------------------------------
@@ -119,7 +119,7 @@ def ScoreFn(modelOut,data):
 # Construct framework
 # ---------------------------------------------------------------------
 
-bf=BayesianFramework(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g","d"],GlobalParamFn=GlobalFn,rngSeed=0)
+bf=BayesianEstimationTool(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g","d"],GlobalParamFn=GlobalFn,rngSeed=0)
 
 
 # ---------------------------------------------------------------------
@@ -139,7 +139,7 @@ bf=BayesianFramework(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g","d"
 # using all observations from the five training patients.
 # ---------------------------------------------------------------------
 
-bf.Train(trainIndices=jnp.arange(5),TrainLikelihoodFn=TrainLikelihoodFn,numWarmup=500,numSamples=500,num_chains=4,printSummary=True)
+bf.Train(trainIndices=jnp.arange(5),TrainLikelihoodFn=TrainLikelihoodFn,Estimator=NutsEstimator(numWarmup=500,numSamples=500,numChains=4),printSummary=True)
 
 
 # ---------------------------------------------------------------------
@@ -158,7 +158,7 @@ print("Training score before save:",jnp.mean(trainScores))
 #
 # By default, Save stores:
 # - framework metadata
-# - training/test run settings
+# - training/test run settings, including estimator name and constructor arguments
 # - training/test indices
 # - RNG state
 # - training global posterior samples
@@ -169,4 +169,4 @@ print("Training score before save:",jnp.mean(trainScores))
 # Model outputs and the full input dataset are not saved by default.
 # ---------------------------------------------------------------------
 
-bf.Save("SimpleTumorGrowth.npz")
+bf.Save("SimpleTumorGrowthNuts.npz")
