@@ -1,5 +1,5 @@
-from .BayesianEstimationTool import BayesianEstimationTool
-from .NutsEstimator import NutsEstimator
-from .SviEstimator import SviEstimator
+from .BayesianEstimationTool import Estimator
+from .NutsMethod import Nuts
+from .SviMethod import Svi
 
-__all__=["BayesianEstimationTool","NutsEstimator","SviEstimator"]
+__all__=["Estimator","Nuts","Svi"]

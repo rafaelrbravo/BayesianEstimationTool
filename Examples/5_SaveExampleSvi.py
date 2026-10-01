@@ -6,16 +6,7 @@ import numpyro.distributions as dist
 from jax import random
 from jax.experimental.ode import odeint
 
-# Workaround to run this example directly from the repository without installing BayesianEstimationTool.
-# For normal use, install from the repository folder with `python -m pip install -e .` and import with `from BayesianEstimationTool import BayesianEstimationTool`.
-# If VS Code does not recognize the import for autocomplete, add `"python.analysis.extraPaths": ["/path/to/BayesianEstimationTool"]` to settings.json.
-
-import sys
-from pathlib import Path
-if __package__ is None or __package__ == "":
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from BayesianEstimationTool import BayesianEstimationTool, SviEstimator
+import BayesianEstimationTool as bet
 
 
 # ---------------------------------------------------------------------
@@ -116,10 +107,10 @@ def ScoreFn(modelOut,data):
 
 
 # ---------------------------------------------------------------------
-# Construct framework
+# Construct Estimator
 # ---------------------------------------------------------------------
 
-bf=BayesianEstimationTool(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g","d"],GlobalParamFn=GlobalFn,rngSeed=0)
+est=bet.Estimator(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g","d"],GlobalParamFn=GlobalFn,rngSeed=0)
 
 
 # ---------------------------------------------------------------------
@@ -139,14 +130,14 @@ bf=BayesianEstimationTool(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g
 # using all observations from the five training patients.
 # ---------------------------------------------------------------------
 
-bf.Train(trainIndices=jnp.arange(5),TrainLikelihoodFn=TrainLikelihoodFn,Estimator=SviEstimator(numSteps=10000,numSamples=500),printSummary=True)
+est.Train(trainIndices=jnp.arange(5),TrainLikelihoodFn=TrainLikelihoodFn,Method=bet.Svi(numSteps=10000,numSamples=500),printSummary=True)
 
 
 # ---------------------------------------------------------------------
 # 2. SCORE TRAINING POSTERIOR
 # ---------------------------------------------------------------------
 
-trainScores=bf.ScoreTrain(ScoreFn=ScoreFn)
+trainScores=est.ScoreTrain(ScoreFn=ScoreFn)
 
 print("Training score before save:",jnp.mean(trainScores))
 
@@ -154,11 +145,11 @@ print("Training score before save:",jnp.mean(trainScores))
 # ---------------------------------------------------------------------
 # 3. SAVE
 #
-# The framework is saved as a NumPy .npz archive.
+# The Estimator is saved as a NumPy .npz archive.
 #
 # By default, Save stores:
-# - framework metadata
-# - training/test run settings, including estimator name and constructor arguments
+# - Estimator metadata
+# - training/test run settings, including method name and constructor arguments
 # - training/test indices
 # - RNG state
 # - training global posterior samples
@@ -169,4 +160,4 @@ print("Training score before save:",jnp.mean(trainScores))
 # Model outputs and the full input dataset are not saved by default.
 # ---------------------------------------------------------------------
 
-bf.Save("SimpleTumorGrowthSvi.npz")
+est.Save("SimpleTumorGrowthSvi.npz")

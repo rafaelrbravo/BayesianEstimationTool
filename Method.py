@@ -1,4 +1,4 @@
-class Estimator:
+class Method:
     _printMode=None
 
     def _Fit(self,ModelFn,rngKey,samplePrefixes):

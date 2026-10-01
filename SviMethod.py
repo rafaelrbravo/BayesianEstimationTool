@@ -1,4 +1,4 @@
-from .Estimator import Estimator
+from .Method import Method
 from jax import random
 from numpyro.infer import SVI as NumPyroSVI,Trace_ELBO,Predictive
 from numpyro.infer.autoguide import AutoNormal,AutoMultivariateNormal
@@ -7,7 +7,7 @@ import numpy as np
 from numpyro.infer import init_to_median
 
 
-class SviEstimator(Estimator):
+class Svi(Method):
     _printMode="after"
     def __init__(self,numSteps=10000,numSamples=2000,stepSize=0.01,numParticles=1,progressBar=True,medianSamples=50,multivariate=False):
         for value,name in ((numSteps,"numSteps"),(numSamples,"numSamples"),(numParticles,"numParticles"),(medianSamples,"medianSamples")):

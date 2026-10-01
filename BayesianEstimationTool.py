@@ -12,7 +12,7 @@ import os
 import warnings
 from pathlib import Path
 
-class BayesianEstimationTool():
+class Estimator():
     _samplePrefixes=("__globalParam__","__localParam__","__cholesky__")
     _modelOutputPrefix="__modelOutput__"
 
@@ -30,31 +30,31 @@ class BayesianEstimationTool():
         self._ClearTrainState()
         self._ClearTestState()
 
-    def Train(self,trainIndices,TrainLikelihoodFn,Estimator,printSummary=False,rngSeed=None,saveLocals=True,saveModelOut=False):
-        self._ValidateTrain(trainIndices,TrainLikelihoodFn,Estimator,printSummary,rngSeed,saveLocals,saveModelOut)
-        self._SetTrainState(trainIndices,TrainLikelihoodFn,Estimator)
+    def Train(self,trainIndices,TrainLikelihoodFn,Method,printSummary=False,rngSeed=None,saveLocals=True,saveModelOut=False):
+        self._ValidateTrain(trainIndices,TrainLikelihoodFn,Method,printSummary,rngSeed,saveLocals,saveModelOut)
+        self._SetTrainState(trainIndices,TrainLikelihoodFn,Method)
         dataShapes={key:value.shape[1:] for key,value in self._modelDataFull.items()}
-        fitModel=functools.partial(self._RunEstimatorTrain,TrainLikelihoodFn,dataShapes,saveModelOut,**self._GetTrainData())
+        fitModel=functools.partial(self._RunMethodTrain,TrainLikelihoodFn,dataShapes,saveModelOut,**self._GetTrainData())
         samplePrefixes=self._samplePrefixes+(self._modelOutputPrefix,) if saveModelOut else self._samplePrefixes
-        result=Estimator._Fit(fitModel,self._NextKey(rngSeed),samplePrefixes)
+        result=Method._Fit(fitModel,self._NextKey(rngSeed),samplePrefixes)
         post=result["samples"]
         self._trainGlobals=self._GetPost(post,"__globalParam__")
         self._trainCholesky=post.get("__cholesky__")
         if saveLocals: self._trainLocals=self._GetPost(post,"__localParam__")
         if saveModelOut: self._trainModelOut=self._GetPost(post,"__modelOutput__")
         self._ClearTestState()
-        if printSummary: self._PrintEstimatorSummary(Estimator,result["output"],post,self._localParamNames,self._globalNames,"--= Training posterior summary =--")
+        if printSummary: self._PrintMethodSummary(Method,result["output"],post,self._localParamNames,self._globalNames,"--= Training posterior summary =--")
         jax.block_until_ready(post)
         self._ClearJAX()
         return result["output"]
 
-    def Test(self,testIndices,TestLikelihoodFn=None,Estimator=None,nGlobalSamples=None,nLocalSamples=2000,printSummary=False,rngSeed=None,saveModelOut=False):
-        self._ValidateTest(testIndices,TestLikelihoodFn,Estimator,nGlobalSamples,nLocalSamples,printSummary,rngSeed,saveModelOut)
-        self._SetTestState(testIndices,TestLikelihoodFn,Estimator,nGlobalSamples,nLocalSamples)
+    def Test(self,testIndices,TestLikelihoodFn=None,Method=None,nGlobalSamples=None,nLocalSamples=2000,printSummary=False,rngSeed=None,saveModelOut=False):
+        self._ValidateTest(testIndices,TestLikelihoodFn,Method,nGlobalSamples,nLocalSamples,printSummary,rngSeed,saveModelOut)
+        self._SetTestState(testIndices,TestLikelihoodFn,Method,nGlobalSamples,nLocalSamples)
         if TestLikelihoodFn is None:
             result=self._TestNoEstimator(nGlobalSamples,nLocalSamples,rngSeed,saveModelOut)
         else:
-            fitResults=self._TestEstimator(TestLikelihoodFn,Estimator,nGlobalSamples,rngSeed,saveModelOut)
+            fitResults=self._TestMethod(TestLikelihoodFn,Method,nGlobalSamples,rngSeed,saveModelOut)
             if printSummary:
                 for i,fitResult in enumerate(fitResults):
                     title="--= Testing posterior summary =--" if len(fitResults)==1 else f"--= Testing posterior summary {i+1} =--"
@@ -63,7 +63,7 @@ class BayesianEstimationTool():
                         print("Global parameter values:")
                         for name,value in self._testGlobals.items(): print(f"  {name}: {np.asarray(value[i])}")
                         title=None
-                    self._PrintEstimatorSummary(Estimator,fitResult["output"],fitResult["samples"],self._localParamNames,[],title)
+                    self._PrintMethodSummary(Method,fitResult["output"],fitResult["samples"],self._localParamNames,[],title)
             result=[fitResult["output"] for fitResult in fitResults]
         return result
 
@@ -109,12 +109,12 @@ class BayesianEstimationTool():
         if ModelFn is None: return cls._LoadToDict(fileName)
         return cls._Load(fileName,ModelFn,GlobalParamFn,modelDataFull)
 
-    def _PrintEstimatorSummary(self,Estimator,output,samples,localNames,globalNames,title=None):
-        mode=getattr(Estimator,"_printMode",None)
-        if mode in ("before","replace"): Estimator._Print(output,localNames,globalNames,title)
+    def _PrintMethodSummary(self,Method,output,samples,localNames,globalNames,title=None):
+        mode=getattr(Method,"_printMode",None)
+        if mode in ("before","replace"): Method._Print(output,localNames,globalNames,title)
         if mode!="replace":
             self._PrintSampleSummary(samples,localNames,globalNames,title if mode!="before" else None)
-        if mode=="after": Estimator._Print(output,localNames,globalNames,None)
+        if mode=="after": Method._Print(output,localNames,globalNames,None)
 
     def _PrintSampleSummary(self,samples,localNames,globalNames,title=None):
         if title is not None: print(title)
@@ -132,7 +132,7 @@ class BayesianEstimationTool():
     def _PrintSampleRow(self,label,vals):
         print(f"{label:<20} {np.mean(vals):>10.3f} {np.std(vals):>10.3f} {np.median(vals):>10.3f} {np.percentile(vals,2.5):>10.3f} {np.percentile(vals,97.5):>10.3f}")
 
-    def _TestEstimator(self,TestLikelihoodFn,Estimator,nGlobalSamples=None,rngSeed=None,saveModelOut=False):
+    def _TestMethod(self,TestLikelihoodFn,Method,nGlobalSamples=None,rngSeed=None,saveModelOut=False):
         postKey,runKey=random.split(self._NextKey(rngSeed),2)
         self._SetTestGlobals(nGlobalSamples,postKey)
         testData=self._GetTestData()
@@ -144,9 +144,9 @@ class BayesianEstimationTool():
         for i in range(nGlobalSamples):
             globs={name:value[i] for name,value in self._testGlobals.items()}
             cholesky=None if self._testCholesky is None else self._testCholesky[i]
-            fitModel=functools.partial(self._RunEstimatorTest,TestLikelihoodFn,globs,cholesky,saveModelOut,**testData)
+            fitModel=functools.partial(self._RunMethodTest,TestLikelihoodFn,globs,cholesky,saveModelOut,**testData)
             samplePrefixes=("__localParam__",self._modelOutputPrefix) if saveModelOut else ("__localParam__",)
-            result=Estimator._Fit(fitModel,runKeys[i],samplePrefixes)
+            result=Method._Fit(fitModel,runKeys[i],samplePrefixes)
             localPosts.append(self._GetPost(result["samples"],"__localParam__"))
             if saveModelOut: modelOutPosts.append(self._GetPost(result["samples"],"__modelOutput__"))
             results.append(result)
@@ -188,7 +188,7 @@ class BayesianEstimationTool():
             localSamples=localSamples@cholesky.T
         return dict(zip(self._localParamNames,localSamples.T))
 
-    def _RunEstimatorTrain(self,TrainLikelihoodFn,dataShapes,saveOutput,**modelData):
+    def _RunMethodTrain(self,TrainLikelihoodFn,dataShapes,saveOutput,**modelData):
         dataLen=len(modelData[next(iter(modelData))])
         localParams=self._GenLocalParamsTraining(dataLen) if self._localParamNames else {}
         for name, value in localParams.items(): npo.deterministic(f"__localParam__{name}", value)
@@ -207,7 +207,7 @@ class BayesianEstimationTool():
             localSamples=localSamples @ cholesky.T
         return dict(zip(self._localParamNames,localSamples.T))
 
-    def _RunEstimatorTest(self,TestLikelihoodFn,globalParams,cholesky,saveOutput,**modelData):
+    def _RunMethodTest(self,TestLikelihoodFn,globalParams,cholesky,saveOutput,**modelData):
         dataLen=len(modelData[next(iter(modelData))])
         localParams=self._GenLocalParamsTesting(cholesky,dataLen) if self._localParamNames else {}
         for name,value in localParams.items(): npo.deterministic(f"__localParam__{name}",value)
@@ -376,23 +376,23 @@ class BayesianEstimationTool():
         if concentration<=0: raise ValueError("choleskyConcentration must be > 0.")
         if rngSeed is not None: self._CheckNonnegativeInt(rngSeed,"RNG seed")
 
-    def _ValidateTrain(self,trainIndices,TrainLikelihoodFn,Estimator,printSummary,rngSeed,saveLocals,saveModelOut):
+    def _ValidateTrain(self,trainIndices,TrainLikelihoodFn,Method,printSummary,rngSeed,saveLocals,saveModelOut):
         self._CheckIndices(trainIndices,len(self._modelDataFull[next(iter(self._modelDataFull))]),"trainIndices")
         self._CheckCallable(TrainLikelihoodFn,"TrainLikelihoodFn",4)
-        self._CheckEstimator(Estimator,"Estimator")
+        self._CheckMethod(Method,"Method")
         self._CheckBool(printSummary,"printSummary"); self._CheckBool(saveLocals,"saveLocals"); self._CheckBool(saveModelOut,"saveModelOut")
         self._CheckRngAvailable(rngSeed)
 
-    def _ValidateTest(self,testIndices,TestLikelihoodFn,Estimator,nGlobalSamples,nLocalSamples,printSummary,rngSeed,saveModelOut):
+    def _ValidateTest(self,testIndices,TestLikelihoodFn,Method,nGlobalSamples,nLocalSamples,printSummary,rngSeed,saveModelOut):
         if self._trainParams is None: raise RuntimeError("Train() must be run before Test().")
         if not self._localParamNames: raise RuntimeError("Test() requires at least one local parameter.")
         self._CheckIndices(testIndices,len(self._modelDataFull[next(iter(self._modelDataFull))]),"testIndices")
         self._CheckCallable(TestLikelihoodFn,"TestLikelihoodFn",4,optional=True)
         if nGlobalSamples is not None: self._CheckPositiveInt(nGlobalSamples,"nGlobalSamples")
         if TestLikelihoodFn is None:
-            if Estimator is not None: raise ValueError("Estimator must be None when TestLikelihoodFn is None.")
+            if Method is not None: raise ValueError("Method must be None when TestLikelihoodFn is None.")
             self._CheckPositiveInt(nLocalSamples,"nLocalSamples")
-        else: self._CheckEstimator(Estimator,"Estimator")
+        else: self._CheckMethod(Method,"Method")
         self._CheckBool(printSummary,"printSummary"); self._CheckBool(saveModelOut,"saveModelOut")
         self._CheckRngAvailable(rngSeed)
 
@@ -421,8 +421,8 @@ class BayesianEstimationTool():
         cls._CheckCallable(GlobalParamFn,"GlobalParamFn",1,optional=True)
         if modelDataFull is not None: cls._CheckModelData(modelDataFull)
 
-    def _SetTrainState(self,trainIndices,TrainLikelihoodFn,Estimator):
-        self._trainParams={"trainLikelihoodName":self._GetFnName(TrainLikelihoodFn),"estimatorName":type(Estimator).__name__,"estimatorArgs":Estimator._SaveArgs()}
+    def _SetTrainState(self,trainIndices,TrainLikelihoodFn,Method):
+        self._trainParams={"trainLikelihoodName":self._GetFnName(TrainLikelihoodFn),"methodName":type(Method).__name__,"methodArgs":Method._SaveArgs()}
         self._trainIndices=trainIndices
         self._globalNames=None
         self._trainGlobals={}
@@ -430,8 +430,8 @@ class BayesianEstimationTool():
         self._trainCholesky=None
         self._trainModelOut=None
 
-    def _SetTestState(self,testIndices,TestLikelihoodFn,Estimator,nGlobalSamples,nLocalSamples):
-        self._testParams={"mode":"NoEstimator" if TestLikelihoodFn is None else "Estimator","nGlobalSamples":nGlobalSamples,"nLocalSamples":nLocalSamples if TestLikelihoodFn is None else None,"testLikelihoodName":self._GetFnName(TestLikelihoodFn),"estimatorName":None if Estimator is None else type(Estimator).__name__,"estimatorArgs":None if Estimator is None else Estimator._SaveArgs()}
+    def _SetTestState(self,testIndices,TestLikelihoodFn,Method,nGlobalSamples,nLocalSamples):
+        self._testParams={"mode":"NoMethod" if TestLikelihoodFn is None else "Method","nGlobalSamples":nGlobalSamples,"nLocalSamples":nLocalSamples if TestLikelihoodFn is None else None,"testLikelihoodName":self._GetFnName(TestLikelihoodFn),"methodName":None if Method is None else type(Method).__name__,"methodArgs":None if Method is None else Method._SaveArgs()}
         self._testIndices=testIndices
         self._testGlobals={}
         self._testLocals={}
@@ -474,7 +474,7 @@ class BayesianEstimationTool():
         except TypeError as e: raise TypeError(f"{name} must accept {nArgs} positional argument{'s' if nArgs!=1 else ''}. Framework call will be incompatible with signature {signature}.") from e
 
     @staticmethod
-    def _CheckEstimator(estimator,name,optional=False):
+    def _CheckMethod(estimator,name,optional=False):
         if estimator is None:
             if optional: return
             raise TypeError(f"{name} cannot be None.")

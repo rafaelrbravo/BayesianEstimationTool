@@ -6,16 +6,7 @@ import numpyro.distributions as dist
 from jax import random
 from jax.experimental.ode import odeint
 
-# Workaround to run this example directly from the repository without installing BayesianFramework.
-# For normal use, install from the repository folder with `python -m pip install -e .` and import with `from BayesianFramework import BayesianFramework`.
-# If VS Code does not recognize the import for autocomplete, add `"python.analysis.extraPaths": ["/path/to/BayesianFramework"]` to settings.json.
-
-import sys
-from pathlib import Path
-if __package__ is None or __package__ == "":
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from BayesianEstimationTool import BayesianEstimationTool, NutsEstimator
+import BayesianEstimationTool as bet
 
 
 # ---------------------------------------------------------------------
@@ -98,10 +89,10 @@ def ScoreFn(modelOut,data):
 
 
 # ---------------------------------------------------------------------
-# Construct framework
+# Construct Estimator
 # ---------------------------------------------------------------------
 
-bf=BayesianEstimationTool(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g"],GlobalParamFn=GlobalFn,rngSeed=0)
+est=bet.Estimator(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g"],GlobalParamFn=GlobalFn,rngSeed=0)
 
 # Patients 0-4 train the population model.
 # Patients 5-9 are completely held out.
@@ -119,8 +110,8 @@ bf=BayesianEstimationTool(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g
 # using all observations from the five training patients.
 # ---------------------------------------------------------------------
 
-bf.Train( trainIndices=jnp.arange(5), TrainLikelihoodFn=TrainLikelihoodFn, Estimator=NutsEstimator(numWarmup=500,numSamples=500,numChains=4), printSummary=True)
-trainScores=bf.ScoreTrain(ScoreFn=ScoreFn)
+est.Train( trainIndices=jnp.arange(5), TrainLikelihoodFn=TrainLikelihoodFn, Method=bet.Nuts(numWarmup=500,numSamples=500,numChains=4), printSummary=True)
+trainScores=est.ScoreTrain(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------
@@ -135,8 +126,8 @@ trainScores=bf.ScoreTrain(ScoreFn=ScoreFn)
 # numSamples controls the number of local samples generated.
 # ---------------------------------------------------------------------
 
-bf.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=None, nGlobalSamples=None, nLocalSamples=2000)
-noMCMCScores=bf.ScoreTest(ScoreFn=ScoreFn)
+est.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=None, nGlobalSamples=None, nLocalSamples=2000)
+noMCMCScores=est.ScoreTest(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------
@@ -152,8 +143,8 @@ noMCMCScores=bf.ScoreTest(ScoreFn=ScoreFn)
 # measurements.
 # ---------------------------------------------------------------------
 
-bf.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Estimator=NutsEstimator(numWarmup=500,numSamples=500,numChains=4), nGlobalSamples=None, printSummary=True)
-testMCMCScores=bf.ScoreTest(ScoreFn=ScoreFn)
+est.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Method=bet.Nuts(numWarmup=500,numSamples=500,numChains=4), nGlobalSamples=None, printSummary=True)
+testMCMCScores=est.ScoreTest(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------

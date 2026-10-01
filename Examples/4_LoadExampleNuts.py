@@ -6,16 +6,7 @@ import numpyro.distributions as dist
 from jax import random
 from jax.experimental.ode import odeint
 
-# Workaround to run this example directly from the repository without installing BayesianEstimationTool.
-# For normal use, install from the repository folder with `python -m pip install -e .` and import with `from BayesianEstimationTool import BayesianEstimationTool`.
-# If VS Code does not recognize the import for autocomplete, add `"python.analysis.extraPaths": ["/path/to/BayesianEstimationTool"]` to settings.json.
-
-import sys
-from pathlib import Path
-if __package__ is None or __package__ == "":
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from BayesianEstimationTool import BayesianEstimationTool, NutsEstimator
+import BayesianEstimationTool as bet
 
 
 # ---------------------------------------------------------------------
@@ -108,26 +99,26 @@ def SquaredErrorFn(modelOut,data):
 
 
 # ---------------------------------------------------------------------
-# Load trained framework
+# Load trained Estimator
 #
 # Functions are supplied explicitly rather than serialized.
 # The original model data are also supplied because saveAllData=False
 # was used when the framework was saved.
 # ---------------------------------------------------------------------
 
-bf=BayesianEstimationTool.Load("SimpleTumorGrowth.npz",ModelFn=ModelFn,GlobalParamFn=GlobalFn,modelDataFull=data)
+est=bet.Estimator.Load("SimpleTumorGrowth.npz",ModelFn=ModelFn,GlobalParamFn=GlobalFn,modelDataFull=data)
 
 
 # ---------------------------------------------------------------------
 # Score training
 # ---------------------------------------------------------------------
 
-trainAbsoluteError=bf.ScoreTrain(ScoreFn=AbsoluteErrorFn)
-trainSquaredError=bf.ScoreTrain(ScoreFn=SquaredErrorFn)
+trainAbsoluteError=est.ScoreTrain(ScoreFn=AbsoluteErrorFn)
+trainSquaredError=est.ScoreTrain(ScoreFn=SquaredErrorFn)
 
 
 # ---------------------------------------------------------------------
-# Test without an estimator
+# Test without a method
 #
 # Use the median global parameter values from the training posterior.
 # No test observations are used for inference.
@@ -136,10 +127,10 @@ trainSquaredError=bf.ScoreTrain(ScoreFn=SquaredErrorFn)
 # test patient.
 # ---------------------------------------------------------------------
 
-bf.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=None,nGlobalSamples=None,nLocalSamples=500)
+est.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=None,nGlobalSamples=None,nLocalSamples=500)
 
-noMCMCAbsoluteError=bf.ScoreTest(ScoreFn=AbsoluteErrorFn)
-noMCMCSquaredError=bf.ScoreTest(ScoreFn=SquaredErrorFn)
+noMCMCAbsoluteError=est.ScoreTest(ScoreFn=AbsoluteErrorFn)
+noMCMCSquaredError=est.ScoreTest(ScoreFn=SquaredErrorFn)
 
 
 # ---------------------------------------------------------------------
@@ -150,10 +141,10 @@ noMCMCSquaredError=bf.ScoreTest(ScoreFn=SquaredErrorFn)
 # three observations.
 # ---------------------------------------------------------------------
 
-bf.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodFewFn,Estimator=NutsEstimator(numWarmup=500,numSamples=500,numChains=4),nGlobalSamples=None,printSummary=True)
+est.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodFewFn,Method=bet.Nuts(numWarmup=500,numSamples=500,numChains=4),nGlobalSamples=None,printSummary=True)
 
-fewAbsoluteError=bf.ScoreTest(ScoreFn=AbsoluteErrorFn)
-fewSquaredError=bf.ScoreTest(ScoreFn=SquaredErrorFn)
+fewAbsoluteError=est.ScoreTest(ScoreFn=AbsoluteErrorFn)
+fewSquaredError=est.ScoreTest(ScoreFn=SquaredErrorFn)
 
 
 # ---------------------------------------------------------------------
@@ -162,10 +153,10 @@ fewSquaredError=bf.ScoreTest(ScoreFn=SquaredErrorFn)
 # Repeat the test inference using the first seven observations.
 # ---------------------------------------------------------------------
 
-bf.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodMoreFn,Estimator=NutsEstimator(numWarmup=500,numSamples=500,numChains=4),nGlobalSamples=None,printSummary=True)
+est.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodMoreFn,Method=bet.Nuts(numWarmup=500,numSamples=500,numChains=4),nGlobalSamples=None,printSummary=True)
 
-moreAbsoluteError=bf.ScoreTest(ScoreFn=AbsoluteErrorFn)
-moreSquaredError=bf.ScoreTest(ScoreFn=SquaredErrorFn)
+moreAbsoluteError=est.ScoreTest(ScoreFn=AbsoluteErrorFn)
+moreSquaredError=est.ScoreTest(ScoreFn=SquaredErrorFn)
 
 
 # ---------------------------------------------------------------------

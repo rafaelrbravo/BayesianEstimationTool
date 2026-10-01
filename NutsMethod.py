@@ -1,10 +1,10 @@
-from .Estimator import Estimator
+from .Method import Method
 from numpyro.infer import init_to_median,NUTS,MCMC
 from numpyro.diagnostics import summary
 import numpy as np
 
 
-class NutsEstimator(Estimator):
+class Nuts(Method):
     _printMode="replace"
 
     def __init__(self,numWarmup=2000,numSamples=2000,numChains=4,acceptProb=0.95,denseMass=False,medianSamples=50):
