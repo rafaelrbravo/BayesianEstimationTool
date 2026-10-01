@@ -61,25 +61,25 @@ def ModelFn(globalParams,localParams,data):
 
 def GlobalFn(dataShapes):
     return {
-        "gMean":npo.sample("gMean",dist.Normal(0.15,0.1)),
-        "gStd":npo.sample("gStd",dist.HalfNormal(0.1)),
-        "sigma":npo.sample("sigma",dist.HalfNormal(0.1)),
+        "gMean":dist.Normal(0.15,0.1),
+        "gStd":dist.HalfNormal(0.1),
+        "sigma":dist.HalfNormal(0.1),
     }
 
 
-# Training uses every tumor-size measurement.
+# Training likelihood for one patient; BET vectorizes it across patients.
 
 def TrainLikelihoodFn(globalParams,localParams,data,modelOut):
-    npo.sample("obs",dist.Normal(modelOut["tumorSize"],globalParams["sigma"]),obs=data["tumorSize"])
+    return {"tumorSize":(data["tumorSize"],dist.Normal(modelOut["tumorSize"],globalParams["sigma"]))}
 
 
-# Test SVI only uses the first nFit observations.
+# Test likelihood for one patient; only the first nFit observations are used.
 
 def TestLikelihoodFn(globalParams,localParams,data,modelOut):
     nFit=3
     tumorSize=modelOut["tumorSize"]
     mask=jnp.arange(tumorSize.shape[-1])<nFit
-    npo.sample("obsTest",dist.Normal(tumorSize,globalParams["sigma"]).mask(mask),obs=data["tumorSize"])
+    return {"tumorSize":(data["tumorSize"],dist.Normal(tumorSize,globalParams["sigma"]).mask(mask))}
 
 
 # Score one trajectory against all available observations.
@@ -143,7 +143,7 @@ noInferenceScores=est.ScoreTest(ScoreFn=ScoreFn)
 # measurements.
 # ---------------------------------------------------------------------
 
-est.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Method=bet.Svi(numSteps=10000,numSamples=2000,stepSize=0.01), nGlobalSamples=None, printSummary=True)
+est.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Method=bet.Svi, nGlobalSamples=None, printSummary=True)
 testSviScores=est.ScoreTest(ScoreFn=ScoreFn)
 
 

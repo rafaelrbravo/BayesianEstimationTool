@@ -86,18 +86,18 @@ def ModelFn(globalParams,localParams,data):
 
 def GlobalFn(dataShapes):
     return {
-        "gMean":npo.sample("gMean",dist.Normal(0.15,0.1)),
-        "gStd":npo.sample("gStd",dist.HalfNormal(0.1)),
-        "dMean":npo.sample("dMean",dist.Normal(0.25,0.1)),
-        "dStd":npo.sample("dStd",dist.HalfNormal(0.1)),
-        "sigma":npo.sample("sigma",dist.HalfNormal(0.1)),
+        "gMean":dist.Normal(0.15,0.1),
+        "gStd":dist.HalfNormal(0.1),
+        "dMean":dist.Normal(0.25,0.1),
+        "dStd":dist.HalfNormal(0.1),
+        "sigma":dist.HalfNormal(0.1),
     }
 
 
-# Training uses every tumor-size measurement.
+# Training likelihood for one patient; BET vectorizes it across patients.
 
 def TrainLikelihoodFn(globalParams,localParams,data,modelOut):
-    npo.sample("obs",dist.Normal(modelOut["tumorSize"],globalParams["sigma"]),obs=data["tumorSize"])
+    return {"tumorSize":(data["tumorSize"],dist.Normal(modelOut["tumorSize"],globalParams["sigma"]))}
 
 
 # Score one trajectory against all available observations.

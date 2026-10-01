@@ -61,25 +61,25 @@ def ModelFn(globalParams,localParams,data):
 
 def GlobalFn(dataShapes):
     return {
-        "gMean":npo.sample("gMean",dist.Normal(0.15,0.1)),
-        "gStd":npo.sample("gStd",dist.HalfNormal(0.1)),
-        "sigma":npo.sample("sigma",dist.HalfNormal(0.1)),
+        "gMean":dist.Normal(0.15,0.1),
+        "gStd":dist.HalfNormal(0.1),
+        "sigma":dist.HalfNormal(0.1),
     }
 
 
-# Training uses every tumor-size measurement.
+# Training likelihood for one patient; BET vectorizes it across patients.
 
 def TrainLikelihoodFn(globalParams,localParams,data,modelOut):
-    npo.sample("obs",dist.Normal(modelOut["tumorSize"],globalParams["sigma"]),obs=data["tumorSize"])
+    return {"tumorSize":(data["tumorSize"],dist.Normal(modelOut["tumorSize"],globalParams["sigma"]))}
 
 
-# Test MCMC only uses the first nFit observations.
+# Test likelihood for one patient; only the first nFit observations are used.
 
 def TestLikelihoodFn(globalParams,localParams,data,modelOut):
     nFit=3
     tumorSize=modelOut["tumorSize"]
     mask=jnp.arange(tumorSize.shape[-1])<nFit
-    npo.sample("obsTest",dist.Normal(tumorSize,globalParams["sigma"]).mask(mask),obs=data["tumorSize"])
+    return {"tumorSize":(data["tumorSize"],dist.Normal(tumorSize,globalParams["sigma"]).mask(mask))}
 
 
 # Score one trajectory against all available observations.
@@ -115,7 +115,7 @@ trainScores=est.ScoreTrain(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------
-# 2. TESTING WITHOUT MCMC
+# 2. TESTING WITHOUT INFERENCE
 #
 # Do not use any test-patient observations for inference.
 #
@@ -127,11 +127,11 @@ trainScores=est.ScoreTrain(ScoreFn=ScoreFn)
 # ---------------------------------------------------------------------
 
 est.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=None, nGlobalSamples=None, nLocalSamples=2000)
-noMCMCScores=est.ScoreTest(ScoreFn=ScoreFn)
+noInferenceScores=est.ScoreTest(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------
-# 3. TESTING WITH MCMC
+# 3. TESTING WITH NUTS
 #
 # Use the median global parameter values from the training posterior
 # and infer each test patient's local parameter using early observations.
@@ -143,8 +143,8 @@ noMCMCScores=est.ScoreTest(ScoreFn=ScoreFn)
 # measurements.
 # ---------------------------------------------------------------------
 
-est.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Method=bet.Nuts(numWarmup=500,numSamples=500,numChains=4), nGlobalSamples=None, printSummary=True)
-testMCMCScores=est.ScoreTest(ScoreFn=ScoreFn)
+est.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Method=bet.Nuts, nGlobalSamples=None, printSummary=True)
+testNutsScores=est.ScoreTest(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------
@@ -152,5 +152,5 @@ testMCMCScores=est.ScoreTest(ScoreFn=ScoreFn)
 # ---------------------------------------------------------------------
 
 print("Training score:      ",jnp.mean(trainScores))
-print("Test score, no MCMC: ",jnp.mean(noMCMCScores))
-print("Test score, MCMC:    ",jnp.mean(testMCMCScores))
+print("Test score, no inference: ",jnp.mean(noInferenceScores))
+print("Test score, NUTS:    ",jnp.mean(testNutsScores))

@@ -60,11 +60,11 @@ def ModelFn(globalParams,localParams,data):
 
 def GlobalFn(dataShapes):
     return {
-        "gMean":npo.sample("gMean",dist.Normal(0.15,0.1)),
-        "gStd":npo.sample("gStd",dist.HalfNormal(0.1)),
-        "dMean":npo.sample("dMean",dist.Normal(0.25,0.1)),
-        "dStd":npo.sample("dStd",dist.HalfNormal(0.1)),
-        "sigma":npo.sample("sigma",dist.HalfNormal(0.1)),
+        "gMean":dist.Normal(0.15,0.1),
+        "gStd":dist.HalfNormal(0.1),
+        "dMean":dist.Normal(0.25,0.1),
+        "dStd":dist.HalfNormal(0.1),
+        "sigma":dist.HalfNormal(0.1),
     }
 
 
@@ -76,14 +76,14 @@ def TestLikelihoodFewFn(globalParams,localParams,data,modelOut):
     nFit=3
     tumorSize=modelOut["tumorSize"]
     mask=jnp.arange(tumorSize.shape[-1])<nFit
-    npo.sample("obsTest",dist.Normal(tumorSize,globalParams["sigma"]).mask(mask),obs=data["tumorSize"])
+    return {"tumorSize":(data["tumorSize"],dist.Normal(tumorSize,globalParams["sigma"]).mask(mask))}
 
 
 def TestLikelihoodMoreFn(globalParams,localParams,data,modelOut):
     nFit=7
     tumorSize=modelOut["tumorSize"]
     mask=jnp.arange(tumorSize.shape[-1])<nFit
-    npo.sample("obsTest",dist.Normal(tumorSize,globalParams["sigma"]).mask(mask),obs=data["tumorSize"])
+    return {"tumorSize":(data["tumorSize"],dist.Normal(tumorSize,globalParams["sigma"]).mask(mask))}
 
 
 # ---------------------------------------------------------------------
@@ -141,7 +141,7 @@ noMCMCSquaredError=est.ScoreTest(ScoreFn=SquaredErrorFn)
 # three observations.
 # ---------------------------------------------------------------------
 
-est.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodFewFn,Method=bet.Svi(numSteps=10000,numSamples=500),nGlobalSamples=None,printSummary=True)
+est.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodFewFn,Method=bet.Svi,nGlobalSamples=None,printSummary=True)
 
 fewAbsoluteError=est.ScoreTest(ScoreFn=AbsoluteErrorFn)
 fewSquaredError=est.ScoreTest(ScoreFn=SquaredErrorFn)
@@ -153,7 +153,7 @@ fewSquaredError=est.ScoreTest(ScoreFn=SquaredErrorFn)
 # Repeat the test inference using the first seven observations.
 # ---------------------------------------------------------------------
 
-est.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodMoreFn,Method=bet.Svi(numSteps=10000,numSamples=500),nGlobalSamples=None,printSummary=True)
+est.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodMoreFn,Method=bet.Svi,nGlobalSamples=None,printSummary=True)
 
 moreAbsoluteError=est.ScoreTest(ScoreFn=AbsoluteErrorFn)
 moreSquaredError=est.ScoreTest(ScoreFn=SquaredErrorFn)

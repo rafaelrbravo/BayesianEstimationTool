@@ -42,26 +42,28 @@ INSTALLATION = (
 )
 
 CONVENTIONS = [
-    ("`import BayesianEstimationTool as bet`", "Public import; construct the main object with `bet.Estimator(...)` and choose inference with `Method=bet.Nuts(...)` or `Method=bet.Svi(...)`."),
+    ("`import BayesianEstimationTool as bet`", "Public import; construct the main object with `bet.Estimator(...)` and supply inference through the `Method` argument."),
     ("`arg{}`", "dictionary whose values have no entry dimension; used for one entry's data, local parameters, model output, globals, or other named values."),
     ("`arg{[]}`", "dictionary containing arrays spanning multiple entries or posterior samples."),
     ("`arg[]`", "1D sequence."),
     ("`Fn(...) -> value`", "function argument or method together with the value it returns."),
+    ("`globalDistributions{}`", "global-parameter prior dictionary: `{name: NumPyro distribution}`. BET creates the NumPyro sample sites internally; the dictionary keys become the global parameter names."),
+    ("`likelihoods{}`", "single-entry likelihood dictionary: `{name: (observation, distribution)}`. BET vectorizes it across entries and creates the NumPyro observation sites internally."),
     ("*Italic arguments*", "accept `None` as a valid input."),
 ]
 
 FUNCTIONS = [
     (
-        'Estimator(modelDataFull{[]}, ModelFn(globalParams{}, localParams{}, data{}) -> modelOut{}, *localParamNames[]*, *GlobalParamFn(dataShapes{}) -> globalParams{}*, choleskyConcentration=2.0, *rngSeed*) -> Estimator',
-        "Creates an Estimator. **localParamNames** defines standardized entry-level parameters. With multiple locals, the Estimator learns their correlation with an LKJ Cholesky prior controlled by **choleskyConcentration**. **GlobalParamFn** defines NumPyro global parameters and receives the per-entry shapes of the full data. **rngSeed** initializes the Estimator's persistent RNG.",
+        'Estimator(modelDataFull{[]}, ModelFn(globalParams{}, localParams{}, data{}) -> modelOut{}, *localParamNames[]*, *GlobalParamFn(dataShapes{}) -> globalDistributions{}*, choleskyConcentration=2.0, *rngSeed*) -> Estimator',
+        "Creates an Estimator. **localParamNames** defines standardized entry-level parameters. With multiple locals, the Estimator learns their correlation with an LKJ Cholesky prior controlled by **choleskyConcentration**. **GlobalParamFn** receives the per-entry shapes of the full data and returns `{name: NumPyro distribution}`. BET creates the named NumPyro sample sites and passes their sampled values to **ModelFn** and likelihood functions as `globalParams{}`. **rngSeed** initializes the Estimator's persistent RNG.",
     ),
     (
-        'Train(trainIndices[], TrainLikelihoodFn(globalParams{}, localParams{[]}, data{[]}, modelOut{[]}), Method=Nuts(...) | Svi(...), printSummary=False, *rngSeed*, saveLocals=True, saveModelOut=False) -> methodOutput',
-        "Fits **trainIndices** using **Method**, typically `Nuts(...)` or `Svi(...)`. The Estimator stores global posterior samples and the learned Cholesky state; **saveLocals** stores transformed training-local samples and **saveModelOut** stores model-output samples. **printSummary** uses the Estimator's generic posterior summary unless the estimator replaces or augments it.",
+        'Train(trainIndices[], TrainLikelihoodFn(globalParams{}, localParams{}, data{}, modelOut{}) -> likelihoods{}, Method=method, printSummary=False, *rngSeed*, saveLocals=True, saveModelOut=False) -> methodOutput',
+        "Fits **trainIndices** using **Method**. **TrainLikelihoodFn** is evaluated one entry at a time and returns `{name: (observation, NumPyro distribution)}`; BET batches the returned observations/distributions and creates the observation sites internally. A Method instance supplies an explicit configuration. A Method class reconstructs the saved training Method arguments; if its class name differs from the saved Method name, BET warns and still attempts reconstruction. The Estimator stores global posterior samples and the learned Cholesky state; **saveLocals** stores transformed training-local samples and **saveModelOut** stores model-output samples. **printSummary** uses the Estimator's generic posterior summary unless the Method replaces or augments it.",
     ),
     (
-        'Test(testIndices[], *TestLikelihoodFn(globalParams{}, localParams{[]}, data{[]}, modelOut{[]})*, *Method=Nuts(...) | Svi(...)*, *nGlobalSamples*, nLocalSamples=2000, printSummary=False, *rngSeed*, saveModelOut=False) -> None | methodOutput[]',
-        'Tests on new entries. **nGlobalSamples=None** uses the median trained global/Cholesky state; a positive integer samples that many trained states. With **TestLikelihoodFn=None**, no method is needed and the Estimator draws **nLocalSamples** locals from the trained population. With a likelihood, **Method** infers test locals separately for each selected global state.',
+        'Test(testIndices[], *TestLikelihoodFn(globalParams{}, localParams{}, data{}, modelOut{}) -> likelihoods{}*, *Method=method*, *nGlobalSamples*, nLocalSamples=2000, printSummary=False, *rngSeed*, saveModelOut=False) -> None | methodOutput[]',
+        'Tests on new entries. **TestLikelihoodFn**, when supplied, follows the same single-entry `{name: (observation, distribution)}` contract as training. **nGlobalSamples=None** uses the median trained global/Cholesky state; a positive integer samples that many trained states. With **TestLikelihoodFn=None**, no Method is needed and the Estimator draws **nLocalSamples** locals from the trained population. With a likelihood, a Method instance supplies an explicit configuration. A Method class reconstructs saved arguments: BET uses the previous Method-based test configuration when available, otherwise the training configuration. If the supplied class name differs from the saved Method name, BET warns and still attempts reconstruction.',
     ),
     (
         'ScoreTrain(ScoreFn(modelOut{}, data{}) -> score{}, *nSamples*, *rngSeed*) -> scores{[]}',
@@ -76,16 +78,16 @@ FUNCTIONS = [
         'Writes compressed `.npz` state, or returns a nested record when **fileName=None**. Saved metadata includes method class names and constructor arguments so the estimation setup can be reconstructed without serializing method machinery. Functions are not serialized.',
     ),
     (
-        'BayesianEstimationTool.Load(fileName, *ModelFn*, *GlobalParamFn*, *modelDataFull*) -> Estimator | record{}',
+        'Estimator.Load(fileName, *ModelFn*, *GlobalParamFn*, *modelDataFull*) -> Estimator | record{}',
         'Loads saved state. With **ModelFn=None**, returns the saved record without reconstructing an Estimator. Otherwise model functions are supplied explicitly; **modelDataFull** is required unless the data were saved with `saveAllData=True`.',
     ),
     (
         'Nuts(numWarmup=2000, numSamples=2000, numChains=4, acceptProb=0.95, denseMass=False, medianSamples=50) -> Nuts',
-        'Creates a NUTS inference method to pass as `Method=Nuts(...)` to `Train` or likelihood-based `Test`. **medianSamples** controls `init_to_median`; **acceptProb** is the target acceptance probability. NUTS retains posterior samples from the MCMC trajectory and prints NumPyro convergence diagnostics including n_eff and r_hat.',
+        'Creates a NUTS inference Method, exposed as `bet.Nuts`. Pass `bet.Nuts(...)` for an explicit configuration or `bet.Nuts` to reconstruct saved Method arguments. **medianSamples** controls `init_to_median`; **acceptProb** is the target acceptance probability. NUTS retains posterior samples from the MCMC trajectory and prints NumPyro convergence diagnostics including n_eff and r_hat.',
     ),
     (
         'Svi(numSteps=10000, numSamples=2000, stepSize=0.01, numParticles=1, progressBar=True, medianSamples=50, multivariate=False) -> Svi',
-        'Creates an SVI inference method to pass as `Method=Svi(...)` to `Train` or likelihood-based `Test`. Uses `init_to_median`; **numSamples** is the number of posterior samples drawn from the fitted guide for the Estimator. By default the guide is mean-field `AutoNormal`; **multivariate=True** uses `AutoMultivariateNormal`, which can represent posterior covariance but scales less favorably for large latent spaces.',
+        'Creates an SVI inference Method, exposed as `bet.Svi`. Pass `bet.Svi(...)` for an explicit configuration or `bet.Svi` to reconstruct saved Method arguments. Uses `init_to_median`; **numSamples** is the number of posterior samples drawn from the fitted guide for the Estimator. By default the guide is mean-field `AutoNormal`; **multivariate=True** uses `AutoMultivariateNormal`, which can represent posterior covariance but scales less favorably for large latent spaces.',
     ),
 ]
 

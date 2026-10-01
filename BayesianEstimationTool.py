@@ -31,6 +31,7 @@ class Estimator():
         self._ClearTestState()
 
     def Train(self,trainIndices,TrainLikelihoodFn,Method,printSummary=False,rngSeed=None,saveLocals=True,saveModelOut=False):
+        Method=self._ResolveMethod(Method,test=False)
         self._ValidateTrain(trainIndices,TrainLikelihoodFn,Method,printSummary,rngSeed,saveLocals,saveModelOut)
         self._SetTrainState(trainIndices,TrainLikelihoodFn,Method)
         dataShapes={key:value.shape[1:] for key,value in self._modelDataFull.items()}
@@ -49,6 +50,7 @@ class Estimator():
         return result["output"]
 
     def Test(self,testIndices,TestLikelihoodFn=None,Method=None,nGlobalSamples=None,nLocalSamples=2000,printSummary=False,rngSeed=None,saveModelOut=False):
+        if TestLikelihoodFn is not None: Method=self._ResolveMethod(Method,test=True)
         self._ValidateTest(testIndices,TestLikelihoodFn,Method,nGlobalSamples,nLocalSamples,printSummary,rngSeed,saveModelOut)
         self._SetTestState(testIndices,TestLikelihoodFn,Method,nGlobalSamples,nLocalSamples)
         if TestLikelihoodFn is None:
@@ -192,13 +194,20 @@ class Estimator():
         dataLen=len(modelData[next(iter(modelData))])
         localParams=self._GenLocalParamsTraining(dataLen) if self._localParamNames else {}
         for name, value in localParams.items(): npo.deterministic(f"__localParam__{name}", value)
-        globalParams=self._GlobalFn(dataShapes) if self._GlobalFn is not None else {}
+        globalDists=self._GlobalFn(dataShapes) if self._GlobalFn is not None else {}
+        if not isinstance(globalDists,dict): raise TypeError("GlobalParamFn must return a dictionary mapping global parameter names to NumPyro distributions.")
+        globalParams={}
+        for name,distribution in globalDists.items():
+            if not isinstance(name,str): raise TypeError(f"GlobalParamFn keys must be strings; got {type(name).__name__}.")
+            if not name: raise ValueError("GlobalParamFn keys cannot be empty strings.")
+            if name.startswith("__"): raise ValueError(f"GlobalParamFn key '{name}' cannot start with '__', which is reserved for BET internal sample sites.")
+            globalParams[name]=npo.sample(name,distribution)
         if self._globalNames is None: self._globalNames=list(globalParams)
         for name,value in globalParams.items(): npo.deterministic(f"__globalParam__{name}",value)
         modelOut=vmap(self._ModelFn,in_axes=(None,0,0))(globalParams,localParams,modelData)
         if saveOutput:
             for name,value in modelOut.items(): npo.deterministic(f"__modelOutput__{name}",value)
-        TrainLikelihoodFn(globalParams,localParams,modelData,modelOut)
+        self._ApplyLikelihoodFn(TrainLikelihoodFn,globalParams,localParams,modelData,modelOut)
 
     def _GenLocalParamsTesting(self,cholesky,dataSize):
         nLocal=len(self._localParamNames)
@@ -214,7 +223,20 @@ class Estimator():
         modelOut=vmap(self._ModelFn,in_axes=(None,0,0))(globalParams,localParams,modelData)
         if saveOutput:
             for name,value in modelOut.items(): npo.deterministic(f"__modelOutput__{name}",value)
-        TestLikelihoodFn(globalParams,localParams,modelData,modelOut)
+        self._ApplyLikelihoodFn(TestLikelihoodFn,globalParams,localParams,modelData,modelOut)
+
+    def _ApplyLikelihoodFn(self,LikelihoodFn,globalParams,localParams,modelData,modelOut):
+        likelihoods=vmap(LikelihoodFn,in_axes=(None,0,0,0))(globalParams,localParams,modelData,modelOut)
+        if not isinstance(likelihoods,dict): raise TypeError("LikelihoodFn must return a dictionary mapping sample-site names to (observation, distribution) tuples.")
+        if not likelihoods: raise ValueError("LikelihoodFn must return at least one likelihood.")
+        for name,value in likelihoods.items():
+            if not isinstance(name,str): raise TypeError(f"LikelihoodFn keys must be strings; got {type(name).__name__}.")
+            if not name: raise ValueError("LikelihoodFn keys cannot be empty strings.")
+            if name.startswith("__"): raise ValueError(f"LikelihoodFn key '{name}' cannot start with '__', which is reserved for BET internal sample sites.")
+            if not isinstance(value,tuple) or len(value)!=2: raise TypeError(f"LikelihoodFn['{name}'] must be an (observation, distribution) tuple.")
+            observation,distribution=value
+            if not isinstance(distribution,dist.Distribution): raise TypeError(f"LikelihoodFn['{name}'][1] must be a NumPyro Distribution; got {type(distribution).__name__}.")
+            npo.sample(name,distribution,obs=observation)
 
     def _NextKey(self,rngSeed=None):
         if rngSeed is not None:
@@ -235,6 +257,22 @@ class Estimator():
         if Fn is None: return None
         if isinstance(Fn, functools.partial): return Fn.func.__name__
         return getattr(Fn, "__name__", type(Fn).__name__)
+
+    def _ResolveMethod(self,Method,test=False):
+        if not inspect.isclass(Method): return Method
+        params=None
+        if test and self._testParams is not None and self._testParams.get("mode")=="Method" and self._testParams.get("methodName") is not None:
+            params=self._testParams
+        elif self._trainParams is not None:
+            params=self._trainParams
+        if params is None: raise RuntimeError(f"{Method.__name__} was passed as a Method class, but no saved Method configuration is available.")
+        savedName=params.get("methodName")
+        if Method.__name__!=savedName:
+            warnings.warn(f"Method class {Method.__name__} does not match the saved Method {savedName}. Using the saved {savedName} constructor arguments with {Method.__name__}.",stacklevel=2)
+        args=params.get("methodArgs")
+        if args is None: raise RuntimeError(f"No saved constructor arguments are available for Method {savedName}.")
+        try: return Method(**args)
+        except Exception as e: raise RuntimeError(f"Could not reconstruct saved Method {savedName} from its saved constructor arguments.") from e
 
     def _GetPost(self,post, prefix): 
         ret = { name.removeprefix(prefix): value for name, value in post.items() if name.startswith(prefix) }
