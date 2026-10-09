@@ -69,22 +69,22 @@ def ODE(V,t,g,d,drugStart):
     return (g-drugEffect)*V
 
 
-# localParams["g"] and localParams["d"] are standardized
+# localZs["g"] and localZs["d"] are standardized
 # patient-specific deviations.
 #
 # Convert them to physical parameter values using the inferred
 # population means and standard deviations.
 
-def ModelFn(globalParams,localParams,data):
-    g=globalParams["gMean"]+globalParams["gStd"]*localParams["g"]
-    d=globalParams["dMean"]+globalParams["dStd"]*localParams["d"]
+def ModelFn(globalParams,localZs,data):
+    g=globalParams["gMean"]+globalParams["gStd"]*localZs["g"]
+    d=globalParams["dMean"]+globalParams["dStd"]*localZs["d"]
     tumorSize=odeint(ODE,data["v0"],data["times"],g,d,data["drugStart"])
     return {"tumorSize":tumorSize}
 
 
 # Population parameters and observation noise.
 
-def GlobalFn(dataShapes):
+def GlobalPriorFn(dataShapes):
     return {
         "gMean":dist.Normal(0.15,0.1),
         "gStd":dist.HalfNormal(0.1),
@@ -96,7 +96,7 @@ def GlobalFn(dataShapes):
 
 # Training likelihood for one patient; BET vectorizes it across patients.
 
-def TrainLikelihoodFn(globalParams,localParams,data,modelOut):
+def TrainLikelihoodFn(globalParams,localZs,data,modelOut):
     return {"tumorSize":(data["tumorSize"],dist.Normal(modelOut["tumorSize"],globalParams["sigma"]))}
 
 
@@ -110,7 +110,7 @@ def ScoreFn(modelOut,data):
 # Construct Estimator
 # ---------------------------------------------------------------------
 
-est=bet.Estimator(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g","d"],GlobalParamFn=GlobalFn,rngSeed=0)
+est=bet.Estimator(data=data,ModelFn=ModelFn,localZNames=["g","d"],GlobalPriorFn=GlobalPriorFn,rngSeed=0)
 
 
 # ---------------------------------------------------------------------
@@ -130,14 +130,14 @@ est=bet.Estimator(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g","d"],G
 # using all observations from the five training patients.
 # ---------------------------------------------------------------------
 
-est.Train(trainIndices=jnp.arange(5),TrainLikelihoodFn=TrainLikelihoodFn,Method=bet.Nuts(numWarmup=500,numSamples=500,numChains=4),printSummary=True)
+est.Train(trainDataIdxs=jnp.arange(5),TrainLikelihoodFn=TrainLikelihoodFn,Method=bet.Nuts(numWarmup=500,numSamples=500,numChains=4),printSummary=True)
 
 
 # ---------------------------------------------------------------------
 # 2. SCORE TRAINING POSTERIOR
 # ---------------------------------------------------------------------
 
-trainScores=est.ScoreTrain(ScoreFn=ScoreFn)
+trainScores=est.ScoreTrainSamples(ScoreFn=ScoreFn)
 
 print("Training score before save:",jnp.mean(trainScores))
 
@@ -155,7 +155,7 @@ print("Training score before save:",jnp.mean(trainScores))
 # - training global posterior samples
 # - training Cholesky samples
 # - training local posterior samples
-# - test locals/globals/cholesky, if testing has been run
+# - test local Zs/globals/cholesky, if testing has been run
 #
 # Model outputs and the full input dataset are not saved by default.
 # ---------------------------------------------------------------------

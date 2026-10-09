@@ -49,17 +49,17 @@ def ODE(V,t,g):
     return g*V
 
 
-# localParams["g"] is the standardized patient-specific deviation.
+# localZs["g"] is the standardized patient-specific deviation.
 # Convert it to the physical growth rate using the population mean/std.
 
-def ModelFn(globalParams,localParams,data):
-    g=globalParams["gMean"]+globalParams["gStd"]*localParams["g"]
+def ModelFn(globalParams,localZs,data):
+    g=globalParams["gMean"]+globalParams["gStd"]*localZs["g"]
     return {"tumorSize":odeint(ODE,data["v0"],data["times"],g)}
 
 
 # Population parameters and observation noise.
 
-def GlobalFn(dataShapes):
+def GlobalPriorFn(dataShapes):
     return {
         "gMean":dist.Normal(0.15,0.1),
         "gStd":dist.HalfNormal(0.1),
@@ -69,13 +69,13 @@ def GlobalFn(dataShapes):
 
 # Training likelihood for one patient; BET vectorizes it across patients.
 
-def TrainLikelihoodFn(globalParams,localParams,data,modelOut):
+def TrainLikelihoodFn(globalParams,localZs,data,modelOut):
     return {"tumorSize":(data["tumorSize"],dist.Normal(modelOut["tumorSize"],globalParams["sigma"]))}
 
 
 # Test likelihood for one patient; only the first nFit observations are used.
 
-def TestLikelihoodFn(globalParams,localParams,data,modelOut):
+def TestLikelihoodFn(globalParams,localZs,data,modelOut):
     nFit=3
     tumorSize=modelOut["tumorSize"]
     mask=jnp.arange(tumorSize.shape[-1])<nFit
@@ -92,7 +92,7 @@ def ScoreFn(modelOut,data):
 # Construct Estimator
 # ---------------------------------------------------------------------
 
-est=bet.Estimator(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g"],GlobalParamFn=GlobalFn,rngSeed=0)
+est=bet.Estimator(data=data,ModelFn=ModelFn,localZNames=["g"],GlobalPriorFn=GlobalPriorFn,rngSeed=0)
 
 # Patients 0-4 train the population model.
 # Patients 5-9 are completely held out.
@@ -110,8 +110,8 @@ est=bet.Estimator(modelDataFull=data,ModelFn=ModelFn,localParamNames=["g"],Globa
 # using all observations from the five training patients.
 # ---------------------------------------------------------------------
 
-est.Train( trainIndices=jnp.arange(5), TrainLikelihoodFn=TrainLikelihoodFn, Method=bet.Svi(numSteps=10000,numSamples=2000,stepSize=0.01), printSummary=True)
-trainScores=est.ScoreTrain(ScoreFn=ScoreFn)
+est.Train( trainDataIdxs=jnp.arange(5), TrainLikelihoodFn=TrainLikelihoodFn, Method=bet.Svi(numSteps=10000,numSamples=2000,stepSize=0.01), printSummary=True)
+trainScores=est.ScoreTrainSamples(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------
@@ -120,21 +120,21 @@ trainScores=est.ScoreTrain(ScoreFn=ScoreFn)
 # Do not use any test-patient observations for inference.
 #
 # Use the median global parameter values from the training posterior.
-# For each test patient, sample local parameters from the learned
+# For each test patient, sample local Zs from the learned
 # population distribution and generate trajectories.
 #
-# numSamples controls the number of local samples generated.
+# numSamples controls the number of local Z samples generated.
 # ---------------------------------------------------------------------
 
-est.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=None, nGlobalSamples=None, nLocalSamples=2000)
-noInferenceScores=est.ScoreTest(ScoreFn=ScoreFn)
+est.Test( testDataIdxs=jnp.arange(5,10), TestLikelihoodFn=None, nGlobalSamples=None, nLocalZSamples=2000)
+noInferenceScores=est.ScoreTestSamples(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------
 # 3. TESTING WITH SVI
 #
 # Use the median global parameter values from the training posterior
-# and infer each test patient's local parameter using early observations.
+# and infer each test patient's local Z using early observations.
 #
 # TestLikelihoodFn exposes only the first nFit=3 tumor measurements,
 # so each test patient's g is updated using its early trajectory.
@@ -143,8 +143,8 @@ noInferenceScores=est.ScoreTest(ScoreFn=ScoreFn)
 # measurements.
 # ---------------------------------------------------------------------
 
-est.Test( testIndices=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Method=bet.Svi, nGlobalSamples=None, printSummary=True)
-testSviScores=est.ScoreTest(ScoreFn=ScoreFn)
+est.Test( testDataIdxs=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Method=bet.Svi, nGlobalSamples=None, printSummary=True)
+testSviScores=est.ScoreTestSamples(ScoreFn=ScoreFn)
 
 
 # ---------------------------------------------------------------------

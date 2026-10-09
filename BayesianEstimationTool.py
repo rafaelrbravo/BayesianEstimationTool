@@ -13,48 +13,48 @@ import warnings
 from pathlib import Path
 
 class Estimator():
-    _samplePrefixes=("__globalParam__","__localParam__","__cholesky__")
+    _samplePrefixes=("__globalParam__","__localZ__","__cholesky__")
     _modelOutputPrefix="__modelOutput__"
 
-    def __init__(self,modelDataFull,ModelFn,localParamNames=None,GlobalParamFn=None,choleskyConcentration=2.0,rngSeed=None):
-        self._ValidateInit(modelDataFull,ModelFn,localParamNames,GlobalParamFn,choleskyConcentration,rngSeed)
-        self._modelDataFull=modelDataFull
-        self._localParamNames=[] if localParamNames is None else localParamNames
+    def __init__(self,data,ModelFn,localZNames=None,GlobalPriorFn=None,lkjConcentration=2.0,rngSeed=None):
+        self._ValidateInit(data,ModelFn,localZNames,GlobalPriorFn,lkjConcentration,rngSeed)
+        self._data=data
+        self._localZNames=[] if localZNames is None else localZNames
         self._ModelFn=ModelFn
-        self._GlobalFn=GlobalParamFn
-        self._choleskyConcentration=choleskyConcentration
+        self._GlobalPriorFn=GlobalPriorFn
+        self._lkjConcentration=lkjConcentration
         self._modelFnName=self._GetFnName(self._ModelFn)
-        self._globalFnName=self._GetFnName(self._GlobalFn)
+        self._globalPriorFnName=self._GetFnName(self._GlobalPriorFn)
         self._globalNames=None
         self._key=None if rngSeed is None else random.PRNGKey(rngSeed)
         self._ClearTrainState()
         self._ClearTestState()
 
-    def Train(self,trainIndices,TrainLikelihoodFn,Method,printSummary=False,rngSeed=None,saveLocals=True,saveModelOut=False):
+    def Train(self,trainDataIdxs,TrainLikelihoodFn,Method,printSummary=False,rngSeed=None,saveLocalZs=True,saveModelOut=False):
         Method=self._ResolveMethod(Method,test=False)
-        self._ValidateTrain(trainIndices,TrainLikelihoodFn,Method,printSummary,rngSeed,saveLocals,saveModelOut)
-        self._SetTrainState(trainIndices,TrainLikelihoodFn,Method)
-        dataShapes={key:value.shape[1:] for key,value in self._modelDataFull.items()}
+        self._ValidateTrain(trainDataIdxs,TrainLikelihoodFn,Method,printSummary,rngSeed,saveLocalZs,saveModelOut)
+        self._SetTrainState(trainDataIdxs,TrainLikelihoodFn,Method)
+        dataShapes={key:value.shape[1:] for key,value in self._data.items()}
         fitModel=functools.partial(self._RunMethodTrain,TrainLikelihoodFn,dataShapes,saveModelOut,**self._GetTrainData())
         samplePrefixes=self._samplePrefixes+(self._modelOutputPrefix,) if saveModelOut else self._samplePrefixes
         result=Method._Fit(fitModel,self._NextKey(rngSeed),samplePrefixes)
         post=result["samples"]
         self._trainGlobals=self._GetPost(post,"__globalParam__")
         self._trainCholesky=post.get("__cholesky__")
-        if saveLocals: self._trainLocals=self._GetPost(post,"__localParam__")
+        if saveLocalZs: self._trainLocalZs=self._GetPost(post,"__localZ__")
         if saveModelOut: self._trainModelOut=self._GetPost(post,"__modelOutput__")
         self._ClearTestState()
-        if printSummary: self._PrintMethodSummary(Method,result["output"],post,self._localParamNames,self._globalNames,"--= Training posterior summary =--")
+        if printSummary: self._PrintMethodSummary(Method,result["output"],post,self._localZNames,self._globalNames,"--= Training posterior summary =--")
         jax.block_until_ready(post)
         self._ClearJAX()
         return result["output"]
 
-    def Test(self,testIndices,TestLikelihoodFn=None,Method=None,nGlobalSamples=None,nLocalSamples=2000,printSummary=False,rngSeed=None,saveModelOut=False):
+    def Test(self,testDataIdxs,TestLikelihoodFn=None,Method=None,nGlobalSamples=None,nLocalZSamples=2000,printSummary=False,rngSeed=None,saveModelOut=False):
         if TestLikelihoodFn is not None: Method=self._ResolveMethod(Method,test=True)
-        self._ValidateTest(testIndices,TestLikelihoodFn,Method,nGlobalSamples,nLocalSamples,printSummary,rngSeed,saveModelOut)
-        self._SetTestState(testIndices,TestLikelihoodFn,Method,nGlobalSamples,nLocalSamples)
+        self._ValidateTest(testDataIdxs,TestLikelihoodFn,Method,nGlobalSamples,nLocalZSamples,printSummary,rngSeed,saveModelOut)
+        self._SetTestState(testDataIdxs,TestLikelihoodFn,Method,nGlobalSamples,nLocalZSamples)
         if TestLikelihoodFn is None:
-            result=self._TestNoEstimator(nGlobalSamples,nLocalSamples,rngSeed,saveModelOut)
+            result=self._TestNoEstimator(nGlobalSamples,nLocalZSamples,rngSeed,saveModelOut)
         else:
             fitResults=self._TestMethod(TestLikelihoodFn,Method,nGlobalSamples,rngSeed,saveModelOut)
             if printSummary:
@@ -65,12 +65,12 @@ class Estimator():
                         print("Global parameter values:")
                         for name,value in self._testGlobals.items(): print(f"  {name}: {np.asarray(value[i])}")
                         title=None
-                    self._PrintMethodSummary(Method,fitResult["output"],fitResult["samples"],self._localParamNames,[],title)
+                    self._PrintMethodSummary(Method,fitResult["output"],fitResult["samples"],self._localZNames,[],title)
             result=[fitResult["output"] for fitResult in fitResults]
         return result
 
-    def ScoreTrain(self,ScoreFn,nSamples=None,rngSeed=None):
-        self._ValidateScoreTrain(ScoreFn,nSamples,rngSeed)
+    def ScoreTrainSamples(self,ScoreFn,nSamples=None,rngSeed=None):
+        self._ValidateScoreTrainSamples(ScoreFn,nSamples,rngSeed)
         nPost=self._GetNTrainSamples()
         if nSamples is None: idxs=jnp.arange(nPost)
         else: idxs=self._GetRandomIndices( nSamples, nPost, self._NextKey(rngSeed))
@@ -78,50 +78,50 @@ class Estimator():
         if self._trainModelOut is not None: modelOut={ name:value[idxs] for name,value in self._trainModelOut.items() }
         else:
             globalParams={ name:value[idxs] for name,value in self._trainGlobals.items() }
-            if self._localParamNames:
-                localParams={ name:value[idxs] for name,value in self._trainLocals.items() }
-                modelOut=vmap( vmap(self._ModelFn,in_axes=(None,0,0)), in_axes=(0,0,None))(globalParams,localParams,data)
+            if self._localZNames:
+                localZs={ name:value[idxs] for name,value in self._trainLocalZs.items() }
+                modelOut=vmap( vmap(self._ModelFn,in_axes=(None,0,0)), in_axes=(0,0,None))(globalParams,localZs,data)
             else: modelOut=vmap( vmap(self._ModelFn,in_axes=(None,None,0)), in_axes=(0,None,None))(globalParams,{},data)
         return vmap( vmap(ScoreFn,in_axes=(0,0)), in_axes=(0,None))(modelOut,data)
 
-    def ScoreTest(self,ScoreFn,nSamples=None,rngSeed=None):
-        self._ValidateScoreTest(ScoreFn,nSamples,rngSeed)
+    def ScoreTestSamples(self,ScoreFn,nSamples=None,rngSeed=None):
+        self._ValidateScoreTestSamples(ScoreFn,nSamples,rngSeed)
         if self._testModelOut is not None: nLocal=next(iter(self._testModelOut.values())).shape[1]
-        else: nLocal=next(iter(self._testLocals.values())).shape[1]
+        else: nLocal=next(iter(self._testLocalZs.values())).shape[1]
         if nSamples is None: idxs=jnp.arange(nLocal)
         else: idxs=self._GetRandomIndices( nSamples, nLocal, self._NextKey(rngSeed))
         data=self._GetTestData()
         if self._testModelOut is not None: modelOut={ name:value[:,idxs] for name,value in self._testModelOut.items() }
         else:
-            localParams={ name:value[:,idxs] for name,value in self._testLocals.items() }
-            modelOut=self._RunModelSamples( self._testGlobals, localParams, data)
+            localZs={ name:value[:,idxs] for name,value in self._testLocalZs.items() }
+            modelOut=self._RunModelSamples( self._testGlobals, localZs, data)
         return vmap( vmap( vmap(ScoreFn,in_axes=(0,0)), in_axes=(0,None)), in_axes=(0,None))(modelOut,data)
 
-    def Save( self, fileName, saveTrainLocals=True, saveTestLocals=True, saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False):
-        self._ValidateSave(fileName,saveTrainLocals,saveTestLocals,saveTrainModelOut,saveTestModelOut,saveAllData)
-        if fileName is None: return self._SaveRecord(saveTrainLocals,saveTestLocals,saveTrainModelOut,saveTestModelOut,saveAllData,flatten=False)
-        record=self._SaveRecord(saveTrainLocals,saveTestLocals,saveTrainModelOut,saveTestModelOut,saveAllData,flatten=True)
+    def Save( self, fileName, saveTrainLocalZs=True, saveTestLocalZs=True, saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False):
+        self._ValidateSave(fileName,saveTrainLocalZs,saveTestLocalZs,saveTrainModelOut,saveTestModelOut,saveAllData)
+        if fileName is None: return self._SaveRecord(saveTrainLocalZs,saveTestLocalZs,saveTrainModelOut,saveTestModelOut,saveAllData,flatten=False)
+        record=self._SaveRecord(saveTrainLocalZs,saveTestLocalZs,saveTrainModelOut,saveTestModelOut,saveAllData,flatten=True)
         np.savez_compressed(fileName,**record)
 
     @classmethod
-    def Load(cls, fileName, ModelFn, GlobalParamFn=None, modelDataFull=None):
-        cls._ValidateLoad(fileName,ModelFn,GlobalParamFn,modelDataFull)
+    def Load(cls, fileName, ModelFn, GlobalPriorFn=None, data=None):
+        cls._ValidateLoad(fileName,ModelFn,GlobalPriorFn,data)
         fileName = Path(fileName)
         if fileName.suffix.lower() != ".npz": fileName = fileName.with_name(fileName.name + ".npz")
         if ModelFn is None: return cls._LoadToDict(fileName)
-        return cls._Load(fileName,ModelFn,GlobalParamFn,modelDataFull)
+        return cls._Load(fileName,ModelFn,GlobalPriorFn,data)
 
-    def _PrintMethodSummary(self,Method,output,samples,localNames,globalNames,title=None):
+    def _PrintMethodSummary(self,Method,output,samples,localZNames,globalNames,title=None):
         mode=getattr(Method,"_printMode",None)
-        if mode in ("before","replace"): Method._Print(output,localNames,globalNames,title)
+        if mode in ("before","replace"): Method._Print(output,localZNames,globalNames,title)
         if mode!="replace":
-            self._PrintSampleSummary(samples,localNames,globalNames,title if mode!="before" else None)
-        if mode=="after": Method._Print(output,localNames,globalNames,None)
+            self._PrintSampleSummary(samples,localZNames,globalNames,title if mode!="before" else None)
+        if mode=="after": Method._Print(output,localZNames,globalNames,None)
 
-    def _PrintSampleSummary(self,samples,localNames,globalNames,title=None):
+    def _PrintSampleSummary(self,samples,localZNames,globalNames,title=None):
         if title is not None: print(title)
         print(f"{'parameter':<20} {'mean':>10} {'std':>10} {'median':>10} {'2.5%':>10} {'97.5%':>10}")
-        for prefix,names in (("__globalParam__",[] if globalNames is None else list(globalNames)),("__localParam__",list(localNames))):
+        for prefix,names in (("__globalParam__",[] if globalNames is None else list(globalNames)),("__localZ__",list(localZNames))):
             for name in names:
                 sampleName=f"{prefix}{name}"
                 if sampleName not in samples: continue
@@ -141,92 +141,94 @@ class Estimator():
         nGlobalSamples=1 if nGlobalSamples is None else nGlobalSamples
         runKeys=random.split(runKey,nGlobalSamples)
         results=[]
-        localPosts=[]
+        localZPosts=[]
         modelOutPosts=[]
         for i in range(nGlobalSamples):
             globs={name:value[i] for name,value in self._testGlobals.items()}
             cholesky=None if self._testCholesky is None else self._testCholesky[i]
             fitModel=functools.partial(self._RunMethodTest,TestLikelihoodFn,globs,cholesky,saveModelOut,**testData)
-            samplePrefixes=("__localParam__",self._modelOutputPrefix) if saveModelOut else ("__localParam__",)
+            samplePrefixes=("__localZ__",self._modelOutputPrefix) if saveModelOut else ("__localZ__",)
             result=Method._Fit(fitModel,runKeys[i],samplePrefixes)
-            localPosts.append(self._GetPost(result["samples"],"__localParam__"))
+            localZPosts.append(self._GetPost(result["samples"],"__localZ__"))
             if saveModelOut: modelOutPosts.append(self._GetPost(result["samples"],"__modelOutput__"))
             results.append(result)
-        self._testLocals={} if not localPosts or not localPosts[0] else {name:jnp.stack([p[name] for p in localPosts]) for name in localPosts[0]}
+        self._testLocalZs={} if not localZPosts or not localZPosts[0] else {name:jnp.stack([p[name] for p in localZPosts]) for name in localZPosts[0]}
         if saveModelOut: self._testModelOut={} if not modelOutPosts or not modelOutPosts[0] else {name:jnp.stack([p[name] for p in modelOutPosts]) for name in modelOutPosts[0]}
-        jax.block_until_ready((self._testLocals,self._testModelOut))
+        jax.block_until_ready((self._testLocalZs,self._testModelOut))
         self._ClearJAX()
         return results
 
-    def _TestNoEstimator(self,nGlobalSamples,nLocalSamples,rngSeed=None,saveModelOut=False):
+    def _TestNoEstimator(self,nGlobalSamples,nLocalZSamples,rngSeed=None,saveModelOut=False):
         postKey,sampleKey=random.split(self._NextKey(rngSeed),2)
         self._SetTestGlobals(nGlobalSamples,postKey)
         nGlobalSamples=1 if nGlobalSamples is None else nGlobalSamples
         testData=self._GetTestData()
         nTest=len(testData[next(iter(testData))])
-        nLocal=len(self._localParamNames)
+        nLocal=len(self._localZNames)
         if nLocal>0:
-            localSamples=random.normal(sampleKey,(nGlobalSamples,nLocalSamples,nTest,nLocal))
+            localZs=random.normal(sampleKey,(nGlobalSamples,nLocalZSamples,nTest,nLocal))
             if nLocal>1:
-                localSamples=jnp.einsum("gspi,gji->gspj",localSamples,self._testCholesky)
-            localParams={name:localSamples[:,:,:,i] for i,name in enumerate(self._localParamNames)}
-        else: localParams={}
-        self._testLocals=localParams
+                localZs=jnp.einsum("gspi,gji->gspj",localZs,self._testCholesky)
+            localZs={name:localZs[:,:,:,i] for i,name in enumerate(self._localZNames)}
+        else: localZs={}
+        self._testLocalZs=localZs
         if saveModelOut:
-            self._testModelOut=self._RunModelSamples(self._testGlobals,self._testLocals,testData)
+            self._testModelOut=self._RunModelSamples(self._testGlobals,self._testLocalZs,testData)
 
-    def _RunModelSamples(self,globalParams,localParams,data):
-        return vmap( vmap( vmap(self._ModelFn,in_axes=(None,0,0)),in_axes=(None,0,None)),in_axes=(0,0,None))(globalParams,localParams,data)
+    def _RunModelSamples(self,globalParams,localZs,data):
+        return vmap( vmap( vmap(self._ModelFn,in_axes=(None,0,0)),in_axes=(None,0,None)),in_axes=(0,0,None))(globalParams,localZs,data)
 
     def _GetRandomIndices(self,nSamples,length,RNGkey):
         return random.choice(RNGkey,length,shape=(nSamples,),replace=nSamples>length)
 
-    def _GenLocalParamsTraining(self,dataSize):
-        nLocal=len(self._localParamNames)
-        localSamples=npo.sample("__localSample__",dist.Normal(0.0,1.0).expand((dataSize,nLocal)))
+    def _GenLocalZsTraining(self,dataSize):
+        nLocal=len(self._localZNames)
+        localZsRaw=npo.sample("__localZRaw__",dist.Normal(0.0,1.0).expand((dataSize,nLocal)))
+        localZs=localZsRaw
         if nLocal>1:
-            choleskySample=npo.sample("__choleskySample__",dist.LKJCholesky(nLocal,concentration=self._choleskyConcentration))
+            choleskySample=npo.sample("__choleskySample__",dist.LKJCholesky(nLocal,concentration=self._lkjConcentration))
             cholesky=npo.deterministic("__cholesky__",choleskySample)
-            localSamples=localSamples@cholesky.T
-        return dict(zip(self._localParamNames,localSamples.T))
+            localZs=localZs@cholesky.T
+        return dict(zip(self._localZNames,localZs.T))
 
     def _RunMethodTrain(self,TrainLikelihoodFn,dataShapes,saveOutput,**modelData):
         dataLen=len(modelData[next(iter(modelData))])
-        localParams=self._GenLocalParamsTraining(dataLen) if self._localParamNames else {}
-        for name, value in localParams.items(): npo.deterministic(f"__localParam__{name}", value)
-        globalDists=self._GlobalFn(dataShapes) if self._GlobalFn is not None else {}
-        if not isinstance(globalDists,dict): raise TypeError("GlobalParamFn must return a dictionary mapping global parameter names to NumPyro distributions.")
+        localZs=self._GenLocalZsTraining(dataLen) if self._localZNames else {}
+        for name, value in localZs.items(): npo.deterministic(f"__localZ__{name}", value)
+        globalDists=self._GlobalPriorFn(dataShapes) if self._GlobalPriorFn is not None else {}
+        if not isinstance(globalDists,dict): raise TypeError("GlobalPriorFn must return a dictionary mapping global parameter names to NumPyro distributions.")
         globalParams={}
         for name,distribution in globalDists.items():
-            if not isinstance(name,str): raise TypeError(f"GlobalParamFn keys must be strings; got {type(name).__name__}.")
-            if not name: raise ValueError("GlobalParamFn keys cannot be empty strings.")
-            if name.startswith("__"): raise ValueError(f"GlobalParamFn key '{name}' cannot start with '__', which is reserved for BET internal sample sites.")
+            if not isinstance(name,str): raise TypeError(f"GlobalPriorFn keys must be strings; got {type(name).__name__}.")
+            if not name: raise ValueError("GlobalPriorFn keys cannot be empty strings.")
+            if name.startswith("__"): raise ValueError(f"GlobalPriorFn key '{name}' cannot start with '__', which is reserved for BET internal sample sites.")
             globalParams[name]=npo.sample(name,distribution)
         if self._globalNames is None: self._globalNames=list(globalParams)
         for name,value in globalParams.items(): npo.deterministic(f"__globalParam__{name}",value)
-        modelOut=vmap(self._ModelFn,in_axes=(None,0,0))(globalParams,localParams,modelData)
+        modelOut=vmap(self._ModelFn,in_axes=(None,0,0))(globalParams,localZs,modelData)
         if saveOutput:
             for name,value in modelOut.items(): npo.deterministic(f"__modelOutput__{name}",value)
-        self._ApplyLikelihoodFn(TrainLikelihoodFn,globalParams,localParams,modelData,modelOut)
+        self._ApplyLikelihoodFn(TrainLikelihoodFn,globalParams,localZs,modelData,modelOut)
 
-    def _GenLocalParamsTesting(self,cholesky,dataSize):
-        nLocal=len(self._localParamNames)
-        localSamples=npo.sample("__localSamples__",dist.Normal(0.0,1.0).expand((dataSize,nLocal)))
+    def _GenLocalZsTesting(self,cholesky,dataSize):
+        nLocal=len(self._localZNames)
+        localZsRaw=npo.sample("__localZRaw__",dist.Normal(0.0,1.0).expand((dataSize,nLocal)))
+        localZs=localZsRaw
         if nLocal>1:
-            localSamples=localSamples @ cholesky.T
-        return dict(zip(self._localParamNames,localSamples.T))
+            localZs=localZs @ cholesky.T
+        return dict(zip(self._localZNames,localZs.T))
 
     def _RunMethodTest(self,TestLikelihoodFn,globalParams,cholesky,saveOutput,**modelData):
         dataLen=len(modelData[next(iter(modelData))])
-        localParams=self._GenLocalParamsTesting(cholesky,dataLen) if self._localParamNames else {}
-        for name,value in localParams.items(): npo.deterministic(f"__localParam__{name}",value)
-        modelOut=vmap(self._ModelFn,in_axes=(None,0,0))(globalParams,localParams,modelData)
+        localZs=self._GenLocalZsTesting(cholesky,dataLen) if self._localZNames else {}
+        for name,value in localZs.items(): npo.deterministic(f"__localZ__{name}",value)
+        modelOut=vmap(self._ModelFn,in_axes=(None,0,0))(globalParams,localZs,modelData)
         if saveOutput:
             for name,value in modelOut.items(): npo.deterministic(f"__modelOutput__{name}",value)
-        self._ApplyLikelihoodFn(TestLikelihoodFn,globalParams,localParams,modelData,modelOut)
+        self._ApplyLikelihoodFn(TestLikelihoodFn,globalParams,localZs,modelData,modelOut)
 
-    def _ApplyLikelihoodFn(self,LikelihoodFn,globalParams,localParams,modelData,modelOut):
-        likelihoods=vmap(LikelihoodFn,in_axes=(None,0,0,0))(globalParams,localParams,modelData,modelOut)
+    def _ApplyLikelihoodFn(self,LikelihoodFn,globalParams,localZs,modelData,modelOut):
+        likelihoods=vmap(LikelihoodFn,in_axes=(None,0,0,0))(globalParams,localZs,modelData,modelOut)
         if not isinstance(likelihoods,dict): raise TypeError("LikelihoodFn must return a dictionary mapping sample-site names to (observation, distribution) tuples.")
         if not likelihoods: raise ValueError("LikelihoodFn must return at least one likelihood.")
         for name,value in likelihoods.items():
@@ -245,10 +247,10 @@ class Estimator():
         return key
 
     def _GetTrainData(self):
-        return { k: v[self._trainIndices] for k, v in self._modelDataFull.items() }
+        return { k: v[self._trainDataIdxs] for k, v in self._data.items() }
 
     def _GetTestData(self):
-        return { k: v[self._testIndices] for k, v in self._modelDataFull.items() }
+        return { k: v[self._testDataIdxs] for k, v in self._data.items() }
 
     def _GetNTrainSamples(self):
         return 0 if not self._trainGlobals else len(next(iter(self._trainGlobals.values())))
@@ -280,64 +282,64 @@ class Estimator():
         return ret
 
 
-    def _SaveRecord(self,saveTrainLocals=True,saveTestLocals=True,saveTrainModelOut=False,saveTestModelOut=False,saveAllData=False,flatten=True):
+    def _SaveRecord(self,saveTrainLocalZs=True,saveTestLocalZs=True,saveTrainModelOut=False,saveTestModelOut=False,saveAllData=False,flatten=True):
         record={}
         self._AddInfo(record,"meta",flatten,{
-            "localParamNames":np.asarray(self._localParamNames,dtype=str),
+            "localZNames":np.asarray(self._localZNames,dtype=str),
             "globalNames":None if self._globalNames is None else np.asarray(self._globalNames,dtype=str),
-            "choleskyConcentration":self._choleskyConcentration,
+            "lkjConcentration":self._lkjConcentration,
             "modelFnName":self._modelFnName,
-            "globalFnName":self._globalFnName})
-        self._AddInfo(record,"state",flatten,{"trainIndices":self._trainIndices,"testIndices":self._testIndices,"rngKey":self._key})
+            "globalPriorFnName":self._globalPriorFnName})
+        self._AddInfo(record,"state",flatten,{"trainDataIdxs":self._trainDataIdxs,"testDataIdxs":self._testDataIdxs,"rngKey":self._key})
         self._AddInfo(record,"trainParams",flatten,self._trainParams)
         self._AddInfo(record,"testParams",flatten,self._testParams)
         self._AddInfo(record,"trainGlobals",flatten,self._trainGlobals)
         if self._trainCholesky is not None: record["trainCholesky"]=np.asarray(self._trainCholesky)
-        if saveTrainLocals: self._AddInfo(record,"trainLocals",flatten,self._trainLocals)
-        if saveTestLocals and self._testLocals:
+        if saveTrainLocalZs: self._AddInfo(record,"trainLocalZs",flatten,self._trainLocalZs)
+        if saveTestLocalZs and self._testLocalZs:
             self._AddInfo(record,"testGlobals",flatten,self._testGlobals)
-            self._AddInfo(record,"testLocals",flatten,self._testLocals)
+            self._AddInfo(record,"testLocalZs",flatten,self._testLocalZs)
             if self._testCholesky is not None: record["testCholesky"]=np.asarray(self._testCholesky)
         if saveTrainModelOut and self._trainModelOut is not None: self._AddInfo(record,"trainModelOut",flatten,self._trainModelOut)
         if saveTestModelOut and self._testModelOut is not None: self._AddInfo(record,"testModelOut",flatten,self._testModelOut)
-        if saveAllData: self._AddInfo(record,"modelDataFull",flatten,self._modelDataFull)
+        if saveAllData: self._AddInfo(record,"data",flatten,self._data)
         return record
 
     @classmethod
-    def _Load(cls,fileName,ModelFn,GlobalParamFn=None,modelDataFull=None):
+    def _Load(cls,fileName,ModelFn,GlobalPriorFn=None,data=None):
         with np.load(fileName,allow_pickle=False) as record:
             meta=cls._GetInfo(record,"meta")
             state=cls._GetInfo(record,"state")
-            savedData=cls._GetInfo(record,"modelDataFull")
-            if modelDataFull is None:
-                if not savedData: raise ValueError("modelDataFull must be provided because the saved framework does not contain the original model data.")
-                modelDataFull=savedData
-            localParamNames=meta.get("localParamNames")
-            localParamNames=[] if localParamNames is None else list(localParamNames)
-            framework=cls(modelDataFull,ModelFn,localParamNames=localParamNames,GlobalParamFn=GlobalParamFn,choleskyConcentration=meta["choleskyConcentration"])
+            savedData=cls._GetInfo(record,"data")
+            if data is None:
+                if not savedData: raise ValueError("data must be provided because the saved framework does not contain the original model data.")
+                data=savedData
+            localZNames=meta.get("localZNames")
+            localZNames=[] if localZNames is None else list(localZNames)
+            framework=cls(data,ModelFn,localZNames=localZNames,GlobalPriorFn=GlobalPriorFn,lkjConcentration=meta["lkjConcentration"])
             globalNames=meta.get("globalNames")
             framework._globalNames=None if globalNames is None else list(globalNames)
             framework._trainParams=cls._GetInfo(record,"trainParams") or None
             framework._testParams=cls._GetInfo(record,"testParams") or None
             framework._trainGlobals={name:jnp.asarray(value) for name,value in cls._GetInfo(record,"trainGlobals").items()}
-            framework._trainLocals={name:jnp.asarray(value) for name,value in cls._GetInfo(record,"trainLocals").items()}
+            framework._trainLocalZs={name:jnp.asarray(value) for name,value in cls._GetInfo(record,"trainLocalZs").items()}
             framework._trainCholesky=jnp.asarray(record["trainCholesky"]) if "trainCholesky" in record.files else None
             framework._testGlobals={name:jnp.asarray(value) for name,value in cls._GetInfo(record,"testGlobals").items()}
-            framework._testLocals={name:jnp.asarray(value) for name,value in cls._GetInfo(record,"testLocals").items()}
+            framework._testLocalZs={name:jnp.asarray(value) for name,value in cls._GetInfo(record,"testLocalZs").items()}
             framework._testCholesky=jnp.asarray(record["testCholesky"]) if "testCholesky" in record.files else None
             trainModelOut=cls._GetInfo(record,"trainModelOut")
             testModelOut=cls._GetInfo(record,"testModelOut")
             framework._trainModelOut={name:jnp.asarray(value) for name,value in trainModelOut.items()} if trainModelOut else None
             framework._testModelOut={name:jnp.asarray(value) for name,value in testModelOut.items()} if testModelOut else None
-            framework._trainIndices=None if state.get("trainIndices") is None else np.asarray(state["trainIndices"])
-            framework._testIndices=None if state.get("testIndices") is None else np.asarray(state["testIndices"])
+            framework._trainDataIdxs=None if state.get("trainDataIdxs") is None else np.asarray(state["trainDataIdxs"])
+            framework._testDataIdxs=None if state.get("testDataIdxs") is None else np.asarray(state["testDataIdxs"])
             framework._key=None if state.get("rngKey") is None else jnp.asarray(state["rngKey"])
             savedModelFnName=meta.get("modelFnName")
             currentModelFnName=framework._GetFnName(ModelFn)
             if savedModelFnName!=currentModelFnName: warnings.warn(f"Saved ModelFn was '{savedModelFnName}', but the supplied ModelFn is '{currentModelFnName}'.",RuntimeWarning)
-            savedGlobalFnName=meta.get("globalFnName")
-            currentGlobalFnName=framework._GetFnName(GlobalParamFn)
-            if savedGlobalFnName!=currentGlobalFnName: warnings.warn(f"Saved GlobalParamFn was '{savedGlobalFnName}', but the supplied GlobalParamFn is '{currentGlobalFnName}'.",RuntimeWarning)
+            savedGlobalPriorFnName=meta.get("globalPriorFnName")
+            currentGlobalPriorFnName=framework._GetFnName(GlobalPriorFn)
+            if savedGlobalPriorFnName!=currentGlobalPriorFnName: warnings.warn(f"Saved GlobalPriorFn was '{savedGlobalPriorFnName}', but the supplied GlobalPriorFn is '{currentGlobalPriorFnName}'.",RuntimeWarning)
         return framework
 
     @staticmethod
@@ -395,84 +397,84 @@ class Estimator():
             else: info[name]=value
         return info
 
-    def _ValidateInit(self,modelDataFull,ModelFn,localParamNames,GlobalParamFn,choleskyConcentration,rngSeed):
-        self._CheckModelData(modelDataFull)
+    def _ValidateInit(self,data,ModelFn,localZNames,GlobalPriorFn,lkjConcentration,rngSeed):
+        self._CheckModelData(data)
         self._CheckCallable(ModelFn,"ModelFn",3)
-        self._CheckCallable(GlobalParamFn,"GlobalParamFn",1,optional=True)
-        if localParamNames is not None:
-            if not isinstance(localParamNames,(list,tuple)): raise TypeError("localParamNames must be a list or tuple of strings, or None.")
-            for i,name in enumerate(localParamNames):
-                if not isinstance(name,str): raise TypeError(f"localParamNames[{i}] must be a string; got {type(name).__name__}.")
-                if not name: raise ValueError(f"localParamNames[{i}] cannot be empty.")
-            if len(set(localParamNames))!=len(localParamNames): raise ValueError("localParamNames cannot contain duplicate names.")
-        try: concentration=np.asarray(choleskyConcentration)
-        except Exception as e: raise TypeError("choleskyConcentration must be a positive finite real scalar.") from e
-        if concentration.ndim!=0: raise TypeError("choleskyConcentration must be a scalar.")
-        if not np.issubdtype(concentration.dtype,np.number) or np.issubdtype(concentration.dtype,np.complexfloating): raise TypeError("choleskyConcentration must be a real numeric scalar.")
+        self._CheckCallable(GlobalPriorFn,"GlobalPriorFn",1,optional=True)
+        if localZNames is not None:
+            if not isinstance(localZNames,(list,tuple)): raise TypeError("localZNames must be a list or tuple of strings, or None.")
+            for i,name in enumerate(localZNames):
+                if not isinstance(name,str): raise TypeError(f"localZNames[{i}] must be a string; got {type(name).__name__}.")
+                if not name: raise ValueError(f"localZNames[{i}] cannot be empty.")
+            if len(set(localZNames))!=len(localZNames): raise ValueError("localZNames cannot contain duplicate names.")
+        try: concentration=np.asarray(lkjConcentration)
+        except Exception as e: raise TypeError("lkjConcentration must be a positive finite real scalar.") from e
+        if concentration.ndim!=0: raise TypeError("lkjConcentration must be a scalar.")
+        if not np.issubdtype(concentration.dtype,np.number) or np.issubdtype(concentration.dtype,np.complexfloating): raise TypeError("lkjConcentration must be a real numeric scalar.")
         concentration=concentration.item()
-        if not np.isfinite(concentration): raise ValueError("choleskyConcentration must be finite.")
-        if concentration<=0: raise ValueError("choleskyConcentration must be > 0.")
+        if not np.isfinite(concentration): raise ValueError("lkjConcentration must be finite.")
+        if concentration<=0: raise ValueError("lkjConcentration must be > 0.")
         if rngSeed is not None: self._CheckNonnegativeInt(rngSeed,"RNG seed")
 
-    def _ValidateTrain(self,trainIndices,TrainLikelihoodFn,Method,printSummary,rngSeed,saveLocals,saveModelOut):
-        self._CheckIndices(trainIndices,len(self._modelDataFull[next(iter(self._modelDataFull))]),"trainIndices")
+    def _ValidateTrain(self,trainDataIdxs,TrainLikelihoodFn,Method,printSummary,rngSeed,saveLocalZs,saveModelOut):
+        self._CheckIndices(trainDataIdxs,len(self._data[next(iter(self._data))]),"trainDataIdxs")
         self._CheckCallable(TrainLikelihoodFn,"TrainLikelihoodFn",4)
         self._CheckMethod(Method,"Method")
-        self._CheckBool(printSummary,"printSummary"); self._CheckBool(saveLocals,"saveLocals"); self._CheckBool(saveModelOut,"saveModelOut")
+        self._CheckBool(printSummary,"printSummary"); self._CheckBool(saveLocalZs,"saveLocalZs"); self._CheckBool(saveModelOut,"saveModelOut")
         self._CheckRngAvailable(rngSeed)
 
-    def _ValidateTest(self,testIndices,TestLikelihoodFn,Method,nGlobalSamples,nLocalSamples,printSummary,rngSeed,saveModelOut):
+    def _ValidateTest(self,testDataIdxs,TestLikelihoodFn,Method,nGlobalSamples,nLocalZSamples,printSummary,rngSeed,saveModelOut):
         if self._trainParams is None: raise RuntimeError("Train() must be run before Test().")
-        if not self._localParamNames: raise RuntimeError("Test() requires at least one local parameter.")
-        self._CheckIndices(testIndices,len(self._modelDataFull[next(iter(self._modelDataFull))]),"testIndices")
+        if not self._localZNames: raise RuntimeError("Test() requires at least one local Z.")
+        self._CheckIndices(testDataIdxs,len(self._data[next(iter(self._data))]),"testDataIdxs")
         self._CheckCallable(TestLikelihoodFn,"TestLikelihoodFn",4,optional=True)
         if nGlobalSamples is not None: self._CheckPositiveInt(nGlobalSamples,"nGlobalSamples")
         if TestLikelihoodFn is None:
             if Method is not None: raise ValueError("Method must be None when TestLikelihoodFn is None.")
-            self._CheckPositiveInt(nLocalSamples,"nLocalSamples")
+            self._CheckPositiveInt(nLocalZSamples,"nLocalZSamples")
         else: self._CheckMethod(Method,"Method")
         self._CheckBool(printSummary,"printSummary"); self._CheckBool(saveModelOut,"saveModelOut")
         self._CheckRngAvailable(rngSeed)
 
-    def _ValidateScoreTrain(self,ScoreFn,nSamples,rngSeed):
-        if self._trainParams is None: raise RuntimeError("Train() must be run before ScoreTrain().")
+    def _ValidateScoreTrainSamples(self,ScoreFn,nSamples,rngSeed):
+        if self._trainParams is None: raise RuntimeError("Train() must be run before ScoreTrainSamples().")
         self._CheckCallable(ScoreFn,"ScoreFn",2)
         if nSamples is not None:
             self._CheckPositiveInt(nSamples,"nSamples"); self._CheckRngAvailable(rngSeed)
-        if self._trainModelOut is None and self._localParamNames and not self._trainLocals: raise RuntimeError("ScoreTrain() requires saved training locals or saved training model outputs when the model has local parameters.")
+        if self._trainModelOut is None and self._localZNames and not self._trainLocalZs: raise RuntimeError("ScoreTrainSamples() requires saved training local Zs or saved training model outputs when the model has local Zs.")
 
-    def _ValidateScoreTest(self,ScoreFn,nSamples,rngSeed):
-        if self._testParams is None: raise RuntimeError("Test() must be run before ScoreTest().")
-        if self._testModelOut is None and not self._testLocals: raise RuntimeError("ScoreTest() requires saved test locals or saved test model outputs.")
+    def _ValidateScoreTestSamples(self,ScoreFn,nSamples,rngSeed):
+        if self._testParams is None: raise RuntimeError("Test() must be run before ScoreTestSamples().")
+        if self._testModelOut is None and not self._testLocalZs: raise RuntimeError("ScoreTestSamples() requires saved test local Zs or saved test model outputs.")
         self._CheckCallable(ScoreFn,"ScoreFn",2)
         if nSamples is not None:
             self._CheckPositiveInt(nSamples,"nSamples"); self._CheckRngAvailable(rngSeed)
 
-    def _ValidateSave(self,fileName,saveTrainLocals,saveTestLocals,saveTrainModelOut,saveTestModelOut,saveAllData):
+    def _ValidateSave(self,fileName,saveTrainLocalZs,saveTestLocalZs,saveTrainModelOut,saveTestModelOut,saveAllData):
         if fileName is not None and not isinstance(fileName,(str,os.PathLike)): raise TypeError("fileName must be a string, path-like object, or None.")
-        for value,name in ((saveTrainLocals,"saveTrainLocals"),(saveTestLocals,"saveTestLocals"),(saveTrainModelOut,"saveTrainModelOut"),(saveTestModelOut,"saveTestModelOut"),(saveAllData,"saveAllData")): self._CheckBool(value,name)
+        for value,name in ((saveTrainLocalZs,"saveTrainLocalZs"),(saveTestLocalZs,"saveTestLocalZs"),(saveTrainModelOut,"saveTrainModelOut"),(saveTestModelOut,"saveTestModelOut"),(saveAllData,"saveAllData")): self._CheckBool(value,name)
 
     @classmethod
-    def _ValidateLoad(cls,fileName,ModelFn,GlobalParamFn,modelDataFull):
+    def _ValidateLoad(cls,fileName,ModelFn,GlobalPriorFn,data):
         if not isinstance(fileName,(str,os.PathLike)): raise TypeError("fileName must be a string or path-like object.")
         cls._CheckCallable(ModelFn,"ModelFn",3,optional=True)
-        cls._CheckCallable(GlobalParamFn,"GlobalParamFn",1,optional=True)
-        if modelDataFull is not None: cls._CheckModelData(modelDataFull)
+        cls._CheckCallable(GlobalPriorFn,"GlobalPriorFn",1,optional=True)
+        if data is not None: cls._CheckModelData(data)
 
-    def _SetTrainState(self,trainIndices,TrainLikelihoodFn,Method):
+    def _SetTrainState(self,trainDataIdxs,TrainLikelihoodFn,Method):
         self._trainParams={"trainLikelihoodName":self._GetFnName(TrainLikelihoodFn),"methodName":type(Method).__name__,"methodArgs":Method._SaveArgs()}
-        self._trainIndices=trainIndices
+        self._trainDataIdxs=trainDataIdxs
         self._globalNames=None
         self._trainGlobals={}
-        self._trainLocals={}
+        self._trainLocalZs={}
         self._trainCholesky=None
         self._trainModelOut=None
 
-    def _SetTestState(self,testIndices,TestLikelihoodFn,Method,nGlobalSamples,nLocalSamples):
-        self._testParams={"mode":"NoMethod" if TestLikelihoodFn is None else "Method","nGlobalSamples":nGlobalSamples,"nLocalSamples":nLocalSamples if TestLikelihoodFn is None else None,"testLikelihoodName":self._GetFnName(TestLikelihoodFn),"methodName":None if Method is None else type(Method).__name__,"methodArgs":None if Method is None else Method._SaveArgs()}
-        self._testIndices=testIndices
+    def _SetTestState(self,testDataIdxs,TestLikelihoodFn,Method,nGlobalSamples,nLocalZSamples):
+        self._testParams={"mode":"NoMethod" if TestLikelihoodFn is None else "Method","nGlobalSamples":nGlobalSamples,"nLocalZSamples":nLocalZSamples if TestLikelihoodFn is None else None,"testLikelihoodName":self._GetFnName(TestLikelihoodFn),"methodName":None if Method is None else type(Method).__name__,"methodArgs":None if Method is None else Method._SaveArgs()}
+        self._testDataIdxs=testDataIdxs
         self._testGlobals={}
-        self._testLocals={}
+        self._testLocalZs={}
         self._testCholesky=None
         self._testModelOut=None
 
@@ -526,18 +528,18 @@ class Estimator():
 
 
     @staticmethod
-    def _CheckModelData(modelDataFull):
-        if not isinstance(modelDataFull,(dict,np.lib.npyio.NpzFile)): raise TypeError("modelDataFull must be a dictionary.")
-        if len(modelDataFull)==0: raise ValueError("modelDataFull cannot be empty.")
+    def _CheckModelData(data):
+        if not isinstance(data,(dict,np.lib.npyio.NpzFile)): raise TypeError("data must be a dictionary.")
+        if len(data)==0: raise ValueError("data cannot be empty.")
         dataSize=None
-        for name,value in modelDataFull.items():
-            if not isinstance(name,str): raise TypeError(f"modelDataFull keys must be strings; got {type(name).__name__}.")
-            if not name: raise ValueError("modelDataFull keys cannot be empty strings.")
-            if not isinstance(value,(jax.Array,np.ndarray)): raise TypeError(f"modelDataFull['{name}'] must be a JAX or NumPy array; got {type(value).__name__}.")
-            if value.ndim==0: raise ValueError(f"modelDataFull['{name}'] must have at least one dimension because its first dimension represents data entries.")
+        for name,value in data.items():
+            if not isinstance(name,str): raise TypeError(f"data keys must be strings; got {type(name).__name__}.")
+            if not name: raise ValueError("data keys cannot be empty strings.")
+            if not isinstance(value,(jax.Array,np.ndarray)): raise TypeError(f"data['{name}'] must be a JAX or NumPy array; got {type(value).__name__}.")
+            if value.ndim==0: raise ValueError(f"data['{name}'] must have at least one dimension because its first dimension represents data entries.")
             if dataSize is None: dataSize=len(value)
-            elif len(value)!=dataSize: raise ValueError(f"All arrays in modelDataFull must have the same first dimension. Expected {dataSize}, but modelDataFull['{name}'] has length {len(value)}.")
-        if dataSize==0: raise ValueError("modelDataFull must contain at least one data entry.")
+            elif len(value)!=dataSize: raise ValueError(f"All arrays in data must have the same first dimension. Expected {dataSize}, but data['{name}'] has length {len(value)}.")
+        if dataSize==0: raise ValueError("data must contain at least one data entry.")
 
     @staticmethod
     def _CheckIndices(indices,dataSize,name):
@@ -547,7 +549,7 @@ class Estimator():
         if len(arr)==0: raise ValueError(f"{name} cannot be empty.")
         if not np.issubdtype(arr.dtype,np.integer): raise TypeError(f"{name} must contain integers.")
         if np.any(arr<0): raise ValueError(f"{name} cannot contain negative indices.")
-        if np.any(arr>=dataSize): raise IndexError(f"{name} contains an index outside modelDataFull, which contains {dataSize} entries.")
+        if np.any(arr>=dataSize): raise IndexError(f"{name} contains an index outside data, which contains {dataSize} entries.")
         if len(np.unique(arr))!=len(arr): raise ValueError(f"{name} cannot contain duplicate indices.")
 
     def _CheckRngAvailable(self,rngSeed):
@@ -558,17 +560,17 @@ class Estimator():
 
     def _ClearTrainState(self):
         self._trainParams=None
-        self._trainIndices=None
+        self._trainDataIdxs=None
         self._trainGlobals={}
-        self._trainLocals={}
+        self._trainLocalZs={}
         self._trainCholesky=None
         self._trainModelOut=None
 
     def _ClearTestState(self):
         self._testParams=None
-        self._testIndices=None
+        self._testDataIdxs=None
         self._testGlobals={}
-        self._testLocals={}
+        self._testLocalZs={}
         self._testCholesky=None
         self._testModelOut=None
 

@@ -51,14 +51,14 @@ def ODE(V,t,g,d,drugStart):
     return (g-drugEffect)*V
 
 
-def ModelFn(globalParams,localParams,data):
-    g=globalParams["gMean"]+globalParams["gStd"]*localParams["g"]
-    d=globalParams["dMean"]+globalParams["dStd"]*localParams["d"]
+def ModelFn(globalParams,localZs,data):
+    g=globalParams["gMean"]+globalParams["gStd"]*localZs["g"]
+    d=globalParams["dMean"]+globalParams["dStd"]*localZs["d"]
     tumorSize=odeint(ODE,data["v0"],data["times"],g,d,data["drugStart"])
     return {"tumorSize":tumorSize}
 
 
-def GlobalFn(dataShapes):
+def GlobalPriorFn(dataShapes):
     return {
         "gMean":dist.Normal(0.15,0.1),
         "gStd":dist.HalfNormal(0.1),
@@ -72,14 +72,14 @@ def GlobalFn(dataShapes):
 # Testing likelihoods
 # ---------------------------------------------------------------------
 
-def TestLikelihoodFewFn(globalParams,localParams,data,modelOut):
+def TestLikelihoodFewFn(globalParams,localZs,data,modelOut):
     nFit=3
     tumorSize=modelOut["tumorSize"]
     mask=jnp.arange(tumorSize.shape[-1])<nFit
     return {"tumorSize":(data["tumorSize"],dist.Normal(tumorSize,globalParams["sigma"]).mask(mask))}
 
 
-def TestLikelihoodMoreFn(globalParams,localParams,data,modelOut):
+def TestLikelihoodMoreFn(globalParams,localZs,data,modelOut):
     nFit=7
     tumorSize=modelOut["tumorSize"]
     mask=jnp.arange(tumorSize.shape[-1])<nFit
@@ -106,15 +106,15 @@ def SquaredErrorFn(modelOut,data):
 # was used when the framework was saved.
 # ---------------------------------------------------------------------
 
-est=bet.Estimator.Load("SimpleTumorGrowthNuts.npz",ModelFn=ModelFn,GlobalParamFn=GlobalFn,modelDataFull=data)
+est=bet.Estimator.Load("SimpleTumorGrowthNuts.npz",ModelFn=ModelFn,GlobalPriorFn=GlobalPriorFn,data=data)
 
 
 # ---------------------------------------------------------------------
 # Score training
 # ---------------------------------------------------------------------
 
-trainAbsoluteError=est.ScoreTrain(ScoreFn=AbsoluteErrorFn)
-trainSquaredError=est.ScoreTrain(ScoreFn=SquaredErrorFn)
+trainAbsoluteError=est.ScoreTrainSamples(ScoreFn=AbsoluteErrorFn)
+trainSquaredError=est.ScoreTrainSamples(ScoreFn=SquaredErrorFn)
 
 
 # ---------------------------------------------------------------------
@@ -123,28 +123,28 @@ trainSquaredError=est.ScoreTrain(ScoreFn=SquaredErrorFn)
 # Use the median global parameter values from the training posterior.
 # No test observations are used for inference.
 #
-# nLocalSamples controls the number of local samples generated for each
+# nLocalZSamples controls the number of local Z samples generated for each
 # test patient.
 # ---------------------------------------------------------------------
 
-est.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=None,nGlobalSamples=None,nLocalSamples=500)
+est.Test(testDataIdxs=jnp.arange(5,10),TestLikelihoodFn=None,nGlobalSamples=None,nLocalZSamples=500)
 
-noMCMCAbsoluteError=est.ScoreTest(ScoreFn=AbsoluteErrorFn)
-noMCMCSquaredError=est.ScoreTest(ScoreFn=SquaredErrorFn)
+noMCMCAbsoluteError=est.ScoreTestSamples(ScoreFn=AbsoluteErrorFn)
+noMCMCSquaredError=est.ScoreTestSamples(ScoreFn=SquaredErrorFn)
 
 
 # ---------------------------------------------------------------------
 # Test with 3 observations
 #
 # Use the median global parameter values from the training posterior.
-# NUTS updates each test patient's local parameters using the first
+# NUTS updates each test patient's local Zs using the first
 # three observations.
 # ---------------------------------------------------------------------
 
-est.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodFewFn,Method=bet.Nuts,nGlobalSamples=None,printSummary=True)
+est.Test(testDataIdxs=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodFewFn,Method=bet.Nuts,nGlobalSamples=None,printSummary=True)
 
-fewAbsoluteError=est.ScoreTest(ScoreFn=AbsoluteErrorFn)
-fewSquaredError=est.ScoreTest(ScoreFn=SquaredErrorFn)
+fewAbsoluteError=est.ScoreTestSamples(ScoreFn=AbsoluteErrorFn)
+fewSquaredError=est.ScoreTestSamples(ScoreFn=SquaredErrorFn)
 
 
 # ---------------------------------------------------------------------
@@ -153,10 +153,10 @@ fewSquaredError=est.ScoreTest(ScoreFn=SquaredErrorFn)
 # Repeat the test inference using the first seven observations.
 # ---------------------------------------------------------------------
 
-est.Test(testIndices=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodMoreFn,Method=bet.Nuts,nGlobalSamples=None,printSummary=True)
+est.Test(testDataIdxs=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodMoreFn,Method=bet.Nuts,nGlobalSamples=None,printSummary=True)
 
-moreAbsoluteError=est.ScoreTest(ScoreFn=AbsoluteErrorFn)
-moreSquaredError=est.ScoreTest(ScoreFn=SquaredErrorFn)
+moreAbsoluteError=est.ScoreTestSamples(ScoreFn=AbsoluteErrorFn)
+moreSquaredError=est.ScoreTestSamples(ScoreFn=SquaredErrorFn)
 
 
 # ---------------------------------------------------------------------
