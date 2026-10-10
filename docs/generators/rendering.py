@@ -6,9 +6,7 @@ from xml.sax.saxutils import escape
 from reportlab import rl_config
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.enums import TA_CENTER
-from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Preformatted, Spacer, HRFlowable, KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Preformatted, HRFlowable
 
 rl_config.invariant = 1
 
