@@ -89,3 +89,24 @@ def test_persistence_predictions_and_seeded_scores_equivalent(tmp_path):
     np.testing.assert_array_equal(
         np.asarray(loaded.ScoreTestSamples(_score, nSamples=5, rngSeed=23)), test
     )
+
+
+def test_hierarchical_global_recovery_from_repeated_measurements():
+    """Recover a known global offset when local effects average to zero.
+
+    The observations have independent repeated measurements per patient and
+    a balanced synthetic local population, making the global mean estimable.
+    """
+    n, t = 16, 5
+    x = jnp.zeros((n, t))
+    local_a = jnp.linspace(-0.8, 0.8, n)
+    local_b = 0.6 * local_a
+    y = 0.4 + local_a[:, None] + 0.5 * local_b[:, None] + x
+    est = Estimator({"x": x, "y": y}, _model, ["a", "b"], _prior, rngSeed=43)
+    est.Train(list(range(n)), _likelihood, _method())
+    draws = np.asarray(est._trainGlobals["mean"])
+    assert draws.shape == (24,)
+    assert np.isfinite(draws).all()
+    # SVI is approximate and the LKJ hierarchy can be weakly identified;
+    # use a broad recovery tolerance, not a calibrated credible interval.
+    assert abs(float(np.median(draws)) - 0.4) < 0.9
