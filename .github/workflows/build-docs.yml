@@ -28,11 +28,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install 'reportlab>=4,<5'
+      - run: python -m pip install 'reportlab>=4,<5' 'pypdf>=5,<7'
       - run: |
           python docs/generators/manual.py
           python docs/generators/cheatsheet.py
+      - name: Verify cheatsheet is exactly one PDF page
+        run: python -c 'from pypdf import PdfReader; n=len(PdfReader("docs/Cheatsheet.pdf").pages); print(f"Cheatsheet pages: {n}"); assert n == 1, f"Expected one-page cheatsheet, got {n} pages"'
       - name: Commit generated docs
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
