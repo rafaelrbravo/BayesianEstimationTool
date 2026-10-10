@@ -5,10 +5,22 @@ on:
     paths:
       - 'docs/generators/**'
       - '.github/workflows/build-docs.yml'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'jax[cpu]' numpyro pytest reportlab
+      - name: Run complete BET suite from parent directory
+        run: cd .. && python -m pytest -q BayesianEstimationTool/tests
   generate:
     runs-on: ubuntu-latest
     steps:
