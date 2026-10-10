@@ -110,3 +110,48 @@ def test_hierarchical_global_recovery_from_repeated_measurements():
     # SVI is approximate and the LKJ hierarchy can be weakly identified;
     # use a broad recovery tolerance, not a calibrated credible interval.
     assert abs(float(np.median(draws)) - 0.4) < 0.9
+
+
+def test_longitudinal_heldout_information_changes_posterior():
+    """One versus four observed time points changes held-out inference.
+
+    This is a structural information-transfer test, not a guarantee of
+    monotonic predictive improvement on every small random dataset.
+    """
+    n, t = 10, 4
+    times = jnp.broadcast_to(jnp.arange(t, dtype=float), (n, t))
+    slopes = jnp.linspace(-0.35, 0.35, n)
+    intercepts = jnp.linspace(-0.6, 0.6, n)
+    y = 0.2 + intercepts[:, None] + slopes[:, None] * times
+
+    def trajectory(globals_, local, data):
+        return {"prediction": globals_["mean"] + local["a"]
+                + local["b"] * data["time"]}
+
+    def masked_likelihood(mask):
+        def likelihood(globals_, local, data, out):
+            safe_y = jnp.where(mask, data["y"], out["prediction"])
+            return {"y": (safe_y, dist.Normal(out["prediction"], 0.2).mask(mask))}
+        return likelihood
+
+    def first(globals_, local, data, out):
+        mask = jnp.arange(t) == 0
+        safe_y = jnp.where(mask, data["y"], out["prediction"])
+        return {"y": (safe_y, dist.Normal(out["prediction"], 0.2).mask(mask))}
+
+    def all_points(globals_, local, data, out):
+        return {"y": (data["y"], dist.Normal(out["prediction"], 0.2))}
+
+    def last_error(out, data):
+        return out["prediction"][-1] - data["y"][-1]
+
+    est = Estimator({"time": times, "y": y}, trajectory,
+                    ["a", "b"], _prior, rngSeed=59)
+    est.Train(list(range(8)), all_points, _method())
+    est.Test([8, 9], first, _method(), nGlobalSamples=1, rngSeed=17)
+    one = np.asarray(est.ScoreTestSamples(last_error))
+    est.Test([8, 9], all_points, _method(), nGlobalSamples=1, rngSeed=17)
+    four = np.asarray(est.ScoreTestSamples(last_error))
+    assert one.shape == four.shape == (1, 24, 2)
+    assert np.isfinite(one).all() and np.isfinite(four).all()
+    assert not np.array_equal(one, four)
