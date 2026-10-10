@@ -73,3 +73,14 @@ def test_seeded_subsample_is_repeatable():
     a = np.asarray(est.ScoreTrainSamples(score_fn, nSamples=4, rngSeed=123))
     b = np.asarray(est.ScoreTrainSamples(score_fn, nSamples=4, rngSeed=123))
     np.testing.assert_array_equal(a, b)
+
+
+def test_local_only_sample_count():
+    x = jnp.arange(4.0)
+    def local_model(g, z, d):
+        return {"prediction": z["z"] + d["x"]}
+    est = Estimator({"x": x, "y": x}, local_model, ["z"], rngSeed=19)
+    est.Train([0, 1, 2], likelihood_fn, method())
+    assert est._GetNTrainSamples() == 8
+    est.Test([3], nGlobalSamples=2, nLocalZSamples=5)
+    assert np.asarray(est.ScoreTestSamples(score_fn)).shape == (2, 5, 1)
