@@ -27,6 +27,8 @@ jobs:
       - name: Run complete BET suite from parent directory
         run: cd .. && python -m pytest -q BayesianEstimationTool/tests
   generate:
+    # Publishing requires write access; skip this job for untrusted PR code.
+    if: github.event_name != 'pull_request'
     permissions:
       contents: write
     runs-on: ubuntu-latest
