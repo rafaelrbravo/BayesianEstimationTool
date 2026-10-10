@@ -41,19 +41,19 @@ def _pdf(markdown, path):
         styles["BETTitle"].fontSize = 14
         styles["BETTitle"].leading = 16
         styles["BETTitle"].spaceAfter = 5
-        styles["BETHeading"].fontSize = 9
-        styles["BETHeading"].leading = 11
+        styles["BETHeading"].fontSize = 9.5
+        styles["BETHeading"].leading = 11.5
         styles["BETHeading"].spaceBefore = 5
         styles["BETHeading"].spaceAfter = 2
-        styles["BETBody"].fontSize = 7.4
-        styles["BETBody"].leading = 9.2
-        styles["BETBody"].spaceAfter = 3
-        styles["BETCode"].fontSize = 6.2
-        styles["BETCode"].leading = 7.5
+        styles["BETBody"].fontSize = 8.2
+        styles["BETBody"].leading = 10.1
+        styles["BETBody"].spaceAfter = 3.5
+        styles["BETCode"].fontSize = 6.8
+        styles["BETCode"].leading = 8.2
         styles["BETCode"].spaceAfter = 3
         styles["BETCode"].borderPadding = 3
-        styles["BETList"].fontSize = 7.4
-        styles["BETList"].leading = 9.2
+        styles["BETList"].fontSize = 8.2
+        styles["BETList"].leading = 10.1
     margin = 29 if compact else 51
     doc = SimpleDocTemplate(str(path), pagesize=(612,792), rightMargin=margin, leftMargin=margin, topMargin=28 if compact else 48, bottomMargin=28 if compact else 49,
                             title=path.stem, author="BayesianEstimationTool", pageCompression=1, invariant=1)
