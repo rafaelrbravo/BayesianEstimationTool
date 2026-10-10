@@ -38,7 +38,7 @@ class Nuts(Method):
         globalNames=[] if globalNames is None else list(globalNames)
         if title is not None: print(title)
         print(f"{'parameter':<20} {'mean':>10} {'std':>10} {'median':>10} {'2.5%':>10} {'97.5%':>10} {'n_eff':>10} {'r_hat':>8}")
-        for prefix,names in (("__globalParam__",globalNames),("__localParam__",localNames)):
+        for prefix,names in (("__globalParam__",globalNames),("__localZ__",localNames)):
             for name in names:
                 statName=f"{prefix}{name}"
                 if statName not in stats: continue
