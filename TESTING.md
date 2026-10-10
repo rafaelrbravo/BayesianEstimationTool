@@ -37,3 +37,5 @@ Structural `ValidateMethod` checks signatures and constructor configuration only
 ## Status
 
 The suite must be executed in an environment with NumPyro and JAX installed before any claim of passing tests or release readiness.
+
+CI verification branch: this documentation-only change triggers pull-request checks before merging.
