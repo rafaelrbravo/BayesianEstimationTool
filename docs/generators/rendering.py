@@ -28,6 +28,7 @@ def _inline(s):
 
 
 def _pdf(markdown, path):
+    compact = path.stem.lower() == "cheatsheet"
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(name="BETTitle", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=19, leading=23, spaceAfter=14))
     styles.add(ParagraphStyle(name="BETHeading", parent=styles["Heading2"], fontSize=13, leading=17, spaceBefore=13, spaceAfter=5))
@@ -35,7 +36,26 @@ def _pdf(markdown, path):
     styles.add(ParagraphStyle(name="BETBody", parent=styles["BodyText"], fontSize=9.2, leading=13.5, spaceAfter=7))
     styles.add(ParagraphStyle(name="BETCode", fontName="Courier", fontSize=7.1, leading=9.5, leftIndent=8, backColor=colors.HexColor("#f2f4f7"), borderPadding=6, spaceAfter=9))
     styles.add(ParagraphStyle(name="BETList", parent=styles["BETBody"], leftIndent=14, firstLineIndent=-10))
-    doc = SimpleDocTemplate(str(path), pagesize=(612,792), rightMargin=51, leftMargin=51, topMargin=48, bottomMargin=49,
+    if compact:
+        # Dense reference layout; retain normal typography for the manual.
+        styles["BETTitle"].fontSize = 14
+        styles["BETTitle"].leading = 16
+        styles["BETTitle"].spaceAfter = 5
+        styles["BETHeading"].fontSize = 9
+        styles["BETHeading"].leading = 11
+        styles["BETHeading"].spaceBefore = 5
+        styles["BETHeading"].spaceAfter = 2
+        styles["BETBody"].fontSize = 7.4
+        styles["BETBody"].leading = 9.2
+        styles["BETBody"].spaceAfter = 3
+        styles["BETCode"].fontSize = 6.2
+        styles["BETCode"].leading = 7.5
+        styles["BETCode"].spaceAfter = 3
+        styles["BETCode"].borderPadding = 3
+        styles["BETList"].fontSize = 7.4
+        styles["BETList"].leading = 9.2
+    margin = 29 if compact else 51
+    doc = SimpleDocTemplate(str(path), pagesize=(612,792), rightMargin=margin, leftMargin=margin, topMargin=28 if compact else 48, bottomMargin=28 if compact else 49,
                             title=path.stem, author="BayesianEstimationTool", pageCompression=1, invariant=1)
     story = []
     paragraph = []
