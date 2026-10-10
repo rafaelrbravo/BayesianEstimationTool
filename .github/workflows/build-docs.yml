@@ -2,11 +2,6 @@ name: Build BET documentation
 on:
   push:
     branches: [docs/dual-format-manual-cheatsheet]
-    paths:
-      - 'docs/generators/**'
-      - 'docs/*.md'
-      - 'tests/test_scientific_integration.py'
-      - '.github/workflows/build-docs.yml'
   pull_request:
     branches: [main]
   workflow_dispatch:
