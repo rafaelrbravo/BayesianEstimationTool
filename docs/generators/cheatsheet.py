@@ -49,11 +49,10 @@ Model and prior functions must be supplied at load time. If `saveAllData=False`,
 ## Mask padded or hidden observations
 
 ```python
-valid = data["valid"]  # one individual's boolean observation mask
-pred = modelOut["prediction"]
-safe_y = jnp.where(valid, data["y"], pred)
-likelihood = dist.Normal(pred, sigma).mask(valid)
-return {"y": (safe_y, likelihood)}
+def likelihood(globals_, localZs, data, modelOut):
+    valid, pred = data["valid"], modelOut["prediction"]
+    safe_y = jnp.where(valid, data["y"], pred)
+    return {"y": (safe_y, dist.Normal(pred, sigma).mask(valid))}
 ```
 
 Store variable-length sequences as padded arrays `[individual, time]`. Hide additional observations in `TestLikelihoodFn` with a stricter mask. Use finite safe placeholders and finite model predictions; masking does not make NaN intermediate calculations safe.
