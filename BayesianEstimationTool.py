@@ -253,7 +253,10 @@ class Estimator():
         return { k: v[self._testDataIdxs] for k, v in self._data.items() }
 
     def _GetNTrainSamples(self):
-        return 0 if not self._trainGlobals else len(next(iter(self._trainGlobals.values())))
+        if self._trainGlobals: return len(next(iter(self._trainGlobals.values())))
+        if self._trainLocalZs: return len(next(iter(self._trainLocalZs.values())))
+        if self._trainCholesky is not None: return len(self._trainCholesky)
+        return 0
 
     def _GetFnName(self,Fn):
         if Fn is None: return None
