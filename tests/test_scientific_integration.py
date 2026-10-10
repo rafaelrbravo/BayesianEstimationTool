@@ -55,7 +55,13 @@ def test_hierarchical_correlated_latents_recovery_smoke():
     assert np.isfinite(scores).all()
     assert np.mean(np.abs(np.median(scores, axis=0))) < 1.5
     assert est._trainCholesky is not None
-    assert np.isfinite(np.asarray(est._trainCholesky)).all()
+    cholesky = np.asarray(est._trainCholesky)
+    assert np.isfinite(cholesky).all()
+    assert cholesky.shape == (24, 2, 2)
+    correlations = cholesky @ np.swapaxes(cholesky, -1, -2)
+    np.testing.assert_allclose(np.diagonal(correlations, axis1=-2, axis2=-1), 1., atol=1e-4)
+    np.testing.assert_allclose(correlations, np.swapaxes(correlations, -1, -2), atol=1e-5)
+    assert np.all(np.linalg.eigvalsh(correlations) > 0)
 
 
 def test_population_to_individual_transfer_observation_conditioning():
