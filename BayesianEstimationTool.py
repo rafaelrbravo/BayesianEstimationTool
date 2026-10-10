@@ -515,16 +515,9 @@ class Estimator():
 
     @staticmethod
     def _CheckMethod(estimator,name,optional=False):
-        if estimator is None:
-            if optional: return
-            raise TypeError(f"{name} cannot be None.")
-        for method in ("_Fit","_SaveArgs"):
-            if not callable(getattr(estimator,method,None)): raise TypeError(f"{name} must implement callable {method}().")
-        mode=getattr(estimator,"_printMode",None)
-        if mode not in (None,"before","after","replace"): raise ValueError(f"{name}._printMode must be None, 'before', 'after', or 'replace'.")
-        if mode is not None and not callable(getattr(estimator,"_Print",None)): raise TypeError(f"{name} must implement callable _Print() when _PrintMode is not None.")
-        state=estimator._SaveArgs()
-        if not isinstance(state,dict): raise TypeError(f"{name}._SaveArgs() must return a dictionary.")
+        if estimator is None and optional: return
+        from .MethodValidation import ValidateMethod
+        ValidateMethod(estimator)
 
 
     @staticmethod
