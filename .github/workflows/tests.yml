@@ -22,4 +22,6 @@ jobs:
         env:
           JAX_PLATFORMS: cpu
           XLA_PYTHON_CLIENT_PREALLOCATE: 'false'
-        run: python -m pytest -q tests
+        run: |
+          cd ..
+          python -m pytest -q BayesianEstimationTool/tests

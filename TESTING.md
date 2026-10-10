@@ -4,7 +4,8 @@ Install the package and run the complete suite from the repository root:
 
 ```bash
 python -m pip install -e . pytest
-JAX_PLATFORMS=cpu python -m pytest -q tests
+cd ..
+JAX_PLATFORMS=cpu python -m pytest -q BayesianEstimationTool/tests
 ```
 
 The GitHub Actions workflow at `.github/workflows/tests.yml` runs the same suite on Python 3.11. A successful commit or workflow configuration is **not** evidence that the tests passed; inspect the actual job conclusion and pytest output.
@@ -27,7 +28,7 @@ Tests with SVI or NUTS exercise JAX compilation and may take longer on their fir
 Run one failing test with a traceback before changing the implementation:
 
 ```bash
-JAX_PLATFORMS=cpu python -m pytest -x -vv tests/test_estimator_integration.py
+JAX_PLATFORMS=cpu python -m pytest -x -vv BayesianEstimationTool/tests/test_estimator_integration.py
 ```
 
 Distinguish test assumptions from library defects. Check posterior array axes (draw, individual; or global draw, local draw, individual), saved-data flags, and whether the chosen Method returned deterministic sample sites requested by BET. Verify fixes by rerunning both the failing test and the complete suite.
@@ -37,3 +38,5 @@ Structural `ValidateMethod` checks signatures and constructor configuration only
 ## Status
 
 The suite must be executed in an environment with NumPyro and JAX installed before any claim of passing tests or release readiness.
+
+CI verification branch: this documentation-only change triggers pull-request checks before merging.
