@@ -84,3 +84,33 @@ def test_local_only_sample_count():
     assert est._GetNTrainSamples() == 8
     est.Test([3], nGlobalSamples=2, nLocalZSamples=5)
     assert np.asarray(est.ScoreTestSamples(score_fn)).shape == (2, 5, 1)
+
+
+def test_saved_local_zs_are_required_for_recomputed_train_scores(tmp_path):
+    est = estimator()
+    est.Train([0, 1, 2], likelihood_fn, method(), saveModelOut=False)
+    path = tmp_path / "without_local_zs.npz"
+    est.Save(path, saveTrainLocalZs=False, saveAllData=True)
+    restored = Estimator.Load(path, model_fn, global_prior)
+    with pytest.raises(RuntimeError, match="local Zs"):
+        restored.ScoreTrainSamples(score_fn)
+
+
+def test_saved_model_outputs_allow_scoring_without_local_zs(tmp_path):
+    est = estimator()
+    est.Train([0, 1, 2], likelihood_fn, method(), saveModelOut=True)
+    expected = np.asarray(est.ScoreTrainSamples(score_fn))
+    path = tmp_path / "outputs_only.npz"
+    est.Save(path, saveTrainLocalZs=False, saveTrainModelOut=True, saveAllData=True)
+    restored = Estimator.Load(path, model_fn, global_prior)
+    np.testing.assert_allclose(np.asarray(restored.ScoreTrainSamples(score_fn)), expected)
+
+
+def test_test_sample_alignment_with_multiple_individuals():
+    x = jnp.arange(5.0)
+    y = x + jnp.array([0.1, -0.2, 0.3, -0.1, 0.2])
+    est = Estimator({"x": x, "y": y}, model_fn, ["z"], global_prior, rngSeed=23)
+    est.Train([0, 1, 2], likelihood_fn, method())
+    est.Test([3, 4], nGlobalSamples=3, nLocalZSamples=6, saveModelOut=True)
+    assert np.asarray(est.ScoreTestSamples(score_fn)).shape == (3, 6, 2)
+    assert np.asarray(est.ScoreTestSamples(score_fn, nSamples=2, rngSeed=44)).shape == (3, 2, 2)
