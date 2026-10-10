@@ -6,9 +6,11 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   test:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +27,8 @@ jobs:
       - name: Run complete BET suite from parent directory
         run: cd .. && python -m pytest -q BayesianEstimationTool/tests
   generate:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
