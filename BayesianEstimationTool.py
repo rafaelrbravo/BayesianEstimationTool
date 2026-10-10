@@ -247,10 +247,10 @@ class Estimator():
         return key
 
     def _GetTrainData(self):
-        return { k: v[self._trainDataIdxs] for k, v in self._data.items() }
+        return { k: v[jnp.asarray(self._trainDataIdxs)] for k, v in self._data.items() }
 
     def _GetTestData(self):
-        return { k: v[self._testDataIdxs] for k, v in self._data.items() }
+        return { k: v[jnp.asarray(self._testDataIdxs)] for k, v in self._data.items() }
 
     def _GetNTrainSamples(self):
         if self._trainGlobals: return len(next(iter(self._trainGlobals.values())))
