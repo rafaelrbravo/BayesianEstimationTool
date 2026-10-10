@@ -83,6 +83,12 @@ def test_persistence_predictions_and_seeded_scores_equivalent(tmp_path):
     path = tmp_path / "scientific_roundtrip.npz"
     est.Save(path, saveAllData=True, saveTrainModelOut=True, saveTestModelOut=True)
     loaded = Estimator.Load(path, _model, _prior)
+    # Stored raw model predictions must survive serialization independently
+    # of the downstream scoring callback.
+    for key, value in est._trainModelOut.items():
+        np.testing.assert_array_equal(np.asarray(loaded._trainModelOut[key]), np.asarray(value))
+    for key, value in est._testModelOut.items():
+        np.testing.assert_array_equal(np.asarray(loaded._testModelOut[key]), np.asarray(value))
     np.testing.assert_array_equal(
         np.asarray(loaded.ScoreTrainSamples(_score, nSamples=6, rngSeed=19)), train
     )
