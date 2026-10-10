@@ -487,6 +487,8 @@ class Estimator():
             self._testCholesky=None if self._trainCholesky is None else jnp.expand_dims(jnp.median(self._trainCholesky,axis=0), axis=0)
         else:
             nTrainSamples=self._GetNTrainSamples()
+            if nTrainSamples==0:
+                raise RuntimeError("No saved training posterior draws are available for nGlobalSamples; save global parameters, local Zs, or Cholesky draws, or use nGlobalSamples=None.")
             idxs=self._GetRandomIndices(nGlobalSamples,nTrainSamples,RNGkey)
             self._testGlobals={ name:value[idxs] for name,value in self._trainGlobals.items() }
             self._testCholesky=None if self._trainCholesky is None else self._trainCholesky[idxs]
