@@ -14,6 +14,10 @@ def ValidateMethod(method):
     """
     if method is None or inspect.isclass(method):
         raise TypeError("Method must be a configured instance, not None or a class.")
+    from .Method import Method as BaseMethod
+    for name in ("_Fit", "_SaveArgs"):
+        if getattr(type(method), name, None) is getattr(BaseMethod, name):
+            raise TypeError(f"Method must override inherited {name}(); the base implementation raises NotImplementedError.")
     for name, nargs in (("_Fit", 3), ("_SaveArgs", 0)):
         fn = getattr(method, name, None)
         if not callable(fn):
