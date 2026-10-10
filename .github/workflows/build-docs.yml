@@ -4,6 +4,7 @@ on:
     branches: [docs/dual-format-manual-cheatsheet]
     paths:
       - 'docs/generators/**'
+      - 'docs/*.md'
       - '.github/workflows/build-docs.yml'
   pull_request:
     branches: [main]
@@ -34,6 +35,15 @@ jobs:
           python docs/generators/cheatsheet.py
       - name: Verify cheatsheet is exactly one PDF page
         run: python -c 'from pypdf import PdfReader; n=len(PdfReader("docs/Cheatsheet.pdf").pages); print(f"Cheatsheet pages: {n}"); assert n == 1, f"Expected one-page cheatsheet, got {n} pages"'
+      - name: Upload generated documentation for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: bet-docs
+          path: |
+            docs/Manual.md
+            docs/Manual.pdf
+            docs/Cheatsheet.md
+            docs/Cheatsheet.pdf
       - name: Commit generated docs
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
