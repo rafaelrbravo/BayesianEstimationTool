@@ -128,12 +128,6 @@ def test_longitudinal_heldout_information_changes_posterior():
         return {"prediction": globals_["mean"] + local["a"]
                 + local["b"] * data["time"]}
 
-    def masked_likelihood(mask):
-        def likelihood(globals_, local, data, out):
-            safe_y = jnp.where(mask, data["y"], out["prediction"])
-            return {"y": (safe_y, dist.Normal(out["prediction"], 0.2).mask(mask))}
-        return likelihood
-
     def first(globals_, local, data, out):
         mask = jnp.arange(t) == 0
         safe_y = jnp.where(mask, data["y"], out["prediction"])
