@@ -66,3 +66,24 @@ def test_train_rejects_bad_method_before_fit():
     est = make_estimator()
     with pytest.raises(TypeError, match="_Fit"):
         est.Train([0, 1], likelihood_fn, object())
+
+
+def test_untrained_save_load_roundtrip(tmp_path):
+    original = make_estimator()
+    path = tmp_path / "untrained.npz"
+    original.Save(path, saveAllData=True)
+    restored = Estimator.Load(path, model_fn)
+    assert restored._trainParams is None
+    assert restored._testParams is None
+    np.testing.assert_array_equal(np.asarray(restored._data["x"]), np.arange(5.0))
+    assert restored._localZNames == ["z"]
+
+
+def test_save_without_data_requires_explicit_data_on_load(tmp_path):
+    original = make_estimator()
+    path = tmp_path / "no_data.npz"
+    original.Save(path)
+    with pytest.raises(ValueError, match="data must be provided"):
+        Estimator.Load(path, model_fn)
+    restored = Estimator.Load(path, model_fn, data={"x": np.arange(5.0)})
+    assert restored._localZNames == ["z"]
