@@ -54,3 +54,9 @@ def test_bad_print_hook():
             return {}
     with pytest.raises(TypeError, match="_Print"):
         ValidateMethod(Bad())
+
+
+def test_inherited_base_stub_rejected():
+    from BayesianEstimationTool.Method import Method
+    with pytest.raises(TypeError, match="override inherited _Fit"):
+        ValidateMethod(Method())
