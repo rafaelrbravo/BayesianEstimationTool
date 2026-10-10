@@ -42,5 +42,5 @@ jobs:
           git add docs/Manual.md docs/Manual.pdf docs/Cheatsheet.md docs/Cheatsheet.pdf
           if ! git diff --cached --quiet; then
             git commit -m 'Generate BET manual and cheatsheet in Markdown and PDF'
-            git push
+            git push origin HEAD:refs/heads/${{ github.ref_name }}
           fi
