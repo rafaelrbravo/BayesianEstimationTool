@@ -87,3 +87,9 @@ def test_save_without_data_requires_explicit_data_on_load(tmp_path):
         Estimator.Load(path, model_fn)
     restored = Estimator.Load(path, model_fn, data={"x": np.arange(5.0)})
     assert restored._localZNames == ["z"]
+
+
+def test_missing_posterior_draws_error_is_actionable():
+    est = make_estimator()
+    with pytest.raises(RuntimeError, match="No saved training posterior draws"):
+        est._SetTestGlobals(2, None)
