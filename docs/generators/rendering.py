@@ -45,15 +45,15 @@ def _pdf(markdown, path):
         styles["BETHeading"].leading = 12
         styles["BETHeading"].spaceBefore = 5
         styles["BETHeading"].spaceAfter = 2
-        styles["BETBody"].fontSize = 8.8
-        styles["BETBody"].leading = 10.8
-        styles["BETBody"].spaceAfter = 3.8
-        styles["BETCode"].fontSize = 7.4
-        styles["BETCode"].leading = 8.8
+        styles["BETBody"].fontSize = 9.2
+        styles["BETBody"].leading = 11.2
+        styles["BETBody"].spaceAfter = 4
+        styles["BETCode"].fontSize = 7.8
+        styles["BETCode"].leading = 9.2
         styles["BETCode"].spaceAfter = 3
         styles["BETCode"].borderPadding = 3
-        styles["BETList"].fontSize = 8.8
-        styles["BETList"].leading = 10.8
+        styles["BETList"].fontSize = 9.2
+        styles["BETList"].leading = 11.2
     margin = 29 if compact else 51
     doc = SimpleDocTemplate(str(path), pagesize=(612,792), rightMargin=margin, leftMargin=margin, topMargin=28 if compact else 48, bottomMargin=28 if compact else 49,
                             title=path.stem, author="BayesianEstimationTool", pageCompression=1, invariant=1)
