@@ -70,8 +70,8 @@ def test_population_to_individual_transfer_observation_conditioning():
     conditioned = np.asarray(est.ScoreTestSamples(_score))
     assert conditioned.shape == (2, 24, 2)
     assert np.isfinite(conditioned).all()
-    # This checks the conditioned pathway, not monotonic improvement with
-    # observation count; that needs longitudinal data and a stronger test.
+    # Conditioning should change predictions relative to population-only draws.
+    assert not np.array_equal(prior, conditioned)
 
 
 def test_persistence_predictions_and_seeded_scores_equivalent(tmp_path):
