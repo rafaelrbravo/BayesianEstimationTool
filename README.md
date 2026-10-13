@@ -11,14 +11,14 @@ Start here:
 - **[Cheatsheet (Markdown)](docs/Cheatsheet.md)** — compact API reference and common workflows.
 - **[Cheatsheet (PDF)](docs/Cheatsheet.pdf)** — one-page printable reference. If GitHub cannot preview the PDF, download it to view locally.
 
-The Markdown and PDF files are generated from shared Python sources in `docs/generators/`. To regenerate locally:
+**Manual.md is the authoritative manual.** Its PDF is rendered directly from that file using GitHub-like styling and print pagination. The cheatsheet is a separate compact, Python-generated reference. To regenerate locally (install `markdown`, `weasyprint`, and `reportlab` first):
 
 ```bash
-python docs/generators/manual.py
+python docs/generators/markdown_to_pdf.py docs/Manual.md
 python docs/generators/cheatsheet.py
 ```
 
-The GitHub Actions test workflow regenerates the documents, checks that the cheatsheet is exactly one PDF page, uploads the outputs as a `bet-docs` artifact, and runs the test suite.
+The GitHub Actions test workflow regenerates the PDFs (and the Python-authored cheatsheet Markdown), checks that the cheatsheet is exactly one PDF page, uploads the outputs as a `bet-docs` artifact, and runs the test suite.
 
 ## Installation
 
