@@ -46,7 +46,7 @@ BET supplies one individual's data to `ModelFn`; do not index a patient axis wit
 
 ## 3. Hierarchical local variables
 
-`localZNames=["growth", "response"]` introduces standardized normal latent variables for each individual. **These local `z` values are effectively z-scores:** each has a standard-normal marginal distribution (population mean 0 and standard deviation 1), so `z=0` is the population center and `z=1` is one population standard deviation above it **on the standardized latent scale**. They are not necessarily z-scores of the final physical parameters: the user model converts them into meaningful parameter values, often through a location/scale transformation followed by a nonlinear transform (such as `exp`). With multiple local variables, BET uses an LKJ prior for their Cholesky correlation structure, controlled by `lkjConcentration`; their standardized marginals remain normal, but the local variables can be correlated.
+`localZNames=["growth", "response"]` introduces standardized normal latent variables for each individual. With multiple local variables, BET uses an LKJ prior for their Cholesky correlation structure, controlled by `lkjConcentration`. The user model converts standardized values into meaningful parameters.
 
 ```python
 def model_fn(global_params, local_zs, data):
@@ -126,3 +126,150 @@ Custom inference methods must implement `_Fit(ModelFn, rngKey, samplePrefixes)` 
 ## 9. Test strategy
 
 The regression suite exercises NUTS, SVI, scoring, validation, and Save/Load. Scientific validation additionally requires synthetic hierarchical parameter recovery, population-to-new-individual transfer with varying observation counts, and numerical equivalence after persistence. See `TESTING.md` for the test invocation.
+
+## 10. Conceptual workflow and statistical interpretation
+
+BET separates **model specification** from the recurring hierarchical inference workflow. The user supplies an entry-level deterministic model, an optional distributional prior for shared parameters, and an observation likelihood. BET handles population training, generation or conditioning of local effects for new entries, posterior sample bookkeeping, and scoring.
+
+An entry is one independently indexed unit (for example, a patient, experiment, or simulated replicate). Arrays share a leading entry axis. Observations within an entry, such as repeated measurements over time, belong on trailing axes and are modeled jointly by that entry's likelihood. Treating repeated measurements as separate entries would change the hierarchical interpretation.
+
+**Population parameters versus local z-scores.** Global parameters are shared across training entries. Local latent values represent entry-to-entry variation and have standardized normal marginal priors. For example, a model might define a positive rate as `rate_i = exp(log_rate_mean + log_rate_sd * z_i)`. Here `z_i` is a z-score on the log-rate scale, while `rate_i` is lognormally distributed on its physical scale. The location and scale parameters are supplied by the user model or inferred through `GlobalPriorFn`; BET does not automatically invent a mean and scale for every local variable.
+
+When there are multiple local variables, their joint distribution can be correlated through the learned Cholesky factor. A positive correlation means that entries with unusually high values of one standardized effect tend also to have high values of another, **before conditioning on their individual observations**. Posterior local values conditioned on data need not have sample mean zero or standard deviation one.
+
+**Training and new-entry inference are different tasks.** Training uses selected entries' observations to estimate shared parameters, the correlation structure, and training-specific local effects. Testing uses that trained population state to generate predictions for previously unseen entries. Without a test likelihood, local effects are sampled from the learned population distribution. With a test likelihood and an inference Method, the local effects are conditioned on the new entry's available observations. A test set must not be included in training if the goal is out-of-sample evaluation.
+
+## 11. Model design: step-by-step
+
+1. Prepare `data` as a dictionary of equally long first-axis arrays. Decide which trailing axes represent time, features, or spatial positions.
+2. Implement `ModelFn(globalParams, localZs, data)` for **one entry**. Return named arrays or scalars in a dictionary. Do not sample NumPyro random variables in this deterministic model function.
+3. Implement `GlobalPriorFn(dataShapes)` when shared parameters must be inferred. Return NumPyro distribution objects keyed by unique parameter names. If there are no shared unknown parameters, omit the function.
+4. Specify `localZNames` only for genuine entry-varying effects. Map those standardized effects to physical parameters inside `ModelFn`.
+5. Implement the training likelihood as a dictionary of `(observation, distribution)` pairs. Use distributions with correct event and batch shapes; use explicit masks for absent observations.
+6. Select training indices and a configured `Nuts(...)` or `Svi(...)` instance. Call `Train`, inspect diagnostics, and verify model behavior with posterior predictive checks.
+7. Select held-out indices. Call `Test` without a likelihood for population prediction, or provide a test likelihood and Method for inference using partial observations.
+8. Define a score function returning a scalar or array for one entry and evaluate `ScoreTrainSamples` or `ScoreTestSamples`. Summarize over posterior axes deliberately; do not confuse draw axes with entry axes.
+
+A useful design rule is that **data determine the observation model, not the mechanistic model's parameter names**. Baseline covariates can enter `ModelFn` or global-parameter transformations, while observation masks determine which outcomes are used for inference.
+
+## 12. Complete hierarchical example: varying intercepts
+
+The following example illustrates a learned population center and spread, standardized individual offsets, training, and population prediction. It is intentionally small; for substantive analyses increase the SVI optimization steps and inspect diagnostics.
+
+```python
+import jax.numpy as jnp
+import numpyro.distributions as dist
+from BayesianEstimationTool import Estimator, Svi
+
+data = {
+    "x": jnp.arange(12.0),
+    "y": 1.0 + 0.4 * jnp.arange(12.0) + jnp.array([0.1, -0.1] * 6),
+}
+
+def global_prior(shapes):
+    return {
+        "intercept_mean": dist.Normal(0.0, 3.0),
+        "intercept_sd": dist.HalfNormal(1.0),
+        "slope": dist.Normal(0.0, 1.0),
+    }
+
+def model_fn(global_params, local_zs, data):
+    intercept = global_params["intercept_mean"] + global_params["intercept_sd"] * local_zs["intercept"]
+    return {"prediction": intercept + global_params["slope"] * data["x"]}
+
+def likelihood(global_params, local_zs, data, model_out):
+    return {"y": (data["y"], dist.Normal(model_out["prediction"], 0.3))}
+
+def score(model_out, data):
+    return jnp.abs(model_out["prediction"] - data["y"])
+
+est = Estimator(data, model_fn, localZNames=["intercept"], GlobalPriorFn=global_prior, rngSeed=7)
+est.Train(list(range(10)), likelihood, Svi(numSteps=500, numSamples=200, progressBar=False))
+est.Test([10, 11], nLocalZSamples=100)
+train_error_samples = est.ScoreTrainSamples(score)
+test_error_samples = est.ScoreTestSamples(score)
+```
+
+The final test call draws new local intercepts from the learned population; it does **not** use held-out `y` values to infer those intercepts. Consequently, population predictions can be much more uncertain than predictions after observing an individual's response. To condition on available observations, call `Test` with a test likelihood and a Method, and make sure that likelihood only exposes observations available at prediction time.
+
+## 13. NUTS and SVI reference
+
+`Nuts(numWarmup=2000, numSamples=2000, numChains=4, acceptProb=0.95, denseMass=False, medianSamples=50)` uses NumPyro's NUTS MCMC kernel with median-based initialization. `numWarmup` is the adaptation period; `numSamples` is the retained number of draws **per chain**; `numChains` controls chain count; `acceptProb` is the target acceptance probability; `denseMass` enables dense mass-matrix adaptation; and `medianSamples` controls the initialization strategy. Its reported summary includes effective sample size and R-hat. Inspect divergences, mixing, and posterior predictive adequacy rather than treating a successful run as validation.
+
+`Svi(numSteps=10000, numSamples=2000, stepSize=0.01, numParticles=1, progressBar=True, medianSamples=50, multivariate=False)` optimizes a variational approximation with Adam and an ELBO objective. `numSteps` is the number of optimization updates; `numSamples` controls approximate posterior draws generated after optimization; `stepSize` is Adam's learning rate; `numParticles` controls Monte Carlo particles for the ELBO; and `medianSamples` controls initialization. `multivariate=False` uses `AutoNormal`; `True` uses `AutoMultivariateNormal`, which can represent posterior covariance but may be expensive in large hierarchical models.
+
+**Method selection.** NUTS is often preferable when reliable posterior uncertainty is central and runtime is manageable. SVI can be faster for large problems, but an apparently stable loss curve does not establish calibrated uncertainty. Compare posterior predictive behavior and uncertainty against NUTS or simulated ground truth when feasible. BET supports configured Method instances; using Method classes can reconstruct previously saved configuration when available.
+
+## 14. Detailed public API reference
+
+The signatures below correspond to the public exports `Estimator`, `Nuts`, `Svi`, and `ValidateMethod` and the public Estimator methods.
+
+### Estimator construction
+
+`Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)`
+
+- `data`: dictionary of arrays sharing a leading entry axis.
+- `ModelFn`: deterministic per-entry model function returning a dictionary.
+- `localZNames`: optional list of named standardized local effects.
+- `GlobalPriorFn`: optional function returning named NumPyro distributions for shared parameters.
+- `lkjConcentration`: concentration of the LKJ correlation prior when multiple local effects are used.
+- `rngSeed`: optional reproducibility seed.
+
+### Train
+
+`Train(trainDataIdxs, TrainLikelihoodFn, Method, printSummary=False, rngSeed=None, saveLocalZs=True, saveModelOut=False)`
+
+- `trainDataIdxs`: selected training entries.
+- `TrainLikelihoodFn`: per-entry likelihood factory.
+- `Method`: inference Method instance or supported Method class.
+- `printSummary`: request inference summary output.
+- `rngSeed`: optional call-specific seed.
+- `saveLocalZs`: retain local posterior draws for later use.
+- `saveModelOut`: retain generated model outputs rather than recomputing them.
+
+### Test
+
+`Test(testDataIdxs, TestLikelihoodFn=None, Method=None, nGlobalSamples=None, nLocalZSamples=2000, printSummary=False, rngSeed=None, saveModelOut=False)`
+
+- `testDataIdxs`: entries for population prediction or local updating.
+- `TestLikelihoodFn`: omitted for unconditioned population prediction; provided for observation-conditioned inference.
+- `Method`: inference Method for observation-conditioned testing; may reuse saved configuration.
+- `nGlobalSamples`: `None` uses posterior median population state; a positive integer selects trained posterior states.
+- `nLocalZSamples`: number of local draws in no-likelihood testing.
+- `printSummary`, `rngSeed`, `saveModelOut`: reporting, reproducibility, and output retention.
+
+### Scoring
+
+`ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` evaluates training posterior predictions, with a draw axis followed by training-entry axis and any score dimensions.
+
+`ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` evaluates the most recent test state, with global-draw and local-draw axes followed by test-entry axis and any score dimensions. Do not collapse axes without checking which dimension represents which source of uncertainty.
+
+### Persistence
+
+`Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True, saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False)` writes a compressed state file, or returns a record if `fileName=None`. Saving data increases portability but also file size and potential data-sensitivity obligations. The save flags govern inclusion of local draws and model outputs.
+
+`Estimator.Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs an estimator using explicitly supplied functions. Provide `data` unless it was included in the saved state. Passing `ModelFn=None` retrieves the saved record instead of reconstructing an executable estimator.
+
+`ValidateMethod(method)` checks a custom Method's required interface; see `METHOD_AUTHORING.md` for implementation details. Public exports are defined in package `__init__.py`.
+
+## 15. Common mistakes and troubleshooting
+
+**Shape mismatch.** Print shapes before tracing, and start with a single entry. All top-level data arrays need the same entry count; per-entry model outputs must agree with likelihood observation shapes. Broadcasting may silently produce a plausible but incorrect likelihood, so verify expected dimensions explicitly.
+
+**Local z-scores mistaken for physical parameters.** A latent z-score has a standard-normal marginal prior, not the same units as a growth rate, drug sensitivity, or measurement scale. Make all transformations explicit and document their units.
+
+**Hidden test outcomes leaking into inference.** Supplying a full `y` array in test data is not itself a leak if the test likelihood masks unavailable values and the mechanistic model does not read those outcomes. Check all preprocessing, features, and masks to ensure future measurements cannot affect prediction.
+
+**Missing data and NaNs.** Masked observations still require finite values at points where JAX evaluates intermediate expressions. Use safe finite placeholders and keep ODE solver time grids valid even for padded observations.
+
+**Unexpectedly narrow intervals.** Check whether `nGlobalSamples=None` has fixed population parameters at their posterior medians. That mode does not propagate global posterior uncertainty. Use positive `nGlobalSamples` when that uncertainty matters, and remember that approximate SVI posteriors may be underdispersed.
+
+**Poor convergence.** Rescale observations, inspect priors and parameter identifiability, and check whether the mechanistic solver produces finite gradients. For NUTS, examine chain mixing and convergence diagnostics; for SVI, inspect the loss trajectory and sensitivity to initialization.
+
+**Save/Load mismatch.** Restore the same model function, global prior function, data shapes, and compatible Method configuration. Python function objects are not serialized; names are metadata, not executable code.
+
+## 16. Verification and further reading
+
+The repository's `TESTING.md` explains how to run automated tests, while `METHOD_AUTHORING.md` documents the custom inference interface. The included `Examples/` directory contains NUTS, SVI, and Save/Load scripts. The one-page `docs/Cheatsheet.md` is a compact companion, not a replacement for this manual.
+
+Automated smoke and integration tests demonstrate that supported workflows execute; they do not by themselves establish parameter identifiability, calibrated credible intervals, or validity of a particular scientific model. For research claims, add simulation-based recovery and posterior predictive checks suited to the application.
