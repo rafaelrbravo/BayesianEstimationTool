@@ -1,0 +1,32 @@
+{% set name = "BayesianEstimationTool" %}
+{% set version = "0.1.0" %}
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+source:
+  path: ..
+build:
+  noarch: python
+  script: {{ PYTHON }} -m pip install . --no-deps --no-build-isolation -vv
+requirements:
+  host:
+    - python >=3.10
+    - pip
+    - setuptools >=69
+    - wheel
+  run:
+    - python >=3.10
+    - jax
+    - numpyro
+    - numpy
+    - cloudpickle
+test:
+  imports:
+    - BayesianEstimationTool
+about:
+  home: https://github.com/rafaelrbravo/BayesianEstimationTool
+  license: Apache-2.0
+  summary: Hierarchical Bayesian estimation and prediction for mechanistic models
+extra:
+  recipe-maintainers:
+    - rafaelrbravo
