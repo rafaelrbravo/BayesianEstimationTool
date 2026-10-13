@@ -46,7 +46,7 @@ BET supplies one individual's data to `ModelFn`; do not index a patient axis wit
 
 ## 3. Hierarchical local variables
 
-`localZNames=["growth", "response"]` introduces standardized normal latent variables for each individual. With multiple local variables, BET uses an LKJ prior for their Cholesky correlation structure, controlled by `lkjConcentration`. The user model converts standardized values into meaningful parameters.
+`localZNames=["growth", "response"]` introduces standardized normal latent variables for each individual. **These local `z` values are effectively z-scores:** each has a standard-normal marginal distribution (population mean 0 and standard deviation 1), so `z=0` is the population center and `z=1` is one population standard deviation above it **on the standardized latent scale**. They are not necessarily z-scores of the final physical parameters: the user model converts them into meaningful parameter values, often through a location/scale transformation followed by a nonlinear transform (such as `exp`). With multiple local variables, BET uses an LKJ prior for their Cholesky correlation structure, controlled by `lkjConcentration`; their standardized marginals remain normal, but the local variables can be correlated.
 
 ```python
 def model_fn(global_params, local_zs, data):
