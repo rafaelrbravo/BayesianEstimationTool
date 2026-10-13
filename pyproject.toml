@@ -1,16 +1,18 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "BayesianEstimationTool"
 version = "0.1.0"
-dependencies = [
-    "jax",
-    "numpyro",
-    "numpy",
-    "cloudpickle",
-]
+description = "Hierarchical Bayesian estimation and prediction for mechanistic models"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = ["jax", "numpyro", "numpy", "cloudpickle"]
+
+[project.urls]
+Repository = "https://github.com/rafaelrbravo/BayesianEstimationTool"
 
 [tool.setuptools]
 packages = ["BayesianEstimationTool"]
