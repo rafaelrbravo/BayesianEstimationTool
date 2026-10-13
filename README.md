@@ -22,7 +22,21 @@ The GitHub Actions test workflow regenerates the PDFs (and the Python-authored c
 
 ## Installation
 
-Install the package and its dependencies in your environment, then import it as:
+Install a released package from PyPI (once published):
+
+```bash
+python -m pip install BayesianEstimationTool
+```
+
+Until a PyPI release is available, install directly from GitHub:
+
+```bash
+python -m pip install git+https://github.com/rafaelrbravo/BayesianEstimationTool.git
+```
+
+For editable development from a checkout, run `python -m pip install -e .` in the repository root.
+
+A conda recipe is available at `conda-recipe/meta.yaml` for local builds and future conda-forge submission; it is not yet a published conda-forge package. After installation, import BET as:
 
 ```python
 import BayesianEstimationTool as bet
