@@ -327,3 +327,104 @@ heldout_scores = est.ScoreTestSamples(score)
 Here `testDataIdxs` must identify entries excluded from training. The example assumes `data["y"]` is a time series and `model_out["prediction"]` has the same shape. Adapt the mask to each entry's actual observation schedule when lengths differ. If observations are irregular or have different valid times, use a validity mask combined with the observation cutoff. Ensure the deterministic model does not use future outcomes as inputs, and make every intermediate calculation finite at padded positions.
 
 This call conditions local effects on the first three measurements, conditional on the selected global parameter state. With `nGlobalSamples=None` (the default), BET uses posterior medians for global parameters and the Cholesky factor; it does not integrate over their posterior variation. Set `nGlobalSamples` to a positive integer to repeat local inference across sampled global posterior states. This can be expensive, because BET runs the test inference separately for each selected state.
+
+## 20. End-to-end example: predicting longitudinal growth
+
+This tutorial connects population training, predictions for unseen individuals, and updating those predictions after observing the beginning of each individual's trajectory. It uses synthetic exponential-growth data so that no external dataset is required. The goal is to compare **population-only prediction** against **prediction conditioned on three measurements**, using the same trained population model.
+
+### Generate data and define the model
+
+```python
+import jax.numpy as jnp
+from jax import random
+import numpyro.distributions as dist
+from BayesianEstimationTool import Estimator, Svi
+
+n_people = 10
+times = jnp.linspace(0.0, 7.0, 8)
+key_g, key_noise = random.split(random.PRNGKey(42))
+true_g = 0.15 + 0.025 * random.normal(key_g, (n_people,))
+true_y = jnp.exp(true_g[:, None] * times[None, :])
+y = true_y + 0.05 * random.normal(key_noise, true_y.shape)
+data = {"time": jnp.tile(times, (n_people, 1)), "y": y}
+
+def global_prior(shapes):
+    return {
+        "g_mean": dist.Normal(0.15, 0.10),
+        "g_sd": dist.HalfNormal(0.10),
+        "noise": dist.HalfNormal(0.10),
+    }
+
+def model_fn(global_params, local_zs, data):
+    g = global_params["g_mean"] + global_params["g_sd"] * local_zs["g"]
+    return {"prediction": jnp.exp(g * data["time"])}
+
+def train_likelihood(global_params, local_zs, data, model_out):
+    return {"y": (data["y"], dist.Normal(model_out["prediction"], global_params["noise"]))}
+```
+
+The population parameters `g_mean` and `g_sd` describe the center and spread of growth rates. Each individual's `local_zs["g"]` is a standardized latent effect; the physical growth rate is `g_mean + g_sd * z`. The `noise` parameter describes measurement variation, not biological heterogeneity.
+
+### Train on six individuals
+
+```python
+est = Estimator(data, model_fn, localZNames=["g"],
+                GlobalPriorFn=global_prior, rngSeed=123)
+train_ids = list(range(6))
+test_ids = list(range(6, 10))
+
+est.Train(train_ids, train_likelihood,
+          Svi(numSteps=1500, numSamples=300, progressBar=False))
+```
+
+Only the first six individuals contribute to fitting the population distribution. The remaining four individuals are held out. For research applications, inspect convergence, posterior predictive behavior, and sensitivity to the prior; these short optimization settings are intended for demonstration.
+
+### Predict without seeing any test observations
+
+First define a score for the **future** measurements, at indices 3 through 7. Scoring can use held-out outcomes even though inference must not use them.
+
+```python
+def future_mae(model_out, data):
+    return jnp.mean(jnp.abs(model_out["prediction"][3:] - data["y"][3:]))
+
+est.Test(test_ids, nGlobalSamples=20, nLocalZSamples=100)
+before = est.ScoreTestSamples(future_mae)
+print("Population-only mean future MAE:", float(jnp.mean(before)))
+```
+
+Here BET samples 20 population posterior states and generates 100 local-effect draws for each state. None of the held-out individuals' observed `y` values inform their latent effects. The score array has shape `[20, 100, 4]`: global draw, local draw, and held-out individual.
+
+### Update predictions after three observations
+
+Next, define a test likelihood that reveals only the first three measurements. Masking is important: the remaining measurements must not affect inference.
+
+```python
+def test_likelihood(global_params, local_zs, data, model_out):
+    observed = jnp.arange(data["y"].shape[0]) < 3
+    prediction = model_out["prediction"]
+    safe_y = jnp.where(observed, data["y"], prediction)
+    return {
+        "y": (safe_y, dist.Normal(prediction, global_params["noise"]).mask(observed))
+    }
+
+est.Test(test_ids, TestLikelihoodFn=test_likelihood,
+         Method=Svi(numSteps=800, numSamples=100, progressBar=False),
+         nGlobalSamples=20)
+after = est.ScoreTestSamples(future_mae)
+print("Conditioned mean future MAE:", float(jnp.mean(after)))
+```
+
+BET now infers local growth effects from the first three observations for each held-out individual, conditional on each sampled population state. The score still evaluates measurements at indices 3 through 7, which were excluded from the test likelihood. This second test call replaces the previous test state; the `before` scores remain available because they were already stored in a separate variable.
+
+### Interpret the comparison
+
+Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize future absolute prediction errors across population draws, local draws, and held-out individuals. Conditioning on early measurements often improves prediction, but an improvement is not guaranteed in every small synthetic experiment.
+
+The two stages answer different questions:
+
+- **Population-only:** What can we predict for a new individual before observing their trajectory?
+- **Conditioned:** What can we predict after observing that individual's first three measurements?
+
+To inspect uncertainty in predicted trajectories rather than uncertainty in errors, define a score function that returns `model_out["prediction"]`. Summarize the posterior draw axes to obtain intervals for the latent mean trajectory. These intervals do not automatically include new measurement noise. For a stronger evaluation, repeat the experiment over multiple random seeds and vary the number of early observations.
+
+The same Train → Test → Score pattern works with a differentiable mechanistic ODE model in place of the analytic exponential model.
