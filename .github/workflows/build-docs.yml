@@ -50,7 +50,8 @@ jobs:
       - name: Verify generated manuals are non-empty
         run: python -c 'from pathlib import Path; from pypdf import PdfReader; files=[Path("docs/Manual.md"),Path("docs/Cheatsheet.md")]; assert all(p.exists() and p.stat().st_size > 0 for p in files); assert len(PdfReader("docs/Manual.pdf").pages) > 0'
       - name: Verify cheatsheet is exactly one PDF page
-        run: python -c 'from pypdf import PdfReader; n=len(PdfReader("docs/Cheatsheet.pdf").pages); print(f"Cheatsheet pages: {n}"); assert n == 1, f"Expected one-page cheatsheet, got {n} pages"'
+        run: |
+          python -c 'from pypdf import PdfReader; n=len(PdfReader("docs/Cheatsheet.pdf").pages); print(f"Cheatsheet pages: {n}"); assert n == 1, f"Expected one-page cheatsheet, got {n} pages"'
       - name: Upload generated documentation for review
         uses: actions/upload-artifact@v4
         with:
