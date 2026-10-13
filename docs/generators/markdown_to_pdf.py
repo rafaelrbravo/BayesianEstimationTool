@@ -1,45 +1,52 @@
-"""Convert a Markdown document directly to a print-ready PDF.
+"""Render Markdown to PDF using GitHub's Markdown API and GitHub Markdown CSS.
 
-Usage: python docs/generators/markdown_to_pdf.py docs/Manual.md
-Markdown remains authoritative; this script never writes or changes it.
+Requires GITHUB_TOKEN for private repositories, and Playwright Chromium.
+Markdown is read-only and remains the sole source of documentation content.
 """
 import argparse
+import os
 from pathlib import Path
 
-import markdown
-from weasyprint import HTML, CSS
+import requests
+from playwright.sync_api import sync_playwright
 
-CSS_TEXT = """
-@page { size: Letter; margin: 0.72in 0.76in; }
-html { font-family: -apple-system, BlinkMacSystemFont, "DejaVu Sans", sans-serif; color: #1f2328; font-size: 10pt; line-height: 1.55; }
-body { margin: 0; overflow-wrap: anywhere; }
-h1, h2, h3, h4 { line-height: 1.25; break-after: avoid; font-weight: 650; }
-h1 { font-size: 2em; padding-bottom: .3em; border-bottom: 1px solid #d1d9e0; }
-h2 { font-size: 1.5em; margin-top: 1.4em; padding-bottom: .25em; border-bottom: 1px solid #d1d9e0; }
-h3 { font-size: 1.25em; margin-top: 1.2em; }
-p, ul, ol, pre, table, blockquote { margin: 0 0 1em; }
-ul, ol { padding-left: 2em; }
-li + li { margin-top: .2em; }
-code, pre { font-family: "DejaVu Sans Mono", monospace; font-size: .88em; }
-code { background: #eff1f3; border-radius: 3px; padding: .12em .3em; }
-pre { padding: 1em; background: #f6f8fa; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; break-inside: avoid; }
-pre code { padding: 0; background: transparent; }
-table { border-collapse: collapse; width: 100%; font-size: .94em; }
-th, td { border: 1px solid #d1d9e0; padding: .4em .7em; text-align: left; }
-tr:nth-child(even) { background: #f6f8fa; }
-thead { background: #eff1f3; }
-blockquote { padding: 0 1em; border-left: .25em solid #d1d9e0; color: #59636e; }
-a { color: #0969da; text-decoration: none; }
-img { max-width: 100%; }
-hr { border: 0; border-top: 1px solid #d1d9e0; }
+REPO = "rafaelrbravo/BayesianEstimationTool"
+CSS_URL = "https://raw.githubusercontent.com/sindresorhus/github-markdown-css/main/github-markdown.css"
+PRINT_CSS = """
+@page { size: Letter; margin: 0.65in; }
+html, body { background: white !important; }
+body { margin: 0; }
+.markdown-body { box-sizing: border-box; min-width: 0; max-width: none; padding: 0; }
+.markdown-body pre, .markdown-body table { break-inside: auto; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3,
+.markdown-body h4 { break-after: avoid; }
+.markdown-body pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.markdown-body img { max-width: 100%; }
 """
 
 def convert(source: Path, destination: Path | None = None) -> Path:
     source = source.resolve()
-    destination = destination or source.with_suffix(".pdf")
-    md = source.read_text(encoding="utf-8")
-    html = markdown.markdown(md, extensions=["extra", "sane_lists", "fenced_code", "tables", "toc"])
-    HTML(string=f"<!doctype html><html><meta charset='utf-8'><body>{html}</body></html>", base_url=str(source.parent)).write_pdf(str(destination), stylesheets=[CSS(string=CSS_TEXT)])
+    destination = (destination or source.with_suffix(".pdf")).resolve()
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("GITHUB_TOKEN is required to render private-repository Markdown through GitHub.")
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    response = requests.post("https://api.github.com/markdown",
+        headers=headers, json={"text": source.read_text(encoding="utf-8"), "mode": "gfm", "context": REPO}, timeout=60)
+    response.raise_for_status()
+    css_response = requests.get(CSS_URL, timeout=60)
+    css_response.raise_for_status()
+    html = ("<!doctype html><html><head><meta charset='utf-8'></head>"
+            "<body><article class='markdown-body'>" + response.text + "</article></body></html>")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        page.set_content(html, wait_until="load")
+        page.add_style_tag(content=css_response.text)
+        page.add_style_tag(content=PRINT_CSS)
+        page.emulate_media(media="print")
+        page.pdf(path=str(destination), format="Letter", print_background=True, prefer_css_page_size=True)
+        browser.close()
     return destination
 
 if __name__ == "__main__":
