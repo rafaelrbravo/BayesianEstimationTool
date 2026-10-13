@@ -24,10 +24,14 @@ from BayesianEstimationTool import Estimator, Svi
 data = {"x": jnp.arange(8.0), "y": jnp.arange(8.0) + 0.2}
 
 def global_prior(shapes):
-    return {"slope": dist.Normal(1.0, 0.5)}
+    return {
+        "slope": dist.Normal(1.0, 0.5),
+        "offset_sd": dist.HalfNormal(0.5),
+    }
 
 def model_fn(global_params, local_zs, data):
-    return {"prediction": global_params["slope"] * data["x"]}
+    offset = global_params["offset_sd"] * local_zs["offset"]
+    return {"prediction": global_params["slope"] * data["x"] + offset}
 
 def likelihood(global_params, local_zs, data, model_out):
     return {"y": (data["y"], dist.Normal(model_out["prediction"], 0.5))}
@@ -35,14 +39,16 @@ def likelihood(global_params, local_zs, data, model_out):
 def score(model_out, data):
     return jnp.abs(model_out["prediction"] - data["y"])
 
-est = Estimator(data, model_fn, GlobalPriorFn=global_prior, rngSeed=1)
+est = Estimator(data, model_fn, localZNames=["offset"],
+                 GlobalPriorFn=global_prior, rngSeed=1)
 est.Train([0, 1, 2, 3, 4, 5], likelihood,
-          Svi(numSteps=200, numSamples=100, progressBar=False))
-est.Test([6, 7], nLocalZSamples=10)
+          Svi(numSteps=500, numSamples=100, progressBar=False))
 train_scores = est.ScoreTrainSamples(score)
+est.Test([6, 7], nLocalZSamples=100)
+test_scores = est.ScoreTestSamples(score)
 ```
 
-BET supplies one individual's data to `ModelFn`; do not index a patient axis within the function.
+BET supplies one individual's data to `ModelFn`; do not index a patient axis within the function. This example defines a local offset because the current `Test()` implementation requires at least one name in `localZNames`. `test_scores` has global-state, local-draw, and test-entry axes before any score-specific axes; inspect these dimensions before summarizing.
 
 ## 3. Hierarchical local variables
 
@@ -295,3 +301,29 @@ With `nGlobalSamples=None`, Test uses the posterior median for global parameters
 When no test likelihood is supplied, local effects are drawn from the learned population distribution. When a likelihood is supplied, the test method updates local effects using the observations represented by that likelihood, conditional on the selected global state. If the scientific target is prediction after one or more measurements, ensure the likelihood contains only measurements available at that prediction time. Score held-out outcomes separately and do not use them for local inference.
 
 A score array is not itself a posterior predictive interval. To report uncertainty for a prediction, retain posterior predictions or scores over draws and calculate summaries or quantiles along the correct draw axes. State explicitly whether population uncertainty was propagated and whether scores are absolute error, squared error, log score, or another metric.
+
+## 19. Conditioning on partial observations: a concrete pattern
+
+A common use case is to predict the rest of a trajectory after observing only its first few measurements. Use the test likelihood to expose only those measurements to inference. Keep the score function separate so that it can evaluate the entire trajectory, including held-out measurements.
+
+```python
+def test_likelihood(global_params, local_zs, data, model_out):
+    # Assumes each entry has observations on the same sorted time grid.
+    n_observed = 3
+    observed = jnp.arange(data["y"].shape[-1]) < n_observed
+    prediction = model_out["prediction"]
+    # Replace held-out values before likelihood evaluation. The mask controls
+    # which finite values contribute to the log likelihood.
+    safe_y = jnp.where(observed, data["y"], prediction)
+    return {
+        "y": (safe_y, dist.Normal(prediction, 0.2).mask(observed))
+    }
+
+est.Test(testDataIdxs, TestLikelihoodFn=test_likelihood,
+         Method=Svi(numSteps=1000, numSamples=200, progressBar=False))
+heldout_scores = est.ScoreTestSamples(score)
+```
+
+Here `testDataIdxs` must identify entries excluded from training. The example assumes `data["y"]` is a time series and `model_out["prediction"]` has the same shape. Adapt the mask to each entry's actual observation schedule when lengths differ. If observations are irregular or have different valid times, use a validity mask combined with the observation cutoff. Ensure the deterministic model does not use future outcomes as inputs, and make every intermediate calculation finite at padded positions.
+
+This call conditions local effects on the first three measurements, conditional on the selected global parameter state. With `nGlobalSamples=None` (the default), BET uses posterior medians for global parameters and the Cholesky factor; it does not integrate over their posterior variation. Set `nGlobalSamples` to a positive integer to repeat local inference across sampled global posterior states. This can be expensive, because BET runs the test inference separately for each selected state.
