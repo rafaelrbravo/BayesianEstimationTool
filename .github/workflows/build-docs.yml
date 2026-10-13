@@ -1,5 +1,5 @@
 name: Build BET documentation
-on:
+"on":
   push:
     branches: [main]
   pull_request:
