@@ -42,7 +42,7 @@ An **entry** is one independently indexed unit, such as a patient, experiment, o
 
 With multiple local variables, a learned Cholesky factor can represent correlations among their standardized effects. Positive correlation means entries high in one effect tend to be high in another **before conditioning on individual observations**. Once conditioned on data, posterior local values need not have sample mean zero or standard deviation one.
 
-**Training and testing serve different purposes.** Training uses selected entries to estimate shared parameters, correlations, and training-specific local effects. Testing uses the learned population state to predict outcomes for unseen entries. Without a test likelihood, BET samples local effects from the learned population distribution. With a test likelihood and inference Method, it conditions those effects on observations available for the new entry. For out-of-sample evaluation, exclude test entries from training.
+**Training and testing serve different purposes.** Training uses selected entries to estimate shared parameters, correlations, and training-specific local effects. Testing uses the learned population state to predict outcomes for unseen entries. Without a test likelihood, BET samples local effects from the learned population distribution. With a test likelihood and inference Method, it conditions those effects on observations available for the new entry. For out-of-sample evaluation, exclude test entries from training; training itself estimates shared parameters, correlations, and training-specific local effects.
 
 ### Designing a BET model
 
@@ -338,7 +338,7 @@ Custom inference methods implement `_Fit(ModelFn, rngKey, samplePrefixes)` and `
 
 **Shape mismatch.** Start with one entry and print array shapes before tracing. All top-level data arrays must have the same entry count, and per-entry model outputs must match likelihood observation shapes. Broadcasting can silently produce an incorrect likelihood, so verify dimensions explicitly.
 
-**Local z-scores mistaken for physical parameters.** A local z-score has a standard-normal marginal prior and is not measured in units of growth rate, drug sensitivity, or observation noise. Specify each transformation to physical units explicitly.
+**Local z-scores mistaken for physical parameters.** A local z-score has a standard-normal marginal prior and is not measured in units of growth rate, drug sensitivity, or observation noise. Specify each transformation to physical units explicitly, and document the resulting units.
 
 **Hidden test outcomes leaking into inference.** Keeping the full `y` array for scoring is safe only if the test likelihood masks unavailable outcomes and the mechanistic model does not read them. Check preprocessing, features, and masks to prevent future measurements from influencing predictions.
 
