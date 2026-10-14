@@ -36,13 +36,13 @@ Rather than estimating each patient's growth rate independently, BET uses a **hi
 
 BET separates the scientific model from hierarchical inference. You provide a deterministic model for one entry, optional priors for shared parameters, and an observation likelihood. BET handles population training, new-entry prediction, posterior sample bookkeeping, and scoring. It uses JAX to evaluate the model across entries and posterior draws, so model functions must use JAX-compatible operations and avoid side effects.
 
-An entry is one independently indexed unit (for example, a patient, experiment, or simulated replicate). Arrays share a leading entry axis. Observations within an entry, such as repeated measurements over time, belong on trailing axes and are modeled jointly by that entry's likelihood. Treating repeated measurements as separate entries would change the hierarchical interpretation.
+An **entry** is one independently indexed unit, such as a patient, experiment, or simulated replicate. Every data array has an entry axis first. Repeated observations within an entry occupy trailing axes and are modeled together by that entry's likelihood. Treating those observations as separate entries changes the hierarchical interpretation.
 
 **Shared parameters and local z-scores.** Global parameters are shared across training entries; local latent effects vary by entry and have standard-normal marginal priors. For example, a model might define a positive rate as `rate_i = exp(log_rate_mean + log_rate_sd * z_i)`. Here `z_i` is a z-score on the log-rate scale, while `rate_i` is lognormally distributed on its physical scale. The location and scale parameters are supplied by the user model or inferred through `GlobalPriorFn`; BET does not automatically invent a mean and scale for every local variable.
 
-When there are multiple local variables, their joint distribution can be correlated through the learned Cholesky factor. A positive correlation means that entries with unusually high values of one standardized effect tend also to have high values of another, **before conditioning on their individual observations**. Posterior local values conditioned on data need not have sample mean zero or standard deviation one.
+With multiple local variables, a learned Cholesky factor can represent correlations among their standardized effects. Positive correlation means entries high in one effect tend to be high in another **before conditioning on individual observations**. Once conditioned on data, posterior local values need not have sample mean zero or standard deviation one.
 
-**Training and testing serve different purposes.** Training uses selected entries to estimate shared parameters, correlations, and training-specific local effects. Testing uses the learned population state to predict outcomes for unseen entries. Without a test likelihood, local effects are sampled from the learned population distribution. With a test likelihood and an inference Method, the local effects are conditioned on the new entry's available observations. A test set must not be included in training if the goal is out-of-sample evaluation.
+**Training and testing serve different purposes.** Training uses selected entries to estimate shared parameters, correlations, and training-specific local effects. Testing uses the learned population state to predict outcomes for unseen entries. Without a test likelihood, BET samples local effects from the learned population distribution. With a test likelihood and inference Method, it conditions those effects on observations available for the new entry. For out-of-sample evaluation, exclude test entries from training.
 
 ### Designing a BET model
 
@@ -55,7 +55,7 @@ When there are multiple local variables, their joint distribution can be correla
 7. Select held-out indices. Call `Test` without a likelihood for population prediction, or provide a test likelihood and Method for inference using partial observations.
 8. Define a score function returning a scalar or array for one entry and evaluate `ScoreTrainSamples` or `ScoreTestSamples`. Summarize over posterior axes deliberately; do not confuse draw axes with entry axes.
 
-A useful design rule is that **data determine the observation model, not the mechanistic model's parameter names**. Baseline covariates can enter `ModelFn` or global-parameter transformations, while observation masks determine which outcomes are used for inference.
+Keep the mechanistic model's parameters distinct from the observation process. Baseline covariates may enter `ModelFn` or transformations of global parameters; observation masks determine which outcomes contribute to inference.
 
 ## Part 2: Worked example
 
@@ -149,14 +149,14 @@ BET now infers each held-out individual's local growth effect from the first thr
 
 #### Interpret the comparison
 
-Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize future absolute prediction errors across population draws, local draws, and held-out individuals. Conditioning on early measurements often improves prediction, but an improvement is not guaranteed in every small synthetic experiment.
+Both `before` and `after` have shape `[20, 100, 4]`. Averaging their values summarizes future absolute errors across population draws, local draws, and held-out individuals. Early measurements often improve predictions, but not necessarily in every small synthetic experiment.
 
 The two stages answer different questions:
 
 - **Population-only:** What can we predict for a new individual before observing their trajectory?
 - **Conditioned:** What can we predict after observing that individual's first three measurements?
 
-To inspect uncertainty in predicted trajectories rather than uncertainty in errors, define a score function that returns `model_out["prediction"]`. Summarize the posterior draw axes to obtain intervals for the latent mean trajectory. These intervals do not automatically include new measurement noise. For a stronger evaluation, repeat the experiment over multiple random seeds and vary the number of early observations.
+To examine uncertainty in trajectories rather than errors, use a score function returning `model_out["prediction"]` and summarize its posterior draw axes. The resulting intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
 
 The same Train → Test → Score workflow also applies to differentiable mechanistic ODE models.
 
