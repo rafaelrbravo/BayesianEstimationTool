@@ -30,7 +30,7 @@ Rather than estimating each patient's growth rate independently, BET uses a **hi
 
 **Notation used throughout:** `[]` denotes a list or array (for example, `[0, 1]`); `{}` denotes a dictionary mapping names to values (for example, `{"time": times}`); `(a, b)` denotes a tuple; and `[N, T]` describes an array shape with `N` entries and `T` time positions. These symbols indicate Python data structures, not additional BET syntax.
 
-## Part 1: Introduction and core concepts
+## Part 1: Core concepts
 
 ### Overview
 
@@ -57,7 +57,7 @@ When there are multiple local variables, their joint distribution can be correla
 
 A useful design rule is that **data determine the observation model, not the mechanistic model's parameter names**. Baseline covariates can enter `ModelFn` or global-parameter transformations, while observation masks determine which outcomes are used for inference.
 
-## Part 2: Complete worked example
+## Part 2: Worked example
 
 ### Predicting longitudinal growth
 
@@ -160,7 +160,7 @@ To inspect uncertainty in predicted trajectories rather than uncertainty in erro
 
 The same Train → Test → Score workflow also applies to differentiable mechanistic ODE models.
 
-## Part 3: Model components and hierarchical effects
+## Part 3: Model components and local effects
 
 ### Components and function contracts
 
@@ -196,7 +196,7 @@ def model_fn(global_params, local_zs, data):
 
 Define the population means, scales, and transformations you need explicitly; BET does not create them automatically for each local variable.
 
-## Part 4: Training and inference methods
+## Part 4: Inference methods
 
 ### Choosing and configuring NUTS or SVI
 
@@ -208,7 +208,7 @@ Define the population means, scales, and transformations you need explicitly; BE
 
 **Method selection.** NUTS is often preferable when reliable posterior uncertainty is central and runtime is manageable. SVI can be faster for large problems, but an apparently stable loss curve does not establish calibrated uncertainty. Compare posterior predictive behavior and uncertainty against NUTS or simulated ground truth when feasible. BET supports configured Method instances; using Method classes can reconstruct previously saved configuration when available.
 
-## Part 5: Testing, conditioning, and scoring
+## Part 5: Testing and scoring
 
 ### Training, testing, and score dimensions
 
@@ -268,7 +268,7 @@ The estimator retains the most recent training and test state. A new call to `Tr
 
 The precise model-output shape depends on what `ModelFn` returns. Always write down expected axes before aggregating: average over posterior draws to summarize uncertainty, and over entries only when that matches the scientific question. Avoid flattening global and local draws together without considering how they were generated.
 
-## Part 6: Real-world data and numerical modeling
+## Part 6: Missing data and numerical models
 
 ### Variable-length sequences and masking
 
@@ -324,7 +324,7 @@ def model_fn(global_params, local_zs, data):
 
 With padded time grids, ensure solver times satisfy the solver's ordering requirements. A common approach is to use a shared regular solver grid and interpolate to each individual's observation times. Beware duplicate or unsorted padded times.
 
-## Part 7: Persistence and extension
+## Part 7: Persistence and extensibility
 
 ### Saving, loading, and custom methods
 
@@ -402,7 +402,7 @@ The signatures below correspond to the public exports `Estimator`, `Nuts`, `Svi`
 
 `ValidateMethod(method)` checks a custom Method's required interface; see `METHOD_AUTHORING.md` for implementation details. Public exports are defined in package `__init__.py`.
 
-## Part 9: Verification and testing
+## Part 9: Verification
 
 ### Verification and further reading
 
