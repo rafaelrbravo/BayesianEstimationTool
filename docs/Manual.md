@@ -13,7 +13,7 @@ Consider a growth model fitted to several patients. Everyone follows the same ma
 5. **Test.** Predict for unseen entries, optionally conditioning on their available observations.
 6. **Score and inspect.** Compare predictions with held-out data and examine posterior uncertainty.
 
-### The main pieces
+### Core components
 
 | Component | Purpose | You provide |
 | --- | --- | --- |
