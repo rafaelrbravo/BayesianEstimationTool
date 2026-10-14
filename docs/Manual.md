@@ -110,6 +110,8 @@ est.Train(train_ids, train_likelihood,
 
 The first six individuals train the population model; the other four are held out. The short optimization run is for demonstration only. In research applications, inspect convergence, posterior predictive behavior, and prior sensitivity.
 
+The conditioning example below runs a separate SVI fit for each of 20 sampled population states. It is intended to illustrate the workflow, not to be a quick smoke test; reduce `nGlobalSamples` and SVI steps when first checking that the code executes.
+
 #### Predict without seeing any test observations
 
 First define a score for the **future** measurements, at indices 3 through 7. Scoring can use held-out outcomes even though inference must not use them.
