@@ -218,7 +218,7 @@ Define the population means, scales, and transformations you need explicitly; BE
 
 `ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[posterior_draw, train_individual, ...score_shape]`.
 
-`ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`. For local-free models, save model outputs if scoring a test run.
+`ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`. Because `Test` currently requires at least one local Z, local-free models cannot use this test-scoring workflow as described. If that restriction changes, check whether model outputs must be saved before scoring.
 
 ### Interpreting test-time uncertainty
 
