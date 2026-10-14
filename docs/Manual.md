@@ -100,12 +100,20 @@ BET supplies one individual's data to `ModelFn`; do not index a patient axis wit
 
 A standardized local effect is effectively a **z-score on its latent scale**: zero is the population center, and +1 is one marginal standard deviation above that center before conditioning on the entry's observations. The scientific parameter itself need not be a z-score after transformation. For example, `rate = exp(log_rate_mean + log_rate_sd * z)` maps a standardized effect into a positive rate. `z=0` gives the median rate, while `z=1` multiplies it by `exp(log_rate_sd)`.
 
-`localZNames=["growth", "response"]` introduces standardized normal latent variables for each individual. With multiple local variables, BET uses an LKJ prior for their Cholesky correlation structure, controlled by `lkjConcentration`. The user model converts standardized values into meaningful parameters. Correlation is useful when traits tend to vary together: learning that a patient has a high growth effect can inform predictions about a correlated response effect, even when response observations are sparse.
+Extend the tumor-growth example by adding treatment. Each patient now has two parameters: a **growth rate**, describing how quickly the tumor grows without treatment, and a **treatment-response parameter**, describing how strongly treatment slows that growth. Both may vary between patients. For instance, patients whose tumors grow faster might also tend to respond more strongly to treatment, or the relationship might be reversed. Assuming the parameters vary independently would miss that population-level relationship.
+
+Set `localZNames=["growth", "response"]` to represent both sources of patient-to-patient variation as standardized local effects. BET can learn their **correlation** from the training patients. A positive correlation means patients with above-average growth effects tend also to have above-average response effects; a negative correlation means higher growth effects tend to accompany lower response effects. These are correlations between the standardized effects, not necessarily between the parameters after arbitrary transformations.
+
+To represent this dependence while keeping each local effect marginally standard normal, BET uses a **Cholesky factor** of a correlation matrix. A correlation matrix specifies how pairs of effects vary together; its Cholesky factor is a triangular matrix that can transform independent standard-normal draws into correlated ones. BET places an LKJ prior on the correlation structure, with `lkjConcentration` controlling how strongly the prior favors correlations near zero. The inferred relationship can improve predictions for a new patient: measurements that inform their growth rate can also inform their likely treatment response, even if response measurements are limited.
+
+The model below illustrates the parameter transformation. It is a schematic treatment model, not a validated description of tumor dynamics:
 
 ```python
 def model_fn(global_params, local_zs, data):
-    growth = jnp.exp(global_params["log_growth"] + 0.3 * local_zs["growth"])
-    return {"prediction": data["baseline"] * jnp.exp(growth * data["time"])}
+    growth = jnp.exp(global_params["log_growth_mean"] + global_params["log_growth_sd"] * local_zs["growth"])
+    response = jnp.exp(global_params["log_response_mean"] + global_params["log_response_sd"] * local_zs["response"])
+    net_rate = growth - response * data["treatment"]
+    return {"prediction": data["baseline"] * jnp.exp(net_rate * data["time"])}
 ```
 
 BET does not automatically infer an independent population scale or mean for each local variable; define these transformations explicitly when required.
