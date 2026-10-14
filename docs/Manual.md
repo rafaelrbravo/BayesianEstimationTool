@@ -394,6 +394,8 @@ The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `V
 
 `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` scores the most recent test state. Its output axes are global draw, local draw, test entry, then any score dimensions. Check what each axis represents before aggregating uncertainty.
 
+**Models without local effects:** Set `saveModelOut=True` when calling `Test` if you plan to use `ScoreTestSamples`. Without saved model outputs, the scoring implementation expects at least one local-effect array and cannot determine the local-draw axis for a local-free model.
+
 #### Persistence
 
 `Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True, saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False)` writes a compressed state file; with `fileName=None`, it returns a record. The flags control whether local draws, model outputs, and data are included. Saving data improves portability but increases file size and may create data-sensitivity obligations.
