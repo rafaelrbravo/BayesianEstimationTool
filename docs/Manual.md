@@ -28,19 +28,35 @@ Consider a growth model fitted to several patients. Everyone follows the same ma
 
 **Notation used throughout:** `[]` denotes a list or array (for example, `[0, 1]`); `{}` denotes a dictionary mapping names to values (for example, `{"time": times}`); `(a, b)` denotes a tuple; and `[N, T]` describes an array shape with `N` entries and `T` time positions. These symbols indicate Python data structures, not additional BET syntax.
 
-## 1. What BET does and why
+## 1. Overview and statistical framework
 
+BET is a Python framework for hierarchical Bayesian inference with user-defined mechanistic models. It is designed for datasets containing multiple related **entries**—such as patients, experiments, or replicates—whose outcomes follow a common model but whose parameters may differ. BET combines shared population parameters, correlated entry-specific latent effects, and observation likelihoods in a single inference workflow.
 
-BET separates **model specification** from the recurring hierarchical inference workflow. The user supplies an entry-level deterministic model, an optional distributional prior for shared parameters, and an observation likelihood. BET handles population training, generation or conditioning of local effects for new entries, posterior sample bookkeeping, and scoring.
+### Hierarchical model
 
-An entry is one independently indexed unit (for example, a patient, experiment, or simulated replicate). Arrays share a leading entry axis. Observations within an entry, such as repeated measurements over time, belong on trailing axes and are modeled jointly by that entry's likelihood. Treating repeated measurements as separate entries would change the hierarchical interpretation.
+For entry `i`, let `d_i` denote its inputs and covariates, `z_i` its standardized latent effects, and `g` the parameters shared across entries. A deterministic user-defined function `ModelFn(g, z_i, d_i)` produces predicted outputs `m_i`. A user-defined likelihood describes the observed measurements `y_i` conditional on these predictions and any relevant parameters.
 
-**Population parameters versus local z-scores.** Global parameters are shared across training entries. Local latent values represent entry-to-entry variation and have standardized normal marginal priors. For example, a model might define a positive rate as `rate_i = exp(log_rate_mean + log_rate_sd * z_i)`. Here `z_i` is a z-score on the log-rate scale, while `rate_i` is lognormally distributed on its physical scale. The location and scale parameters are supplied by the user model or inferred through `GlobalPriorFn`; BET does not automatically invent a mean and scale for every local variable.
+Each component has a distinct role:
 
-When there are multiple local variables, their joint distribution can be correlated through the learned Cholesky factor. A positive correlation means that entries with unusually high values of one standardized effect tend also to have high values of another, **before conditioning on their individual observations**. Posterior local values conditioned on data need not have sample mean zero or standard deviation one.
+- **Global parameters (`g`)** are common to all entries and can include population means, population scales, measurement-noise parameters, or other shared quantities. Their priors are specified by `GlobalPriorFn`.
+- **Local latent effects (`z_i`)** represent between-entry variability. BET assigns standardized normal marginal priors and, for multiple effects, a learnable correlation structure. `ModelFn` transforms these effects into scientifically meaningful parameter values.
+- **Mechanistic predictions (`m_i`)** are computed by the user's deterministic model for one entry.
+- **Observation likelihoods** relate predictions to measurements, including their uncertainty and any observation masks.
 
-**Training and new-entry inference are different tasks.** Training uses selected entries' observations to estimate shared parameters, the correlation structure, and training-specific local effects. Testing uses that trained population state to generate predictions for previously unseen entries. Without a test likelihood, local effects are sampled from the learned population distribution. With a test likelihood and an inference Method, the local effects are conditioned on the new entry's available observations. A test set must not be included in training if the goal is out-of-sample evaluation.
+For example, a positive entry-specific growth rate could be defined as `rate_i = exp(g["log_rate_mean"] + g["log_rate_sd"] * z_i["rate"])`. BET models the standardized effect, while the user determines its physical interpretation and transformation.
 
+### Population inference and prediction for new entries
+
+**Training** uses observations from selected entries to infer the joint posterior of shared parameters, local effects, and their correlation structure. **Testing** transfers the learned population information to entries excluded from training. Two testing modes address different scientific questions:
+
+1. **Population prediction:** With no test likelihood, draw local effects for a new entry from the learned population distribution and generate predictions without conditioning on that entry's outcomes.
+2. **Observation-conditioned prediction:** With a test likelihood and inference method, infer the new entry's local effects using only its available observations, then generate updated predictions.
+
+BET also provides posterior-sample scoring and persistence. It does not define the mechanistic equations, choose a scientifically appropriate likelihood, or guarantee posterior calibration; these remain modeling and validation responsibilities.
+
+### Data organization
+
+An entry is the unit over which the hierarchy varies. Every array in `data` has the same leading entry dimension; trailing dimensions can represent time points, features, or spatial locations. Multiple measurements from one patient belong to the same entry, rather than being treated as independent entries. Sections below specify the function contracts and demonstrate the workflow in code.
 
 ## 2. Components and function contracts
 
