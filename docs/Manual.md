@@ -390,7 +390,7 @@ The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `V
 
 #### Scoring
 
-`ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` scores training posterior predictions. Its output axes are posterior draw, training entry, then any score dimensions.
+`ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` scores training posterior predictions. Its output axes are posterior draw, training entry, then any score dimensions. If the model has local Zs, training must retain either local posterior draws (`saveLocalZs=True`, the default) or model outputs (`saveModelOut=True`); otherwise training scores cannot be reconstructed.
 
 `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` scores the most recent test state. Its output axes are global draw, local draw, test entry, then any score dimensions. Check what each axis represents before aggregating uncertainty.
 
