@@ -32,7 +32,6 @@ Rather than estimating each patient's growth rate independently, BET uses a **hi
 
 ## 1. Overview
 
-
 BET separates **model specification** from the recurring hierarchical inference workflow. The user supplies an entry-level deterministic model, an optional distributional prior for shared parameters, and an observation likelihood. BET handles population training, generation or conditioning of local effects for new entries, posterior sample bookkeeping, and scoring.
 
 An entry is one independently indexed unit (for example, a patient, experiment, or simulated replicate). Arrays share a leading entry axis. Observations within an entry, such as repeated measurements over time, belong on trailing axes and are modeled jointly by that entry's likelihood. Treating repeated measurements as separate entries would change the hierarchical interpretation.
@@ -47,7 +46,7 @@ When there are multiple local variables, their joint distribution can be correla
 ## 2. Components and function contracts
 
 
-
+<!--somewhere while introducing BET you should explain that BET uses a parallel JAX-based architecture, but hides that from the user interface. this is one of the coolest aspects of the package so it's worth highlighting-->
 
 `Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)` takes a dictionary of arrays. The first axis of each data array indexes individuals; all arrays have the same number of individuals. Remaining axes can represent times, features, or spatial coordinates.
 
@@ -136,6 +135,7 @@ Masking is useful whenever entries have different numbers of measurements, a sen
 
 Pad individual time series to a common length `T`, storing `time`, `y`, and a boolean `valid` mask as `[N, T]` arrays. Padded entries are storage placeholders, not observations.
 
+<!--I think using the last valid value as the padded entries worked the best, not 0-->
 ```python
 data = {
     "time": jnp.array([[0., 1., 2.], [0., 3., 0.]]),
@@ -160,7 +160,7 @@ To hide additional data during testing, store a separate observation mask, such 
 
 ## 7. JAX differential equation solvers
 
-
+<!--probably just omit diffrax here, except possibly to say that it hasn't worked well with BET's parallel architecture-->
 The model function may call JAX-compatible ODE solvers, including `jax.experimental.ode.odeint` or Diffrax. Keep solver inputs JAX arrays, use differentiable operations, and return outputs at the observation times. Diffrax is an optional external dependency, not part of BET's installation requirements. Diffrax offers a broader solver ecosystem, but in the project's experience `jax.experimental.ode.odeint` has been more reliable with BET in some workflows; this is practical experience, not a universal performance or compatibility guarantee. Validate solver behavior on your specific model.
 
 ```python
@@ -180,6 +180,7 @@ With padded time grids, ensure solver times satisfy the solver's ordering requir
 
 ## 8. Numerical stability and diagnostics
 
+<!--this should be explained directly with masking, as the two are too related to separate.-->
 Scale observations and model outputs to reasonable ranges, and use likelihood scales reflecting measurement noise rather than arbitrary tiny numbers. Extremely large residuals or near-zero noise can produce unstable log-probabilities and gradients. Replace missing observations with safe values before masking, and ensure model outputs remain finite even at padded positions. Use `jax.debug.print`, `jax.numpy.isfinite`, and small synthetic examples to isolate shape or gradient errors.
 
 For multiple individuals, check each axis and broadcasting rule explicitly. Test the model and likelihood on one individual before fitting the population. Use posterior predictive checks; a successful NUTS or SVI run does not guarantee a scientifically adequate model.
@@ -191,10 +192,12 @@ For multiple individuals, check each axis and broadcasting rule explicitly. Test
 Custom inference methods must implement `_Fit(ModelFn, rngKey, samplePrefixes)` and `_SaveArgs()`. Run `ValidateMethod(method)` before use. See `METHOD_AUTHORING.md` for the minimum viable implementation and optional features.
 
 ## 10. Test strategy
+<!--this section (Test strategy) is pretty miscelaneous information, it should go at the end of the manual-->
 
 The regression suite exercises NUTS, SVI, scoring, validation, and Save/Load. Scientific validation additionally requires synthetic hierarchical parameter recovery, population-to-new-individual transfer with varying observation counts, and numerical equivalence after persistence. See `TESTING.md` for the test invocation.
 
 ## 11. Model design: step-by-step
+<!--11. should go near the beginning, as it is essential information for understanding how bet works, also we don't need 2 complete examples, take only what is necessary to show how the main train, test, score pipeline works-->
 
 1. Prepare `data` as a dictionary of equally long first-axis arrays. Decide which trailing axes represent time, features, or spatial positions.
 2. Implement `ModelFn(globalParams, localZs, data)` for **one entry**. Return named arrays or scalars in a dictionary. Do not sample NumPyro random variables in this deterministic model function.
@@ -253,6 +256,7 @@ The final test call draws new local intercepts from the learned population; it d
 
 `Svi(numSteps=10000, numSamples=2000, stepSize=0.01, numParticles=1, progressBar=True, medianSamples=50, multivariate=False)` optimizes a variational approximation with Adam and an ELBO objective. `numSteps` is the number of optimization updates; `numSamples` controls approximate posterior draws generated after optimization; `stepSize` is Adam's learning rate; `numParticles` controls Monte Carlo particles for the ELBO; and `medianSamples` controls initialization. `multivariate=False` uses `AutoNormal`; `True` uses `AutoMultivariateNormal`, which can represent posterior covariance but may be expensive in large hierarchical models.
 
+<!--explain that this list of methods can be expanded-->
 **Method selection.** NUTS is often preferable when reliable posterior uncertainty is central and runtime is manageable. SVI can be faster for large problems, but an apparently stable loss curve does not establish calibrated uncertainty. Compare posterior predictive behavior and uncertainty against NUTS or simulated ground truth when feasible. BET supports configured Method instances; using Method classes can reconstruct previously saved configuration when available.
 
 ## 14. Detailed public API reference
@@ -330,7 +334,7 @@ The repository's `TESTING.md` explains how to run automated tests, while `METHOD
 Automated smoke and integration tests demonstrate that supported workflows execute; they do not by themselves establish parameter identifiability, calibrated credible intervals, or validity of a particular scientific model. For research claims, add simulation-based recovery and posterior predictive checks suited to the application.
 
 ## 17. Return values, sample axes, and state
-
+<!--this kind of information also belongs earlier on, as it is important to understanding how bet works-->
 The estimator retains the most recent training and test state. A new call to `Train` clears the prior test state. A new call to `Test` replaces the previous test state. Score functions operate on this stored state; they do not refit the model.
 
 - `Train(...)` returns the inference method's output object. For NUTS this is NumPyro's MCMC object; for SVI it is the SVI result containing optimized parameters and losses. BET also stores the posterior samples it needs for later testing and scoring.
