@@ -206,7 +206,7 @@ Define population means, scales, and transformations explicitly; BET does not cr
 
 `Svi(numSteps=10000, numSamples=2000, stepSize=0.01, numParticles=1, progressBar=True, medianSamples=50, multivariate=False)` optimizes a variational approximation with Adam and an ELBO objective. `numSteps` is the number of optimization updates; `numSamples` controls approximate posterior draws generated after optimization; `stepSize` is Adam's learning rate; `numParticles` controls Monte Carlo particles for the ELBO; and `medianSamples` controls initialization. `multivariate=False` uses `AutoNormal`; `True` uses `AutoMultivariateNormal`, which can represent posterior covariance but may be expensive in large hierarchical models.
 
-**Extending inference methods.** NUTS and SVI are the built-in choices, not a closed list. Additional inference methods can be integrated through BET's Method interface; see `METHOD_AUTHORING.md` and `ValidateMethod`.
+**Extending inference methods.** NUTS and SVI are the built-in choices, not a closed list. Additional inference methods can be integrated through BET's Method interface; see **Writing a custom inference Method** in Part 7 and `ValidateMethod`.
 
 **Method selection.** NUTS is often preferable when reliable posterior uncertainty is central and runtime is manageable. SVI can be faster for large problems, but an apparently stable loss curve does not establish calibrated uncertainty. Compare posterior predictive behavior and uncertainty against NUTS or simulated ground truth when feasible. BET supports configured Method instances; using Method classes can reconstruct previously saved configuration when available.
 
@@ -332,7 +332,58 @@ Padded time grids must satisfy the solver's ordering requirements. One approach 
 
 `est.Save("fit.npz", saveAllData=True)` saves inference state together with the data. To restore it, call `Estimator.Load("fit.npz", ModelFn=model_fn, GlobalPriorFn=global_prior)`. If data were not saved, also supply `data=`. In either case, supply the original model and prior functions again: executable Python functions are not serialized.
 
-Custom inference methods implement `_Fit(ModelFn, rngKey, samplePrefixes)` and `_SaveArgs()`. Validate them with `ValidateMethod(method)` before use. `METHOD_AUTHORING.md` describes the minimum implementation and optional features.
+### Writing a custom inference Method
+
+BET separates inference algorithms from its population and individual workflows. NUTS and SVI are built in; to integrate another backend, implement the minimum Method interface and validate it before fitting.
+
+A configured Method instance must implement:
+
+- `_Fit(ModelFn, rngKey, samplePrefixes)`: run inference and return a dictionary with `"output"` (backend-specific results or diagnostics) and `"samples"` (posterior or explicitly approximate-posterior draws).
+- `_SaveArgs()`: return a dictionary of constructor keyword arguments so BET can reconstruct the Method from saved configuration.
+
+The `samples` dictionary maps NumPyro sample-site names to arrays with **draws along the first axis**. Retain only sites whose names start with one of `samplePrefixes`; BET uses these names to identify global parameters, local effects, Cholesky factors, and optionally model outputs.
+
+This minimal skeleton illustrates the interface:
+
+```python
+class MyMethod:
+    _printMode = None
+
+    def __init__(self, nSamples=100):
+        self.nSamples = nSamples
+
+    def _Fit(self, ModelFn, rngKey, samplePrefixes):
+        # Replace with an actual inference backend.
+        rawSamples, backendOutput = run_my_inference(ModelFn, rngKey, self.nSamples)
+        samples = {name: value for name, value in rawSamples.items()
+                   if any(name.startswith(prefix) for prefix in samplePrefixes)}
+        return {"output": backendOutput, "samples": samples}
+
+    def _SaveArgs(self):
+        return {"nSamples": self.nSamples}
+```
+
+`run_my_inference` is a placeholder, **not a BET function**. The backend must produce meaningful posterior or clearly identified approximate-posterior draws. Repeating a maximum-a-posteriori (MAP) point does not measure posterior uncertainty.
+
+Validate the Method's structure before using it:
+
+```python
+import BayesianEstimationTool as bet
+
+method = MyMethod(nSamples=100)
+bet.ValidateMethod(method)
+```
+
+`ValidateMethod` checks required callable signatures, saved constructor arguments, and printing hooks. It **does not execute `_Fit`**, inspect returned samples or shapes, or establish statistical correctness. Test those separately on small synthetic models and with posterior predictive checks.
+
+Optional features include:
+
+- **Diagnostics and printing:** Set `_printMode` to `"before"`, `"after"`, or `"replace"`, and implement `_Print(output, localNames, globalNames, title=None)`. With `_printMode=None`, BET uses its generic sample summary.
+- **Configuration:** Accept options for initialization, optimization, sampling, and progress reporting, and return reproducible constructor options from `_SaveArgs()`.
+- **Persistence:** Keep configuration reconstructible through constructor keyword arguments. The backend `output` is returned to the caller but is not automatically serialized as a live inference-engine session.
+- **Inference quality:** Compare posterior summaries, predictive distributions, and computational costs against NUTS on a known model. This is behavioral testing, not structural validation.
+
+See `NutsMethod.py` and `SviMethod.py` for complete Method implementations.
 
 ## Part 8: Troubleshooting and API reference
 
@@ -406,13 +457,13 @@ The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `V
 
 `Estimator.Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs an estimator using the supplied functions. Provide `data` if it was not saved. Passing `ModelFn=None` returns the saved record without reconstructing an executable estimator.
 
-`ValidateMethod(method)` checks a custom Method's required interface; see `METHOD_AUTHORING.md` for implementation details. Public exports are defined in package `__init__.py`.
+`ValidateMethod(method)` checks a custom Method's required interface; see **Writing a custom inference Method** in Part 7 for implementation details. Public exports are defined in package `__init__.py`.
 
 ## Part 9: Verification
 
 ### Verification and further reading
 
-The repository's `TESTING.md` explains how to run automated tests, while `METHOD_AUTHORING.md` documents the custom inference interface. The included `Examples/` directory contains NUTS, SVI, and Save/Load scripts. The one-page `docs/Cheatsheet.md` is a compact companion, not a replacement for this manual.
+The repository's `TESTING.md` explains how to run automated tests, while Part 7 documents the custom inference interface. The included `Examples/` directory contains NUTS, SVI, and Save/Load scripts. The one-page `docs/Cheatsheet.md` is a compact companion, not a replacement for this manual.
 
 Smoke and integration tests show that supported workflows execute; they do not establish identifiability, credible-interval calibration, or scientific validity. For research claims, add application-specific simulation-based recovery and posterior predictive checks.
 
