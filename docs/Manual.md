@@ -1,9 +1,13 @@
 # BayesianEstimationTool Manual
 
 BET fits models with population-wide parameters and individual-specific latent variables. This guide covers the actual model contracts, inference, array shapes, masking, and JAX modeling patterns.
+<!--this is way too concise and unfriendly to new users-->
 
 ## 1. Input and output contracts
 
+<!-- jumping straight into the api with no broad overview of the components -->
+<!-- we should probably use the same syntax for lists[] and dicts{}, etc. as the cheatsheet, and that should also be introduced at the beginning-->
+<!--I think we should articulate what each component is when they are first introduced with their own descriptions. much of the complexity of bet comes from the arguments that go into each function-->
 `Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)` takes a dictionary of arrays. The first axis of each data array indexes individuals; all arrays have the same number of individuals. Remaining axes can represent times, features, or spatial coordinates.
 
 `ModelFn(globalParams, localZs, data)` receives dictionaries of global parameters, one individual's local latent values, and one individual's data. It returns a dictionary of model outputs. BET vectorizes this function across individuals and posterior draws; avoid Python side effects and conversions of traced JAX values to NumPy.
@@ -50,8 +54,9 @@ test_scores = est.ScoreTestSamples(score)
 
 BET supplies one individual's data to `ModelFn`; do not index a patient axis within the function. This example defines a local offset because the current `Test()` implementation requires at least one name in `localZNames`. `test_scores` has global-state, local-draw, and test-entry axes before any score-specific axes; inspect these dimensions before summarizing.
 
-## 3. Hierarchical local variables
+## 3. Hierarchical local variables <!-- z scores, need to indicate early on that these are effectively z socres-->
 
+<!--need to explain correlation structure and why it is useful-->
 `localZNames=["growth", "response"]` introduces standardized normal latent variables for each individual. With multiple local variables, BET uses an LKJ prior for their Cholesky correlation structure, controlled by `lkjConcentration`. The user model converts standardized values into meaningful parameters.
 
 ```python
@@ -59,10 +64,12 @@ def model_fn(global_params, local_zs, data):
     growth = jnp.exp(global_params["log_growth"] + 0.3 * local_zs["growth"])
     return {"prediction": data["baseline"] * jnp.exp(growth * data["time"])}
 ```
-
+<!--this is a completely critical point, and may be worth explicitly showing with a simple example-->
 BET does not automatically infer an independent population scale or mean for each local variable; define these transformations explicitly when required.
 
 ## 4. Training, testing, and score dimensions
+<!--we should also have an introduction here to the central training-testing idea of bet-->
+<!--I think we should articulate what each component is when they are first introduced with their own descriptions. much of the complexity of bet comes from the arguments that go into each function, here we can go into more detail about them, whereas at the start we should do overview descriptions-->
 
 `Train(trainDataIdxs, TrainLikelihoodFn, Method, printSummary=False, rngSeed=None, saveLocalZs=True, saveModelOut=False)` estimates parameters from the selected individuals using a `Nuts(...)` or `Svi(...)` method.
 
@@ -73,7 +80,7 @@ BET does not automatically infer an independent population scale or mean for eac
 `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`. For local-free models, save model outputs if scoring a test run.
 
 ## 5. Variable-length sequences and masking
-
+<!--the content here is good, but a better introduction of all the circumstances where maksing is useful, or how to think about it, is needed-->
 Pad individual time series to a common length `T`, storing `time`, `y`, and a boolean `valid` mask as `[N, T]` arrays. Padded entries are storage placeholders, not observations.
 
 ```python
@@ -99,6 +106,7 @@ The model must still produce finite predictions at padded positions. A zero mask
 To hide additional data during testing, store a separate observation mask, such as `test_observed = valid & (time <= cutoff)`. The test likelihood uses this mask; scoring may use the original validity mask to evaluate held-out observations. Do not leak hidden measurements into the model inputs or preprocessing.
 
 ## 6. JAX differential equation solvers
+<!--should explain that though Diffrax is the more capable solver, odeint has been better with bet-->
 
 The model function may call JAX-compatible ODE solvers, including `jax.experimental.ode.odeint` or Diffrax. Keep solver inputs JAX arrays, use differentiable operations, and return outputs at the observation times. Diffrax is an optional external dependency, not part of BET's installation requirements.
 
@@ -134,6 +142,7 @@ Custom inference methods must implement `_Fit(ModelFn, rngKey, samplePrefixes)` 
 The regression suite exercises NUTS, SVI, scoring, validation, and Save/Load. Scientific validation additionally requires synthetic hierarchical parameter recovery, population-to-new-individual transfer with varying observation counts, and numerical equivalence after persistence. See `TESTING.md` for the test invocation.
 
 ## 10. Conceptual workflow and statistical interpretation
+<!--it looks like lots of the intro information that I was asking for above shows up here. you should reorganize to make the whole thing a better introduction. I think the main barrier to this tool being used isn't its complexity (which is more substantial than it appears at first glance) but people not even understanding what it's supposed to do-->
 
 BET separates **model specification** from the recurring hierarchical inference workflow. The user supplies an entry-level deterministic model, an optional distributional prior for shared parameters, and an observation likelihood. BET handles population training, generation or conditioning of local effects for new entries, posterior sample bookkeeping, and scoring.
 
