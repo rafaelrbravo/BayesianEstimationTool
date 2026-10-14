@@ -6,7 +6,7 @@ A mathematical model describes how a system changes or behaves. For example, a s
 
 Rather than estimating each patient's growth rate independently, BET uses a **hierarchical model** to learn how growth rates vary across the patient population. This allows information from patients with more measurements to inform estimates for patients with less data. For a new patient, BET can generate predictions from the learned population distribution before any tumor measurements are available, or use the patient's available measurements to update their individual growth-rate estimate. These are **population prediction** and **observation-conditioned prediction**, respectively. The distinction is central to BET's training and testing workflow.
 
-### The workflow at a glance
+## The workflow at a glance
 
 1. **Describe the data.** Store observations and covariates for each entry in arrays.
 2. **Define the mechanistic model.** Write a function that predicts outputs for one entry from shared and individual parameters.
@@ -15,7 +15,7 @@ Rather than estimating each patient's growth rate independently, BET uses a **hi
 5. **Test.** Predict for unseen entries, optionally conditioning on their available observations.
 6. **Score and inspect.** Compare predictions with held-out data and examine posterior uncertainty.
 
-### Core components
+## Core components
 
 | Component | Purpose | You provide |
 | --- | --- | --- |
@@ -59,7 +59,7 @@ A useful design rule is that **data determine the observation model, not the mec
 
 ## Part 2: Complete worked example
 
-### End-to-end example: predicting longitudinal growth
+### Predicting longitudinal growth
 
 This tutorial connects population training, predictions for unseen individuals, and updating those predictions after observing the beginning of each individual's trajectory. It uses synthetic exponential-growth data so that no external dataset is required. The goal is to compare **population-only prediction** against **prediction conditioned on three measurements**, using the same trained population model.
 
@@ -198,7 +198,7 @@ Define the population means, scales, and transformations you need explicitly; BE
 
 ## Part 4: Training and inference methods
 
-### NUTS and SVI reference
+### Choosing and configuring NUTS or SVI
 
 `Nuts(numWarmup=2000, numSamples=2000, numChains=4, acceptProb=0.95, denseMass=False, medianSamples=50)` uses NumPyro's NUTS MCMC kernel with median-based initialization. `numWarmup` is the adaptation period; `numSamples` is the retained number of draws **per chain**; `numChains` controls chain count; `acceptProb` is the target acceptance probability; `denseMass` enables dense mass-matrix adaptation; and `medianSamples` controls the initialization strategy. Its reported summary includes effective sample size and R-hat. Inspect divergences, mixing, and posterior predictive adequacy rather than treating a successful run as validation.
 
@@ -326,7 +326,7 @@ With padded time grids, ensure solver times satisfy the solver's ordering requir
 
 ## Part 7: Persistence and extension
 
-### Persistence and custom methods
+### Saving, loading, and custom methods
 
 `est.Save("fit.npz", saveAllData=True)` saves inference state and optionally data. Restore with `Estimator.Load("fit.npz", ModelFn=model_fn, GlobalPriorFn=global_prior)` when data was saved, or provide `data=` when it was not. Supply the original model and prior functions again; they are not serialized as executable code.
 
