@@ -30,25 +30,22 @@ Rather than estimating each patient's growth rate independently, BET uses a **hi
 
 **Notation used throughout:** `[]` denotes a list or array (for example, `[0, 1]`); `{}` denotes a dictionary mapping names to values (for example, `{"time": times}`); `(a, b)` denotes a tuple; and `[N, T]` describes an array shape with `N` entries and `T` time positions. These symbols indicate Python data structures, not additional BET syntax.
 
-
-
 ## Part 1: Introduction and core concepts
 
 ### Overview
 
-BET uses JAX to evaluate the same model across entries and posterior draws, allowing batched, accelerated inference without requiring users to write the parallelization themselves. Model functions must therefore use JAX-compatible operations and avoid side effects.
-
-BET separates **model specification** from the recurring hierarchical inference workflow. The user supplies an entry-level deterministic model, an optional distributional prior for shared parameters, and an observation likelihood. BET handles population training, generation or conditioning of local effects for new entries, posterior sample bookkeeping, and scoring.
+BET separates the scientific model from hierarchical inference. You provide a deterministic model for one entry, optional priors for shared parameters, and an observation likelihood. BET handles population training, new-entry prediction, posterior sample bookkeeping, and scoring. It uses JAX to evaluate the model across entries and posterior draws, so model functions must use JAX-compatible operations and avoid side effects.
 
 An entry is one independently indexed unit (for example, a patient, experiment, or simulated replicate). Arrays share a leading entry axis. Observations within an entry, such as repeated measurements over time, belong on trailing axes and are modeled jointly by that entry's likelihood. Treating repeated measurements as separate entries would change the hierarchical interpretation.
 
-**Population parameters versus local z-scores.** Global parameters are shared across training entries. Local latent values represent entry-to-entry variation and have standardized normal marginal priors. For example, a model might define a positive rate as `rate_i = exp(log_rate_mean + log_rate_sd * z_i)`. Here `z_i` is a z-score on the log-rate scale, while `rate_i` is lognormally distributed on its physical scale. The location and scale parameters are supplied by the user model or inferred through `GlobalPriorFn`; BET does not automatically invent a mean and scale for every local variable.
+**Shared parameters and local z-scores.** Global parameters are shared across training entries; local latent effects vary by entry and have standard-normal marginal priors. For example, a model might define a positive rate as `rate_i = exp(log_rate_mean + log_rate_sd * z_i)`. Here `z_i` is a z-score on the log-rate scale, while `rate_i` is lognormally distributed on its physical scale. The location and scale parameters are supplied by the user model or inferred through `GlobalPriorFn`; BET does not automatically invent a mean and scale for every local variable.
 
 When there are multiple local variables, their joint distribution can be correlated through the learned Cholesky factor. A positive correlation means that entries with unusually high values of one standardized effect tend also to have high values of another, **before conditioning on their individual observations**. Posterior local values conditioned on data need not have sample mean zero or standard deviation one.
 
-**Training and new-entry inference are different tasks.** Training uses selected entries' observations to estimate shared parameters, the correlation structure, and training-specific local effects. Testing uses that trained population state to generate predictions for previously unseen entries. Without a test likelihood, local effects are sampled from the learned population distribution. With a test likelihood and an inference Method, the local effects are conditioned on the new entry's available observations. A test set must not be included in training if the goal is out-of-sample evaluation.
+**Training and testing serve different purposes.** Training uses selected entries to estimate shared parameters, correlations, and training-specific local effects. Testing uses the learned population state to predict outcomes for unseen entries. Without a test likelihood, local effects are sampled from the learned population distribution. With a test likelihood and an inference Method, the local effects are conditioned on the new entry's available observations. A test set must not be included in training if the goal is out-of-sample evaluation.
 
 ### Designing a BET model
+
 1. Prepare `data` as a dictionary of equally long first-axis arrays. Decide which trailing axes represent time, features, or spatial positions.
 2. Implement `ModelFn(globalParams, localZs, data)` for **one entry**. Return named arrays or scalars in a dictionary. Do not sample NumPyro random variables in this deterministic model function.
 3. Implement `GlobalPriorFn(dataShapes)` when shared parameters must be inferred. Return NumPyro distribution objects keyed by unique parameter names. If there are no shared unknown parameters, omit the function.
@@ -97,7 +94,7 @@ def train_likelihood(global_params, local_zs, data, model_out):
     return {"y": (data["y"], dist.Normal(model_out["prediction"], global_params["noise"]))}
 ```
 
-The population parameters `g_mean` and `g_sd` describe the center and spread of growth rates. Each individual's `local_zs["g"]` is a standardized latent effect; the physical growth rate is `g_mean + g_sd * z`. The `noise` parameter describes measurement variation, not biological heterogeneity.
+`g_mean` and `g_sd` set the population center and spread of growth rates. Each individual's standardized `local_zs["g"]` becomes a physical growth rate through `g_mean + g_sd * z`. The separate `noise` parameter describes measurement variation, not biological heterogeneity.
 
 #### Train on six individuals
 
@@ -111,7 +108,7 @@ est.Train(train_ids, train_likelihood,
           Svi(numSteps=1500, numSamples=300, progressBar=False))
 ```
 
-Only the first six individuals contribute to fitting the population distribution. The remaining four individuals are held out. For research applications, inspect convergence, posterior predictive behavior, and sensitivity to the prior; these short optimization settings are intended for demonstration.
+The first six individuals train the population model; the other four are held out. The short optimization run is for demonstration only. In research applications, inspect convergence, posterior predictive behavior, and prior sensitivity.
 
 #### Predict without seeing any test observations
 
@@ -148,7 +145,7 @@ after = est.ScoreTestSamples(future_mae)
 print("Conditioned mean future MAE:", float(jnp.mean(after)))
 ```
 
-BET now infers local growth effects from the first three observations for each held-out individual, conditional on each sampled population state. The score still evaluates measurements at indices 3 through 7, which were excluded from the test likelihood. This second test call replaces the previous test state; the `before` scores remain available because they were already stored in a separate variable.
+BET now infers each held-out individual's local growth effect from the first three observations, conditional on each sampled population state. The score still evaluates measurements at indices 3 through 7, which were excluded from the test likelihood. This second test call replaces the previous test state; the `before` scores remain available because they were already stored in a separate variable.
 
 #### Interpret the comparison
 
@@ -161,12 +158,11 @@ The two stages answer different questions:
 
 To inspect uncertainty in predicted trajectories rather than uncertainty in errors, define a score function that returns `model_out["prediction"]`. Summarize the posterior draw axes to obtain intervals for the latent mean trajectory. These intervals do not automatically include new measurement noise. For a stronger evaluation, repeat the experiment over multiple random seeds and vary the number of early observations.
 
-The same Train → Test → Score pattern works with a differentiable mechanistic ODE model in place of the analytic exponential model.
+The same Train → Test → Score workflow also applies to differentiable mechanistic ODE models.
 
 ## Part 3: Model components and hierarchical effects
 
 ### Components and function contracts
-
 
 `Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)` takes a dictionary of arrays. The first axis of each data array indexes individuals; all arrays have the same number of individuals. Remaining axes can represent times, features, or spatial coordinates.
 
@@ -180,8 +176,7 @@ The same Train → Test → Score pattern works with a differentiable mechanisti
 
 ### Hierarchical local variables: standardized z-scores
 
-
-BET uses **local z-scores** to describe how individual patients differ from the population. For example, a patient with `z=0` has the typical growth rate in the model, while positive or negative values indicate faster or slower growth. BET learns about these differences using z-scores, then the model converts them into actual growth rates. One possible conversion is `rate = exp(log_rate_mean + log_rate_sd * z)`, where `log_rate_mean` sets the population's typical rate and `log_rate_sd` controls how much rates vary between patients. Before observing patient data, BET assumes these z-scores follow a standard normal distribution.
+Local z-scores represent entry-to-entry differences on a standardized scale. For example, `z=0` gives the model's central growth rate; positive or negative values change it according to the transformation you define. With `rate = exp(log_rate_mean + log_rate_sd * z)`, `log_rate_mean` sets the center on the log scale and `log_rate_sd` sets its spread. Before conditioning on individual observations, each z-score has a standard-normal marginal distribution.
 
 Extend the tumor-growth example by adding treatment. Each patient now has two parameters: a **growth rate**, describing how quickly the tumor grows without treatment, and a **treatment-response parameter**, describing how strongly treatment slows that growth. Both may vary between patients. For instance, patients whose tumors grow faster might also tend to respond more strongly to treatment, or the relationship might be reversed. Assuming the parameters vary independently would miss that population-level relationship.
 
@@ -199,7 +194,7 @@ def model_fn(global_params, local_zs, data):
     return {"prediction": data["baseline"] * jnp.exp(net_rate * data["time"])}
 ```
 
-BET does not automatically infer an independent population scale or mean for each local variable; define these transformations explicitly when required.
+Define the population means, scales, and transformations you need explicitly; BET does not create them automatically for each local variable.
 
 ## Part 4: Training and inference methods
 
@@ -237,7 +232,7 @@ A score array is not itself a posterior predictive interval. To report uncertain
 
 ### Conditioning on partial observations: a concrete pattern
 
-A common use case is to predict the rest of a trajectory after observing only its first few measurements. Use the test likelihood to expose only those measurements to inference. Keep the score function separate so that it can evaluate the entire trajectory, including held-out measurements.
+To predict a trajectory from its first few measurements, expose only those measurements through the test likelihood. Keep scoring separate so it can evaluate later, held-out observations.
 
 ```python
 def test_likelihood(global_params, local_zs, data, model_out):
@@ -262,6 +257,7 @@ Here `testDataIdxs` must identify entries excluded from training. The example as
 This call conditions local effects on the first three measurements, conditional on the selected global parameter state. With `nGlobalSamples=None` (the default), BET uses posterior medians for global parameters and the Cholesky factor; it does not integrate over their posterior variation. Set `nGlobalSamples` to a positive integer to repeat local inference across sampled global posterior states. This can be expensive, because BET runs the test inference separately for each selected state.
 
 ### Return values, sample axes, and state
+
 The estimator retains the most recent training and test state. A new call to `Train` clears the prior test state. A new call to `Test` replaces the previous test state. Score functions operate on this stored state; they do not refit the model.
 
 - `Train(...)` returns the inference method's output object. For NUTS this is NumPyro's MCMC object; for SVI it is the SVI result containing optimized parameters and losses. BET also stores the posterior samples it needs for later testing and scoring.
@@ -415,5 +411,6 @@ The repository's `TESTING.md` explains how to run automated tests, while `METHOD
 Automated smoke and integration tests demonstrate that supported workflows execute; they do not by themselves establish parameter identifiability, calibrated credible intervals, or validity of a particular scientific model. For research claims, add simulation-based recovery and posterior predictive checks suited to the application.
 
 ### Test strategy
+
 The regression suite exercises NUTS, SVI, scoring, validation, and Save/Load. Scientific validation additionally requires synthetic hierarchical parameter recovery, population-to-new-individual transfer with varying observation counts, and numerical equivalence after persistence. See `TESTING.md` for the test invocation.
 
