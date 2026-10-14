@@ -336,19 +336,19 @@ Custom inference methods implement `_Fit(ModelFn, rngKey, samplePrefixes)` and `
 
 ### Common mistakes and troubleshooting
 
-**Shape mismatch.** Print shapes before tracing, and start with a single entry. All top-level data arrays need the same entry count; per-entry model outputs must agree with likelihood observation shapes. Broadcasting may silently produce a plausible but incorrect likelihood, so verify expected dimensions explicitly.
+**Shape mismatch.** Start with one entry and print array shapes before tracing. All top-level data arrays must have the same entry count, and per-entry model outputs must match likelihood observation shapes. Broadcasting can silently produce an incorrect likelihood, so verify dimensions explicitly.
 
-**Local z-scores mistaken for physical parameters.** A latent z-score has a standard-normal marginal prior, not the same units as a growth rate, drug sensitivity, or measurement scale. Make all transformations explicit and document their units.
+**Local z-scores mistaken for physical parameters.** A local z-score has a standard-normal marginal prior and is not measured in units of growth rate, drug sensitivity, or observation noise. Specify each transformation to physical units explicitly.
 
-**Hidden test outcomes leaking into inference.** Supplying a full `y` array in test data is not itself a leak if the test likelihood masks unavailable values and the mechanistic model does not read those outcomes. Check all preprocessing, features, and masks to ensure future measurements cannot affect prediction.
+**Hidden test outcomes leaking into inference.** Keeping the full `y` array for scoring is safe only if the test likelihood masks unavailable outcomes and the mechanistic model does not read them. Check preprocessing, features, and masks to prevent future measurements from influencing predictions.
 
 **Missing data and NaNs.** Masked observations still require finite values at points where JAX evaluates intermediate expressions. Use safe finite placeholders and keep ODE solver time grids valid even for padded observations.
 
-**Unexpectedly narrow intervals.** Check whether `nGlobalSamples=None` has fixed population parameters at their posterior medians. That mode does not propagate global posterior uncertainty. Use positive `nGlobalSamples` when that uncertainty matters, and remember that approximate SVI posteriors may be underdispersed.
+**Unexpectedly narrow intervals.** With `nGlobalSamples=None`, BET fixes population parameters at posterior medians and does not propagate their uncertainty. Use a positive `nGlobalSamples` to include it. Approximate SVI posteriors may also underestimate uncertainty.
 
-**Poor convergence.** Rescale observations, inspect priors and parameter identifiability, and check whether the mechanistic solver produces finite gradients. For NUTS, examine chain mixing and convergence diagnostics; for SVI, inspect the loss trajectory and sensitivity to initialization.
+**Poor convergence.** Check observation scaling, priors, parameter identifiability, and solver gradients. For NUTS, inspect mixing and convergence diagnostics; for SVI, inspect the loss trajectory and sensitivity to initialization.
 
-**Save/Load mismatch.** Restore the same model function, global prior function, data shapes, and compatible Method configuration. Python function objects are not serialized; names are metadata, not executable code.
+**Save/Load mismatch.** Restore compatible data shapes, Method configuration, model function, and global prior function. Python functions are not serialized; stored names are metadata, not executable code.
 
 ### Detailed public API reference
 
