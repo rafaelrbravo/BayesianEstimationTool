@@ -28,8 +28,6 @@ Rather than estimating each patient's growth rate independently, BET uses a **hi
 | `Train` / `Test` | Population fitting / new-entry prediction | Indices, likelihood, and inference method |
 | `ScoreFn` | Defines a prediction quality measure | Function returning a score per entry |
 
-**Notation used throughout:** `[]` denotes a list or array (for example, `[0, 1]`); `{}` denotes a dictionary mapping names to values (for example, `{"time": times}`); `(a, b)` denotes a tuple; and `[N, T]` describes an array shape with `N` entries and `T` time positions. These symbols indicate Python data structures, not additional BET syntax.
-
 ## Part 1: Core concepts
 
 ### Overview
