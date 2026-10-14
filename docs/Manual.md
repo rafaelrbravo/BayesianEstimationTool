@@ -272,9 +272,9 @@ The precise model-output shape depends on what `ModelFn` returns. Always write d
 
 ### Variable-length sequences and masking
 
-Masking is useful whenever entries have different numbers of measurements, a sensor reading is missing, or only some measurements should be revealed to the model during testing. It distinguishes **stored array positions** from **observations allowed to contribute to inference**. In particular, a held-out measurement may be retained for later scoring while excluded from the test likelihood.
+Use masks when entries have different observation counts, measurements are missing, or testing should reveal only part of a trajectory. A mask distinguishes **positions stored in an array** from **observations contributing to inference**. Held-out measurements can remain in the data for scoring while being excluded from the test likelihood.
 
-Pad individual time series to a common length `T`, storing `time`, `y`, and a boolean `valid` mask as `[N, T]` arrays. Padded entries are storage placeholders, not observations. For longitudinal measurements, repeating the last valid time and measurement can be safer than inserting zeros, particularly when a solver or transformation cannot accept zero. The correct padding depends on the model and solver: the padded time grid must still satisfy any ordering requirements, and masked positions must not affect the likelihood.
+Pad each time series to a common length `T`. Store `time`, `y`, and a boolean `valid` mask as `[N, T]` arrays; padded positions are placeholders, not observations. Repeating the last valid time and measurement can be safer than inserting zeros when a solver or transformation cannot accept zero. Choose padding to satisfy the model's and solver's time-ordering requirements, and exclude padded positions from the likelihood.
 
 ```python
 data = {
@@ -294,20 +294,20 @@ def likelihood(global_params, local_zs, data, model_out):
     return {"y": (safe_y, dist.Normal(pred, 0.2).mask(valid))}
 ```
 
-The model must still produce finite predictions at padded positions. A zero mask does not guarantee safety if an intermediate expression already contains `NaN` or infinity. Do not multiply a divergent log-probability by zero and assume its gradient is safe.
+The model must produce finite predictions even at padded positions. Masking cannot make an intermediate `NaN` or infinity safe; multiplying a divergent log-probability by zero does not guarantee a finite gradient.
 
-To hide additional data during testing, store a separate observation mask, such as `test_observed = valid & (time <= cutoff)`. The test likelihood uses this mask; scoring may use the original validity mask to evaluate held-out observations. Do not leak hidden measurements into the model inputs or preprocessing.
+For partial-observation testing, use a separate mask such as `test_observed = valid & (time <= cutoff)`. Apply it in the test likelihood, but retain the original validity mask for scoring held-out observations. Ensure hidden measurements cannot enter the model through inputs or preprocessing.
 
 
 #### Numerical stability when masking
 
-Scale observations and model outputs to reasonable ranges, and use likelihood scales reflecting measurement noise rather than arbitrary tiny numbers. Extremely large residuals or near-zero noise can produce unstable log-probabilities and gradients. Replace missing observations with safe values before masking, and ensure model outputs remain finite even at padded positions. Use `jax.debug.print`, `jax.numpy.isfinite`, and small synthetic examples to isolate shape or gradient errors.
+Scale observations and model outputs to reasonable ranges. Set likelihood scales according to measurement noise rather than choosing arbitrarily small values: large residuals or near-zero noise can destabilize log-probabilities and gradients. Replace missing observations with finite placeholders before masking, and check that model outputs remain finite at padded positions. Diagnose shape and gradient errors with small synthetic examples, `jax.debug.print`, and `jax.numpy.isfinite`.
 
-For multiple individuals, check each axis and broadcasting rule explicitly. Test the model and likelihood on one individual before fitting the population. Use posterior predictive checks; a successful NUTS or SVI run does not guarantee a scientifically adequate model.
+Before population fitting, test the model and likelihood on one individual, then verify axes and broadcasting across individuals. Use posterior predictive checks: successful NUTS or SVI execution does not establish scientific adequacy.
 
 ### JAX differential equation solvers
 
-The model function may call a JAX-compatible ODE solver such as `jax.experimental.ode.odeint`. Keep solver inputs JAX arrays, use differentiable operations, and return outputs at the observation times. The project's examples use `odeint`, which has worked more reliably with BET's batched architecture than Diffrax in the workflows tested. Solver compatibility still depends on the model; verify gradients and numerical behavior.
+`ModelFn` can call a JAX-compatible ODE solver such as `jax.experimental.ode.odeint`. Use JAX arrays and differentiable operations, and return outputs at observation times. In the workflows tested for this project, `odeint` has worked more reliably with BET's batching than Diffrax. Compatibility is model-dependent, so verify gradients and numerical behavior.
 
 ```python
 from jax.experimental.ode import odeint
@@ -322,15 +322,15 @@ def model_fn(global_params, local_zs, data):
     return {"prediction": trajectory}
 ```
 
-With padded time grids, ensure solver times satisfy the solver's ordering requirements. A common approach is to use a shared regular solver grid and interpolate to each individual's observation times. Beware duplicate or unsorted padded times.
+Padded time grids must satisfy the solver's ordering requirements. One approach is to solve on a shared regular grid and interpolate to each individual's observation times. Check for duplicate or unsorted padded times.
 
 ## Part 7: Persistence and extensibility
 
 ### Saving, loading, and custom methods
 
-`est.Save("fit.npz", saveAllData=True)` saves inference state and optionally data. Restore with `Estimator.Load("fit.npz", ModelFn=model_fn, GlobalPriorFn=global_prior)` when data was saved, or provide `data=` when it was not. Supply the original model and prior functions again; they are not serialized as executable code.
+`est.Save("fit.npz", saveAllData=True)` saves inference state together with the data. To restore it, call `Estimator.Load("fit.npz", ModelFn=model_fn, GlobalPriorFn=global_prior)`. If data were not saved, also supply `data=`. In either case, supply the original model and prior functions again: executable Python functions are not serialized.
 
-Custom inference methods must implement `_Fit(ModelFn, rngKey, samplePrefixes)` and `_SaveArgs()`. Run `ValidateMethod(method)` before use. See `METHOD_AUTHORING.md` for the minimum viable implementation and optional features.
+Custom inference methods implement `_Fit(ModelFn, rngKey, samplePrefixes)` and `_SaveArgs()`. Validate them with `ValidateMethod(method)` before use. `METHOD_AUTHORING.md` describes the minimum implementation and optional features.
 
 ## Part 8: Troubleshooting and API reference
 
