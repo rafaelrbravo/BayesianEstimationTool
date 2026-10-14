@@ -19,7 +19,7 @@ Rather than estimating each patient's growth rate independently, BET uses a **hi
 
 | Component | Purpose | You provide |
 | --- | --- | --- |
-| `data` | Inputs for all entries | Dictionary of JAX-compatible arrays |
+| `data` | Inputs for all entries | Dictionary of JAX or NumPy arrays |
 | `ModelFn` | Scientific model for one entry | Function returning named predictions |
 | `GlobalPriorFn` | Prior distributions for shared unknowns | Function returning distributions |
 | `localZNames` | Names of individual-varying standardized effects | List of strings |
@@ -220,11 +220,11 @@ Define population means, scales, and transformations explicitly; BET does not cr
 
 `ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[posterior_draw, train_individual, ...score_shape]`.
 
-`ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`. `Test` currently requires at least one local Z; models without local effects cannot use this test-scoring workflow.
+`ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`.
 
 ### Interpreting test-time uncertainty
 
-BET can represent at least two distinct sources of predictive uncertainty: uncertainty in population-level parameters and uncertainty in a new entry's local effects. The current `Test` implementation requires at least one named local Z, even though `Estimator` and `Train` can be used without local Zs. Measurement noise and uncertainty in model structure add further uncertainty through the likelihood and scientific model.
+BET can represent at least two distinct sources of predictive uncertainty: uncertainty in population-level parameters and uncertainty in a new entry's local effects. The current `Test` implementation requires at least one named local Z, even though `Estimator` and `Train` can be used without local Zs. Measurement noise is described by the observation likelihood; it is not automatically included in draws of deterministic model outputs. Uncertainty in model structure is not automatically represented.
 
 With `nGlobalSamples=None`, Test uses the posterior median for global parameters and the learned Cholesky state rather than propagating variation across the training posterior. This is a useful conditional prediction but can understate uncertainty in the population. With a positive `nGlobalSamples`, BET samples global/Cholesky states from the training posterior and performs test inference for each selected state. This can be computationally more expensive because the test inference is repeated for each selected global state.
 
