@@ -16,7 +16,7 @@ PRINT_CSS = """
 @page { size: Letter; margin: 0.65in; }
 html, body { background: white !important; }
 body { margin: 0; }
-.markdown-body { box-sizing: border-box; min-width: 0; max-width: none; padding: 0; font-size: 14px; }
+.markdown-body { box-sizing: border-box; min-width: 0; max-width: none; padding: 0; font-size: 16px; }
 .markdown-body pre, .markdown-body table { break-inside: auto; }
 .markdown-body h1, .markdown-body h2, .markdown-body h3,
 .markdown-body h4 { break-after: avoid; }
