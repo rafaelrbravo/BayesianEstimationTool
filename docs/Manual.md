@@ -352,7 +352,7 @@ Custom inference methods implement `_Fit(ModelFn, rngKey, samplePrefixes)` and `
 
 ### Detailed public API reference
 
-The signatures below correspond to the public exports `Estimator`, `Nuts`, `Svi`, and `ValidateMethod` and the public Estimator methods.
+The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `ValidateMethod`, together with public `Estimator` methods.
 
 #### Estimator construction
 
@@ -390,15 +390,15 @@ The signatures below correspond to the public exports `Estimator`, `Nuts`, `Svi`
 
 #### Scoring
 
-`ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` evaluates training posterior predictions, with a draw axis followed by training-entry axis and any score dimensions.
+`ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` scores training posterior predictions. Its output axes are posterior draw, training entry, then any score dimensions.
 
-`ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` evaluates the most recent test state, with global-draw and local-draw axes followed by test-entry axis and any score dimensions. Do not collapse axes without checking which dimension represents which source of uncertainty.
+`ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` scores the most recent test state. Its output axes are global draw, local draw, test entry, then any score dimensions. Check what each axis represents before aggregating uncertainty.
 
 #### Persistence
 
-`Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True, saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False)` writes a compressed state file, or returns a record if `fileName=None`. Saving data increases portability but also file size and potential data-sensitivity obligations. The save flags govern inclusion of local draws and model outputs.
+`Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True, saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False)` writes a compressed state file; with `fileName=None`, it returns a record. The flags control whether local draws, model outputs, and data are included. Saving data improves portability but increases file size and may create data-sensitivity obligations.
 
-`Estimator.Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs an estimator using explicitly supplied functions. Provide `data` unless it was included in the saved state. Passing `ModelFn=None` retrieves the saved record instead of reconstructing an executable estimator.
+`Estimator.Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs an estimator using the supplied functions. Provide `data` if it was not saved. Passing `ModelFn=None` returns the saved record without reconstructing an executable estimator.
 
 `ValidateMethod(method)` checks a custom Method's required interface; see `METHOD_AUTHORING.md` for implementation details. Public exports are defined in package `__init__.py`.
 
@@ -408,9 +408,9 @@ The signatures below correspond to the public exports `Estimator`, `Nuts`, `Svi`
 
 The repository's `TESTING.md` explains how to run automated tests, while `METHOD_AUTHORING.md` documents the custom inference interface. The included `Examples/` directory contains NUTS, SVI, and Save/Load scripts. The one-page `docs/Cheatsheet.md` is a compact companion, not a replacement for this manual.
 
-Automated smoke and integration tests demonstrate that supported workflows execute; they do not by themselves establish parameter identifiability, calibrated credible intervals, or validity of a particular scientific model. For research claims, add simulation-based recovery and posterior predictive checks suited to the application.
+Smoke and integration tests show that supported workflows execute; they do not establish identifiability, credible-interval calibration, or scientific validity. For research claims, add application-specific simulation-based recovery and posterior predictive checks.
 
 ### Test strategy
 
-The regression suite exercises NUTS, SVI, scoring, validation, and Save/Load. Scientific validation additionally requires synthetic hierarchical parameter recovery, population-to-new-individual transfer with varying observation counts, and numerical equivalence after persistence. See `TESTING.md` for the test invocation.
+The regression suite covers NUTS, SVI, scoring, validation, and Save/Load. Scientific validation also calls for synthetic hierarchical parameter recovery, transfer to new individuals with different observation counts, and numerical equivalence after persistence. See `TESTING.md` for test commands.
 
