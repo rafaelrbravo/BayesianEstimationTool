@@ -279,9 +279,64 @@ After you define the model and observations, BET estimates plausible parameter v
 
 **SVI** takes a different approach: it fits a simpler probability distribution to approximate the range of plausible parameter values. It can be faster, although the approximation may miss some uncertainty. `Svi(numSteps=10000, numSamples=2000, stepSize=0.01, numParticles=1, progressBar=True, medianSamples=50, multivariate=False)` optimizes a variational approximation with Adam and an ELBO objective. `numSteps` is the number of optimization updates; `numSamples` controls approximate posterior draws generated after optimization; `stepSize` is Adam's learning rate; `numParticles` controls Monte Carlo particles for the ELBO; and `medianSamples` controls initialization. `multivariate=False` uses `AutoNormal`; `True` uses `AutoMultivariateNormal`, which can represent posterior covariance but may be expensive in large hierarchical models.
 
-**Extending inference methods.** NUTS and SVI are the built-in choices, not a closed list. Additional inference methods can be integrated through BET's Method interface; see **Adding a custom inference method** in Part 7 and `ValidateMethod`.
+**Extending inference methods.** NUTS and SVI are the built-in choices, not a closed list. Additional inference methods can be integrated through BET's Method interface; see **Adding a custom inference method** below and `ValidateMethod`.
 
 **Method selection.** NUTS is often preferable when reliable posterior uncertainty is central and runtime is manageable. SVI can be faster for large problems, but an apparently stable loss curve does not establish calibrated uncertainty. Compare posterior predictive behavior and uncertainty against NUTS or simulated ground truth when feasible. You can pass a configured method, such as `Svi(numSteps=5000)`, directly to `Train` or `Test`. After loading a saved estimator, passing the method class (such as `Svi`) lets BET reuse its saved settings, if available.
+
+### Adding a custom inference method
+
+Most users can rely on NUTS or SVI. This section explains how developers can add another inference algorithm without changing BET's training, testing, or scoring workflows.
+
+BET separates inference algorithms from its population and individual workflows. NUTS and SVI are built in; to integrate another backend, implement the minimum Method interface and validate it before fitting.
+
+A configured Method instance must implement:
+
+- `_Fit(ModelFn, rngKey, samplePrefixes)`: run inference and return a dictionary with `"output"` (backend-specific results or diagnostics) and `"samples"` (posterior or explicitly approximate-posterior draws).
+- `_SaveArgs()`: return a dictionary of constructor keyword arguments so BET can reconstruct the Method from saved configuration.
+
+The `samples` dictionary maps NumPyro sample-site names to arrays with *draws along the first axis*. Retain only sites whose names start with one of `samplePrefixes`; BET uses these names to identify global parameters, local z-scores, Cholesky factors, and optionally model outputs.
+
+This minimal skeleton illustrates the interface:
+
+```python
+class MyMethod:
+    _printMode = None
+
+    def __init__(self, nSamples=100):
+        self.nSamples = nSamples
+
+    def _Fit(self, ModelFn, rngKey, samplePrefixes):
+        # Replace with an actual inference backend.
+        rawSamples, backendOutput = run_my_inference(ModelFn, rngKey, self.nSamples)
+        samples = {name: value for name, value in rawSamples.items()
+                   if any(name.startswith(prefix) for prefix in samplePrefixes)}
+        return {"output": backendOutput, "samples": samples}
+
+    def _SaveArgs(self):
+        return {"nSamples": self.nSamples}
+```
+
+`run_my_inference` is a placeholder, *not a BET function*. The backend must produce meaningful posterior or clearly identified approximate-posterior draws. Repeating a maximum-a-posteriori (MAP) point does not measure posterior uncertainty.
+
+Validate the Method's structure before using it:
+
+```python
+import BayesianEstimationTool as bet
+
+method = MyMethod(nSamples=100)
+bet.ValidateMethod(method)
+```
+
+`ValidateMethod` checks required callable signatures, saved constructor arguments, and printing hooks. It *does not execute `_Fit`*, inspect returned samples or shapes, or establish statistical correctness. Test those separately on small synthetic models and with posterior predictive checks.
+
+Optional features include:
+
+- **Diagnostics and printing:** Set `_printMode` to `"before"`, `"after"`, or `"replace"`, and implement `_Print(output, localNames, globalNames, title=None)`. With `_printMode=None`, BET uses its generic sample summary.
+- **Configuration:** Accept options for initialization, optimization, sampling, and progress reporting, and return reproducible constructor options from `_SaveArgs()`.
+- **Persistence:** Keep configuration reconstructible through constructor keyword arguments. The backend `output` is returned to the caller but is not automatically serialized as a live inference-engine session.
+- **Inference quality:** Compare posterior summaries, predictive distributions, and computational costs against NUTS on a known model. This is behavioral testing, not structural validation.
+
+See `NutsMethod.py` and `SviMethod.py` for complete Method implementations.
 
 ## Part 6: Checking predictions
 
@@ -401,9 +456,9 @@ def model_fn(global_params, local_zs, data):
 
 Padded time grids must satisfy the solver's ordering requirements. One approach is to solve on a shared regular grid and interpolate to each individual's observation times. Check for duplicate or unsorted padded times.
 
-## Part 8: Saving your work and extending BET
+## Part 8: Saving your work
 
-Once you have trained a model, you may want to return to it later without running inference again. BET can save the results of training and testing, along with enough configuration to reconstruct an estimator. You can also add an inference algorithm beyond the two built-in choices if your project needs one.
+Once you have trained a model, you may want to return to it later without running inference again. BET can save the results of training and testing, along with enough configuration to reconstruct an estimator.
 
 ### Saving and loading
 
@@ -442,61 +497,6 @@ restored = Estimator.Load("fit.npz", ModelFn=model_fn,
 `Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs the saved estimator, including available posterior samples and configuration. Omit `data` if the file was saved with `saveAllData=True`; otherwise supply the original data. You must supply the model function and, when used, the global-prior function again because Python functions are not serialized. BET warns when their names differ from the saved names, but a matching name does not guarantee identical behavior.
 
 For inspection without reconstructing an estimator, call `Estimator.Load("fit.npz", ModelFn=None)` to obtain the saved record as a dictionary. Saved Method names and constructor arguments support reconstruction of inference configuration; they do not serialize live NUTS or SVI engine objects.
-
-### Adding a custom inference method
-
-Most users can rely on NUTS or SVI. This section explains how developers can add another inference algorithm without changing BET's training, testing, or scoring workflows.
-
-BET separates inference algorithms from its population and individual workflows. NUTS and SVI are built in; to integrate another backend, implement the minimum Method interface and validate it before fitting.
-
-A configured Method instance must implement:
-
-- `_Fit(ModelFn, rngKey, samplePrefixes)`: run inference and return a dictionary with `"output"` (backend-specific results or diagnostics) and `"samples"` (posterior or explicitly approximate-posterior draws).
-- `_SaveArgs()`: return a dictionary of constructor keyword arguments so BET can reconstruct the Method from saved configuration.
-
-The `samples` dictionary maps NumPyro sample-site names to arrays with *draws along the first axis*. Retain only sites whose names start with one of `samplePrefixes`; BET uses these names to identify global parameters, local z-scores, Cholesky factors, and optionally model outputs.
-
-This minimal skeleton illustrates the interface:
-
-```python
-class MyMethod:
-    _printMode = None
-
-    def __init__(self, nSamples=100):
-        self.nSamples = nSamples
-
-    def _Fit(self, ModelFn, rngKey, samplePrefixes):
-        # Replace with an actual inference backend.
-        rawSamples, backendOutput = run_my_inference(ModelFn, rngKey, self.nSamples)
-        samples = {name: value for name, value in rawSamples.items()
-                   if any(name.startswith(prefix) for prefix in samplePrefixes)}
-        return {"output": backendOutput, "samples": samples}
-
-    def _SaveArgs(self):
-        return {"nSamples": self.nSamples}
-```
-
-`run_my_inference` is a placeholder, *not a BET function*. The backend must produce meaningful posterior or clearly identified approximate-posterior draws. Repeating a maximum-a-posteriori (MAP) point does not measure posterior uncertainty.
-
-Validate the Method's structure before using it:
-
-```python
-import BayesianEstimationTool as bet
-
-method = MyMethod(nSamples=100)
-bet.ValidateMethod(method)
-```
-
-`ValidateMethod` checks required callable signatures, saved constructor arguments, and printing hooks. It *does not execute `_Fit`*, inspect returned samples or shapes, or establish statistical correctness. Test those separately on small synthetic models and with posterior predictive checks.
-
-Optional features include:
-
-- **Diagnostics and printing:** Set `_printMode` to `"before"`, `"after"`, or `"replace"`, and implement `_Print(output, localNames, globalNames, title=None)`. With `_printMode=None`, BET uses its generic sample summary.
-- **Configuration:** Accept options for initialization, optimization, sampling, and progress reporting, and return reproducible constructor options from `_SaveArgs()`.
-- **Persistence:** Keep configuration reconstructible through constructor keyword arguments. The backend `output` is returned to the caller but is not automatically serialized as a live inference-engine session.
-- **Inference quality:** Compare posterior summaries, predictive distributions, and computational costs against NUTS on a known model. This is behavioral testing, not structural validation.
-
-See `NutsMethod.py` and `SviMethod.py` for complete Method implementations.
 
 ## Part 9: Troubleshooting and API reference
 
