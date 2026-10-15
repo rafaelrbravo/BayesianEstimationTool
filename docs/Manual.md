@@ -269,6 +269,62 @@ Parts 2 and 3 showed how to train a model, make predictions, and represent corre
 - `ScoreFn(modelOut, data)` returns a scalar or array for one individual; BET evaluates it across posterior samples and individuals.
 
 
+### Detailed public API reference
+
+The preceding sections explain when to use each operation. This reference provides call signatures and option descriptions.
+
+The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `ValidateMethod`, together with public `Estimator` methods.
+
+#### Estimator construction
+
+`Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)`
+
+- `data`: dictionary of arrays sharing a leading entry axis.
+- `ModelFn`: deterministic per-entry model function returning a dictionary.
+- `localZNames`: optional list of named local latent z-scores.
+- `GlobalPriorFn`: optional function returning named NumPyro distributions for shared parameters.
+- `lkjConcentration`: concentration of the LKJ correlation prior when multiple local z-scores are used.
+- `rngSeed`: optional reproducibility seed.
+
+#### Train
+
+`Train(trainDataIdxs, TrainLikelihoodFn, Method, printSummary=False, rngSeed=None, saveLocalZs=True, saveModelOut=False)`
+
+- `trainDataIdxs`: selected training entries.
+- `TrainLikelihoodFn`: per-entry likelihood factory.
+- `Method`: inference Method instance or supported Method class.
+- `printSummary`: request inference summary output.
+- `rngSeed`: optional call-specific seed.
+- `saveLocalZs`: retain local posterior draws for later use.
+- `saveModelOut`: retain generated model outputs rather than recomputing them.
+
+#### Test
+
+`Test(testDataIdxs, TestLikelihoodFn=None, Method=None, nGlobalSamples=None, nLocalZSamples=2000, printSummary=False, rngSeed=None, saveModelOut=False)`
+
+- `testDataIdxs`: entries for population prediction or local updating.
+- `TestLikelihoodFn`: omitted for unconditioned population prediction; provided for observation-conditioned inference.
+- `Method`: inference Method for observation-conditioned testing; may reuse saved configuration.
+- `nGlobalSamples`: `None` uses posterior median population state; a positive integer selects trained posterior states.
+- `nLocalZSamples`: number of local draws in no-likelihood testing.
+- `printSummary`, `rngSeed`, `saveModelOut`: reporting, reproducibility, and output retention.
+
+#### Scoring
+
+`ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` scores training posterior predictions. Its output axes are posterior draw, training entry, then any score dimensions. If the model has local Zs, training must retain either local posterior draws (`saveLocalZs=True`, the default) or model outputs (`saveModelOut=True`); otherwise training scores cannot be reconstructed.
+
+`ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` scores the most recent test state. Its output axes are global draw, local draw, test entry, then any score dimensions. Check what each axis represents before aggregating uncertainty.
+
+**Models without local z-scores:** `Estimator` and `Train` support models without local Zs, but the current `Test` implementation rejects them (`Test() requires at least one local Z`). Setting `saveModelOut=True` does not bypass this restriction. Consequently, `ScoreTestSamples` cannot be used for such models through the `Test` workflow.
+
+#### Persistence
+
+`Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True, saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False)` writes a compressed state file; with `fileName=None`, it returns a record. The flags control whether local draws, model outputs, and data are included. Saving data improves portability but increases file size and may create data-sensitivity obligations.
+
+`Estimator.Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs an estimator using the supplied functions. Provide `data` if it was not saved. Passing `ModelFn=None` returns the saved record without reconstructing an executable estimator.
+
+`ValidateMethod(method)` checks a custom Method's required interface; see **Adding a custom inference method** in Part 5 for implementation details. Public exports are defined in package `__init__.py`.
+
 ## Part 5: How BET learns from data
 
 After you define the model and observations, BET estimates plausible parameter values using one of two built-in inference methods. Both produce parameter samples, but their algorithms and computational costs differ.
@@ -498,9 +554,9 @@ restored = Estimator.Load("fit.npz", ModelFn=model_fn,
 
 For inspection without reconstructing an estimator, call `Estimator.Load("fit.npz", ModelFn=None)` to obtain the saved record as a dictionary. Saved Method names and constructor arguments support reconstruction of inference configuration; they do not serialize live NUTS or SVI engine objects.
 
-## Part 9: Troubleshooting and API reference
+## Part 9: Troubleshooting
 
-If a result looks wrong or a call fails, start with the checks below. The following API reference lists function signatures and options for consultation as needed.
+If a result looks wrong or a call fails, start with the checks below. The detailed public API reference is in Part 4.
 
 ### Common mistakes and troubleshooting
 
@@ -520,69 +576,13 @@ If a result looks wrong or a call fails, start with the checks below. The follow
 
 **Save/Load mismatch.** Restore compatible data shapes, Method configuration, model function, and global prior function. Python functions are not serialized; stored names are metadata, not executable code.
 
-### Detailed public API reference
-
-The preceding sections explain when to use each operation. This reference provides call signatures and option descriptions.
-
-The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `ValidateMethod`, together with public `Estimator` methods.
-
-#### Estimator construction
-
-`Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)`
-
-- `data`: dictionary of arrays sharing a leading entry axis.
-- `ModelFn`: deterministic per-entry model function returning a dictionary.
-- `localZNames`: optional list of named local latent z-scores.
-- `GlobalPriorFn`: optional function returning named NumPyro distributions for shared parameters.
-- `lkjConcentration`: concentration of the LKJ correlation prior when multiple local z-scores are used.
-- `rngSeed`: optional reproducibility seed.
-
-#### Train
-
-`Train(trainDataIdxs, TrainLikelihoodFn, Method, printSummary=False, rngSeed=None, saveLocalZs=True, saveModelOut=False)`
-
-- `trainDataIdxs`: selected training entries.
-- `TrainLikelihoodFn`: per-entry likelihood factory.
-- `Method`: inference Method instance or supported Method class.
-- `printSummary`: request inference summary output.
-- `rngSeed`: optional call-specific seed.
-- `saveLocalZs`: retain local posterior draws for later use.
-- `saveModelOut`: retain generated model outputs rather than recomputing them.
-
-#### Test
-
-`Test(testDataIdxs, TestLikelihoodFn=None, Method=None, nGlobalSamples=None, nLocalZSamples=2000, printSummary=False, rngSeed=None, saveModelOut=False)`
-
-- `testDataIdxs`: entries for population prediction or local updating.
-- `TestLikelihoodFn`: omitted for unconditioned population prediction; provided for observation-conditioned inference.
-- `Method`: inference Method for observation-conditioned testing; may reuse saved configuration.
-- `nGlobalSamples`: `None` uses posterior median population state; a positive integer selects trained posterior states.
-- `nLocalZSamples`: number of local draws in no-likelihood testing.
-- `printSummary`, `rngSeed`, `saveModelOut`: reporting, reproducibility, and output retention.
-
-#### Scoring
-
-`ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` scores training posterior predictions. Its output axes are posterior draw, training entry, then any score dimensions. If the model has local Zs, training must retain either local posterior draws (`saveLocalZs=True`, the default) or model outputs (`saveModelOut=True`); otherwise training scores cannot be reconstructed.
-
-`ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` scores the most recent test state. Its output axes are global draw, local draw, test entry, then any score dimensions. Check what each axis represents before aggregating uncertainty.
-
-**Models without local z-scores:** `Estimator` and `Train` support models without local Zs, but the current `Test` implementation rejects them (`Test() requires at least one local Z`). Setting `saveModelOut=True` does not bypass this restriction. Consequently, `ScoreTestSamples` cannot be used for such models through the `Test` workflow.
-
-#### Persistence
-
-`Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True, saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False)` writes a compressed state file; with `fileName=None`, it returns a record. The flags control whether local draws, model outputs, and data are included. Saving data improves portability but increases file size and may create data-sensitivity obligations.
-
-`Estimator.Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs an estimator using the supplied functions. Provide `data` if it was not saved. Passing `ModelFn=None` returns the saved record without reconstructing an executable estimator.
-
-`ValidateMethod(method)` checks a custom Method's required interface; see **Adding a custom inference method** in Part 7 for implementation details. Public exports are defined in package `__init__.py`.
-
 ## Part 10: Checking that your model works
 
 A program can run without errors yet produce misleading scientific results. Software tests check whether BET behaves as implemented; model checks ask whether your assumptions and fitted predictions are appropriate for the problem you care about. Both matter.
 
 ### Verification and further reading
 
-The repository's `TESTING.md` explains how to run automated tests, while Part 7 documents how to add an inference method. The included `Examples/` directory contains NUTS, SVI, and Save/Load scripts. The concise `docs/Cheatsheet.md` is a quick reference, not a replacement for this manual.
+The repository's `TESTING.md` explains how to run automated tests, while Part 5 documents how to add an inference method. The included `Examples/` directory contains NUTS, SVI, and Save/Load scripts. The concise `docs/Cheatsheet.md` is a quick reference, not a replacement for this manual.
 
 Smoke and integration tests verify that supported workflows execute, but do not establish identifiability, credible-interval calibration, or scientific validity. For research claims, add application-specific simulation-based recovery and posterior predictive checks.
 
