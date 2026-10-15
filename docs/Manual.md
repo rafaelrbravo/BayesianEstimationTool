@@ -417,7 +417,11 @@ For stronger evidence of predictive performance, evaluate more held-out individu
 
 ## Part 9: Troubleshooting
 
-If a result looks wrong or a call fails, start with the checks below. The detailed public API reference is in Part 4.
+Bayesian inference can be fragile when a model is difficult to fit. Parameters may compensate for one another, leaving many combinations that explain the same observations; complex dynamics and likelihoods can make the problem harder still. Even a correctly implemented inference method may struggle with such a model.
+
+**Build complexity incrementally.** Start with a simple model that fits reliably, ideally checking parameter recovery on synthetic data with known values. Add one mechanism or parameter at a time and check that inference still behaves sensibly before proceeding. If fitting breaks down, investigate the most recent addition rather than debugging the entire complex model at once. Getting a complex model to work from the outset is often much harder than building toward it.
+
+For specific failures, start with the checks below. The API reference is in Part 4.
 
 ### Common mistakes and troubleshooting
 
