@@ -293,7 +293,7 @@ Real datasets are rarely perfectly rectangular. One individual may have ten meas
 
 Use masks when entries have different observation counts, measurements are missing, or testing should reveal only part of a trajectory. A mask distinguishes **positions stored in an array** from **observations contributing to inference**. Held-out measurements can remain in the data for scoring while being excluded from the test likelihood.
 
-Pad each time series to a common length `T`. Store `time`, `y`, and a boolean `valid` mask as `[N, T]` arrays; padded positions are placeholders, not observations. Repeating the last valid time and measurement can be safer than inserting zeros when a solver or transformation cannot accept zero. Choose padding to satisfy the model's and solver's time-ordering requirements, and exclude padded positions from the likelihood.
+Pad each time series to a common length `T`. Store `time`, `y`, and a boolean `valid` mask as `[N, T]` arrays; padded positions are placeholders, not observations. Choose finite placeholder measurements that are safe for any transformations in your model; repeating the last valid measurement is often useful. Choose padded times separately to satisfy your solver's requirements: some solvers reject repeated times and need a strictly increasing grid. Exclude all padded positions from the likelihood.
 
 ```python
 data = {
