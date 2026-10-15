@@ -229,11 +229,11 @@ After you define the model and observations, BET estimates plausible parameter v
 
 A model can fit its training individuals yet predict poorly for new ones. **Scoring** compares predictions with observed outcomes. Part 2 compared population-only and personalized predictions for new individuals; here we add a training-set check and show how to interpret all three scores.
 
-This section continues with the same `est`, `test_ids`, and `future_mae` from Part 2. The first three test measurements may be used for personalization; the last five are reserved for evaluation.
+This section reuses `est`, `test_ids`, and `future_mae` from Part 2. The first three test measurements may be used for personalization; the last five are reserved for evaluation.
 
 ### What the score means
 
-We use **mean absolute error (MAE)**: the average size of the differences between predicted and observed measurements. Zero means a perfect match; smaller is better. The `future_mae` function defined in Part 2 computes this for the last five time points. BET evaluates it separately for each individual and each sampled set of parameters.
+We use **mean absolute error (MAE)**, the average absolute difference between predicted and observed measurements. Zero means a perfect match; smaller is better. The `future_mae` function defined in Part 2 computes this for the last five time points. BET evaluates it separately for each individual and each sampled set of parameters.
 
 ### Check fit on the training individuals
 
@@ -244,7 +244,7 @@ train_scores = est.ScoreTrainSamples(future_mae)
 print("Training MAE:", float(jnp.mean(train_scores)))
 ```
 
-This measures how closely the fitted model describes the training trajectories. It is a useful fit check, but it is not an unbiased estimate of performance on new individuals: these observations contributed to fitting the model.
+This checks how closely the fitted model describes training trajectories. It does not provide an unbiased estimate of performance on new individuals because these observations contributed to fitting.
 
 ### Compare predictions for new individuals
 
@@ -255,11 +255,11 @@ print("Test MAE without calibration:", float(jnp.mean(before)))
 print("Test MAE with calibration:", float(jnp.mean(after)))
 ```
 
-Comparing these values shows whether early measurements improved predictions on average. Improvement is not guaranteed, particularly with a small test group.
+Comparing these values shows whether early measurements improved predictions on average; improvement is not guaranteed, especially with a small test group.
 
 ### Compare the results and their uncertainty
 
-The two test scores address the main prediction question: whether early measurements improve predictions for new individuals. Training MAE answers a different question—how closely the fitted model describes the data it learned from—and should not be treated as held-out forecasting performance.
+The two test scores indicate whether early measurements improve predictions for new individuals. Training MAE instead measures fit to data used during learning; it is not held-out forecasting performance.
 
 BET computes a score for every sampled prediction, so the result is an array rather than one number. Each posterior draw represents a plausible parameter setting, not an independent experiment. Averaging across draws summarizes prediction errors under the fitted model; it does not increase the number of independent individuals evaluated. Because `future_mae` is applied to each sampled trajectory **before** scores are averaged, this is the mean of the sampled MAEs—not the MAE of the posterior-mean trajectory. Those are different summaries and can give different values. For these calls, `ScoreTrainSamples` returns an array shaped like `[posterior_draw, training_individual]`; `ScoreTestSamples` returns `[global_draw, local_draw, test_individual]` when the score is scalar per individual. Take means or quantiles over the intended axes rather than flattening them without thought. The example prints a grand mean for a simple summary. To see whether an overall improvement is shared across people or driven by one individual, average over both draw axes while keeping the individual axis:
 
@@ -287,7 +287,7 @@ The estimator retains the most recent training and test results, so later calls 
 
 ## Part 6: Working with incomplete data and numerical models
 
-Real datasets are rarely perfectly rectangular. One individual may have ten measurements while another has only three, and some measurements may be missing. BET works with arrays, so these differences need to be represented explicitly without pretending missing values were observed.
+Individuals often have different numbers of measurements, and some measurements may be missing. BET works with arrays, so these differences need to be represented explicitly without pretending missing values were observed.
 
 ### Different numbers of measurements
 
@@ -442,7 +442,7 @@ See `NutsMethod.py` and `SviMethod.py` for complete Method implementations.
 
 ## Part 8: Troubleshooting and API reference
 
-If a result looks wrong or a call fails, start with the practical checks below. The API reference that follows lists exact function signatures and options; you can consult it as needed rather than learning every argument before trying the worked example.
+If a result looks wrong or a call fails, start with the checks below. The following API reference lists function signatures and options for consultation as needed.
 
 ### Common mistakes and troubleshooting
 
@@ -526,7 +526,7 @@ A program can run without errors yet produce misleading scientific results. Soft
 
 The repository's `TESTING.md` explains how to run automated tests, while Part 7 documents how to add an inference method. The included `Examples/` directory contains NUTS, SVI, and Save/Load scripts. The concise `docs/Cheatsheet.md` is a quick reference, not a replacement for this manual.
 
-Smoke and integration tests show that supported workflows execute; they do not establish identifiability, credible-interval calibration, or scientific validity. For research claims, add application-specific simulation-based recovery and posterior predictive checks.
+Smoke and integration tests verify that supported workflows execute, but do not establish identifiability, credible-interval calibration, or scientific validity. For research claims, add application-specific simulation-based recovery and posterior predictive checks.
 
 ### Test strategy
 
