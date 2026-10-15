@@ -161,7 +161,7 @@ print("Conditioned mean future MAE:", float(jnp.mean(after)))
 assert after.shape == (20, 100, 4)
 ```
 
-BET updates each test person's growth-rate estimate using their first three measurements and the population information learned earlier. We still score only the last five measurements, which BET did not use for the update. Calling `Test` again replaces the previous test state inside `est`, but the earlier `before` scores remain in their own variable.*Runtime tip:* The later personalized-prediction step repeats inference for each of the 20 sampled global parameter states, so it may take time. For a quicker run, reduce `nGlobalSamples` in both `Test` calls to the same value and update the corresponding shape assertions; you can also reduce the SVI step counts.
+BET updates each test person's growth-rate estimate using their first three measurements and the population information learned earlier. We still score only the last five measurements, which BET did not use for the update. Calling `Test` again replaces the previous test state inside `est`, but the earlier `before` scores remain in their own variable. *Runtime tip:* The later personalized-prediction step repeats inference for each of the 20 sampled global parameter states, so it may take time. For a quicker run, reduce `nGlobalSamples` in both `Test` calls to the same value and update the corresponding shape assertions; you can also reduce the SVI step counts.
 
 #### What did the extra measurements buy us?
 
