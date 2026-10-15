@@ -140,9 +140,9 @@ print("Population-only mean future MAE:", float(jnp.mean(before)))
 assert before.shape == (20, 100, 4)
 ```
 
-BET considers 20 plausible versions of the learned population and 100 possible growth-rate differences for each one. We did not supply a `TestLikelihoodFn` to `Test`, so BET does not use any measurements from the test patients to estimate their local latent z-scores. Instead, it samples those z-scores from the learned population, producing **population-only predictions**. 
+BET considers 20 plausible versions of the learned population and 100 possible growth-rate differences for each one. We did not supply a `TestLikelihoodFn` to `Test`, so BET does not use any measurements from the test patients to estimate their local latent z-scores. Instead, it samples those z-scores from the learned population, producing **population-only predictions**.
 
-The score array has shape `[20, 100, 4]`: population draw, individual-effect draw, and test person. Each number measures a possible prediction's error.
+The score array has shape `[20, 100, 4]`: global-parameter draw, local z-score draw, and test person. Each number measures a possible prediction's error.
 
 #### Personalize predictions using three measurements
 
@@ -207,7 +207,7 @@ def model_fn(global_params, local_zs, data):
 ```
 
 
-BET does not create the global means, scales, or transformations automatically; you define them in the model.
+You define the global means, scales, and transformations in the model; BET does not create them automatically.
 
 Set `localZNames=["growth", "response"]` to represent both sources of patient-to-patient variation as standardized local z-scores. BET can learn their **correlation** from the training patients. A positive correlation means patients with above-average growth z-scores tend also to have above-average response z-scores; a negative correlation means higher growth z-scores tend to accompany lower response z-scores. These are correlations between the standardized effects, not necessarily between the parameters after arbitrary transformations.
 
@@ -283,11 +283,9 @@ After you define the model and observations, BET estimates plausible parameter v
 
 **SVI** takes a different approach: it fits a simpler probability distribution to approximate the range of plausible parameter values. It can be faster, although the approximation may miss some uncertainty. `Svi(numSteps=10000, numSamples=2000, stepSize=0.01, numParticles=1, progressBar=True, medianSamples=50, multivariate=False)` optimizes a variational approximation with Adam and an ELBO objective. `numSteps` is the number of optimization updates; `numSamples` controls approximate posterior draws generated after optimization; `stepSize` is Adam's learning rate; `numParticles` controls Monte Carlo particles for the ELBO; and `medianSamples` controls initialization. `multivariate=False` uses `AutoNormal`; `True` uses `AutoMultivariateNormal`, which can represent posterior covariance but may be expensive in large hierarchical models.
 
-**Extending inference methods.** NUTS and SVI are the built-in choices, not a closed list. Additional inference methods can be integrated through BET's Method interface; see **Adding a custom inference method** below and `ValidateMethod`.
-
 **Method selection.** NUTS is often preferable when reliable posterior uncertainty is central and runtime is manageable. SVI can be faster for large problems, but an apparently stable loss curve does not establish calibrated uncertainty. Compare posterior predictive behavior and uncertainty against NUTS or simulated ground truth when feasible. You can pass a configured method, such as `Svi(numSteps=5000)`, directly to `Train` or `Test`. After loading a saved estimator, passing the method class (such as `Svi`) lets BET reuse its saved settings, if available.
 
-BET also supports custom inference methods for developers who need an algorithm beyond NUTS and SVI; see **Advanced: Adding a custom inference method** at the end of the manual.
+**Custom methods.** Developers can integrate algorithms beyond NUTS and SVI through BET's Method interface. See **Advanced: Adding a custom inference method** and `ValidateMethod`.
 
 ## Part 6: Saving your work
 
@@ -417,7 +415,7 @@ For stronger evidence of predictive performance, evaluate more held-out individu
 
 ## Part 9: Troubleshooting
 
-Bayesian inference can be fragile when a model is difficult to fit. Parameters may compensate for one another, parameters that barely affect predictions, very large or unstable gradients can all prevent reliable fitting. Complex dynamics and likelihoods can make the problem harder still.
+Bayesian inference can be fragile when a model is difficult to fit. Parameters that compensate for one another, parameters that barely affect predictions, and very large or unstable gradients can all prevent reliable fitting. Complex dynamics and likelihoods can make the problem harder still.
 
 **Build complexity incrementally.** Start with a simple model that fits reliably, ideally checking parameter recovery on synthetic data with known values. Add one mechanism or parameter at a time and check that inference still behaves sensibly before proceeding. If fitting breaks down, investigate the most recent addition rather than debugging the entire complex model at once. Getting a complex model to work from the outset is often much harder than building toward it.
 
