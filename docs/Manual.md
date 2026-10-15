@@ -65,7 +65,7 @@ Part 2 combines these steps in a growth example. Later sections explain correlat
 
 ### Predicting growth for someone new
 
-Suppose we measure a growing quantity eight times for each of ten people. We want to learn how growth rates differ across people, then predict the last five measurements for four people the model has never seen. We will first predict using only what we learned from the other six people, then see whether the first three measurements from each new person improve the predictions.
+Suppose we measure tumor size eight times for each of ten patients. We want to learn how tumor growth rates differ across patients, then predict the last five measurements for four patients excluded from training. We will first predict using only what we learned from the other six patients, then see whether the first three measurements from each new patient improve the predictions.
 
 We generate synthetic data so you can follow the workflow without downloading a dataset. The growth equation is deliberately simple; the workflow also applies to more detailed scientific models.
 
