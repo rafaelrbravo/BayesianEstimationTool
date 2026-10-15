@@ -177,25 +177,52 @@ The assertions check score dimensions, not predictive accuracy; the printed MAE 
 
 The worked example used one growth rate per individual. This part explains the model components and how BET can learn relationships among several individual characteristics.
 
-### What each function receives
+### Core workflow: Estimator, Train, Test, and Score
 
-`Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)` connects the data, model, and prior assumptions. Its arguments are:
+`Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)` sets up the model:
 
 - `data`: A dictionary of arrays, each with individuals along the first axis. All arrays must have the same number of individuals; remaining axes can represent times, features, or spatial coordinates.
-- `ModelFn(globalParams, localZs, data)`: Computes model outputs for one individual from dictionaries of global parameters, local z-scores, and individual data. It returns a dictionary of outputs. BET vectorizes this function across individuals and posterior draws, so avoid Python side effects and converting traced JAX values to NumPy.
-- `localZNames`: Names of the local latent z-scores to infer; omit when the model has no individual-specific latent variables.
-- `GlobalPriorFn(dataShapes)`: Returns a dictionary mapping global parameter names to NumPyro prior distributions. Optional when there are no global parameters to infer. `dataShapes` gives the shape of each data array for one individual, without the leading individual axis.
+- `ModelFn`: Function that computes model outputs for one individual.
+- `localZNames`: Names of the local latent z-scores to infer; omit when there are no individual-specific latent variables.
+- `GlobalPriorFn`: Function defining prior distributions for global parameters; optional when there are no global parameters to infer.
 - `lkjConcentration`: Controls the correlation prior for multiple local z-scores (default `2.0`); discussed below.
 - `rngSeed`: Optional random seed for reproducible sampling.
 
+`est.Train(trainDataIdxs, TrainLikelihoodFn, Method, printSummary=False, rngSeed=None, saveLocalZs=True, saveModelOut=False)` learns from the training individuals:
+
+- `trainDataIdxs`: Indices of the individuals used for training.
+- `TrainLikelihoodFn`: Function describing how their observations relate to model predictions.
+- `Method`: Inference method, such as `Nuts(...)` or `Svi(...)`.
+- `printSummary`: Whether to print an inference summary.
+- `rngSeed`: Optional seed for this training run.
+- `saveLocalZs`: Whether to retain training local z-score samples.
+- `saveModelOut`: Whether to retain model outputs for the training samples.
+
+`est.Test(testDataIdxs, TestLikelihoodFn=None, Method=None, nGlobalSamples=None, nLocalZSamples=2000, printSummary=False, rngSeed=None, saveModelOut=False)` makes predictions for test individuals:
+
+- `testDataIdxs`: Indices of the individuals to predict.
+- `TestLikelihoodFn`: Optional function using available test observations to update their local z-scores. Omit for population-only predictions.
+- `Method`: Inference method for that update, when a test likelihood is supplied.
+- `nGlobalSamples`: Number of sampled global parameter states used for testing; `None` uses the available training draws.
+- `nLocalZSamples`: Number of local z-score draws per global state for population-only predictions.
+- `printSummary`: Whether to print an inference summary.
+- `rngSeed`: Optional seed for this test run.
+- `saveModelOut`: Whether to retain test model outputs.
+
+`est.ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` and `est.ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` evaluate predictions:
+
+- `ScoreFn`: Function that compares one individual's model output with their data and returns a scalar or array.
+- `nSamples`: Optional number of posterior draws to score; `None` uses all available draws.
+- `rngSeed`: Optional seed when selecting draws.
+
+### Functions supplied to BET
+
+- `ModelFn(globalParams, localZs, data)` receives dictionaries of global parameters, one individual's local z-scores, and that individual's data. It returns a dictionary of model outputs. BET vectorizes it across individuals and posterior draws, so avoid Python side effects and converting traced JAX values to NumPy.
+- `GlobalPriorFn(dataShapes)` returns a dictionary mapping global parameter names to NumPyro distributions. `dataShapes` gives the shape of each data array for one individual, without the leading individual axis.
+- `TrainLikelihoodFn(globalParams, localZs, data, modelOut)` describes training observations; `TestLikelihoodFn(globalParams, localZs, data, modelOut)` describes the test observations available for personalization. Both return dictionaries mapping site names to `(observed_value, distribution)` tuples. A site may contain a scalar or vector of observations; its observation, distribution, and mask shapes must agree.
+- `ScoreFn(modelOut, data)` returns a scalar or array for one individual; BET evaluates it across posterior samples and individuals.
+
 For example, if `data["y"]` contains measurements from 10 patients at 8 times, its full shape is `(10, 8)`, but `dataShapes["y"]` is `(8,)`. Global parameters are shared across the training population.
-
-- `TrainLikelihoodFn(globalParams, localZs, data, modelOut)`: Defines the likelihood of each training individual's observations given the model outputs and parameters.
-- `TestLikelihoodFn(globalParams, localZs, data, modelOut)`: Defines which observations from a test individual are used to update their local z-scores during personalized prediction. Omit it for population-only predictions.
-
-Both functions return dictionaries mapping site names to `(observed_value, distribution)` tuples. A site may contain a scalar or a vector of observations. Its observation, distribution, and mask shapes must agree.
-
-`ScoreFn(modelOut, data)` returns a scalar or array for one individual; BET vectorizes it across posterior samples and individuals.
 
 ### Representing individual differences
 
