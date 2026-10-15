@@ -171,9 +171,9 @@ To examine uncertainty in trajectories rather than errors, run `Test` with `save
 
 The *Train → Test → Score* workflow also applies to more complex models, including differential-equation models.
 
-The assertions check score dimensions, not predictive accuracy; the printed MAE values are not expected to match fixed numbers. Part 5 builds on these scores to check fit on the training group.
+The assertions check score dimensions, not predictive accuracy; the printed MAE values are not expected to match fixed numbers. Part 6 builds on these scores to check fit on the training group.
 
-### Representing individual differences
+## Part 4: Building blocks
 
 The example has one individual-specific parameter, growth rate. BET can represent several individual differences and learn whether they tend to occur together.
 
@@ -208,7 +208,7 @@ BET represents this relationship using a **correlation matrix**. Internally, it 
 When data are limited, try more than one concentration to check how much the inferred correlations depend on the prior.
 
 
-## Part 3: Learning correlations between local z-scores
+## Part 4: Learning correlations between local z-scores
 
 The worked example used one growth rate per individual. This part explains the model components and how BET can learn relationships among several individual characteristics.
 
@@ -258,7 +258,7 @@ The worked example used one growth rate per individual. This part explains the m
 - `ScoreFn(modelOut, data)` returns a scalar or array for one individual; BET evaluates it across posterior samples and individuals.
 
 
-## Part 4: How BET learns from data
+## Part 5: How BET learns from data
 
 After you define the model and observations, BET estimates plausible parameter values using one of two built-in inference methods. Both produce parameter samples, but their algorithms and computational costs differ.
 
@@ -272,7 +272,7 @@ After you define the model and observations, BET estimates plausible parameter v
 
 **Method selection.** NUTS is often preferable when reliable posterior uncertainty is central and runtime is manageable. SVI can be faster for large problems, but an apparently stable loss curve does not establish calibrated uncertainty. Compare posterior predictive behavior and uncertainty against NUTS or simulated ground truth when feasible. BET supports configured Method instances; using Method classes can reconstruct previously saved configuration when available.
 
-## Part 5: Checking predictions
+## Part 6: Checking predictions
 
 A model can fit its training individuals yet predict poorly for new ones. **Scoring** compares predictions with observed outcomes. Part 2 compared population-only and personalized predictions for new individuals; here we add a training-set check and show how to interpret all three scores.
 
@@ -332,7 +332,7 @@ The estimator retains the most recent training and test results, so later calls 
 - `ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[posterior_draw, training_individual, ...score_shape]`. For NUTS, this first axis combines draws across chains; for SVI, it contains draws from the fitted approximation.
 - `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`. Here `nSamples`, when provided, selects the number of *local* draws scored for each global state; it does not change the number of global states selected by `Test`.
 
-## Part 6: Working with incomplete data and numerical models
+## Part 7: Working with incomplete data and numerical models
 
 Individuals often have different numbers of measurements, and some measurements may be missing. BET works with arrays, so these differences need to be represented explicitly without pretending missing values were observed.
 
@@ -390,7 +390,7 @@ def model_fn(global_params, local_zs, data):
 
 Padded time grids must satisfy the solver's ordering requirements. One approach is to solve on a shared regular grid and interpolate to each individual's observation times. Check for duplicate or unsorted padded times.
 
-## Part 7: Saving your work and extending BET
+## Part 8: Saving your work and extending BET
 
 Once you have trained a model, you may want to return to it later without running inference again. BET can save the results of training and testing, along with enough configuration to reconstruct an estimator. You can also add an inference algorithm beyond the two built-in choices if your project needs one.
 
@@ -487,7 +487,7 @@ Optional features include:
 
 See `NutsMethod.py` and `SviMethod.py` for complete Method implementations.
 
-## Part 8: Troubleshooting and API reference
+## Part 9: Troubleshooting and API reference
 
 If a result looks wrong or a call fails, start with the checks below. The following API reference lists function signatures and options for consultation as needed.
 
@@ -565,7 +565,7 @@ The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `V
 
 `ValidateMethod(method)` checks a custom Method's required interface; see **Adding a custom inference method** in Part 7 for implementation details. Public exports are defined in package `__init__.py`.
 
-## Part 9: Checking that your model works
+## Part 10: Checking that your model works
 
 A program can run without errors yet produce misleading scientific results. Software tests check whether BET behaves as implemented; model checks ask whether your assumptions and fitted predictions are appropriate for the problem you care about. Both matter.
 
