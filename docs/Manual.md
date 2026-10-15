@@ -1,12 +1,12 @@
 # BayesianEstimationTool Manual
 
-BayesianEstimationTool (BET) helps you learn from a group of related individuals and make predictions for someone new. An *individual* (also called an *entry* in some API descriptions) might be a patient, an experiment, or a simulated system. This manual uses *individual* for all three; the examples happen to use people. You provide a model of how the system works and the measurements you have collected; BET estimates its unknown parameters and helps you test its predictions.
+BayesianEstimationTool (BET) helps you learn from a group of related individuals and make predictions for someone new. An **individual** (also called an *entry* in some API descriptions) might be a patient, an experiment, or a simulated system. This manual uses individual for all three; the examples happen to use people. You provide a model of how the system works and the measurements you have collected; BET estimates its unknown parameters and helps you test its predictions.
 
 Imagine measuring how quickly tumors grow in several patients. The same growth equation might describe every patient, but each patient's growth rate can differ. If you estimate each rate separately, a patient with only one or two measurements gives you little information. BET instead learns from the whole group: what growth rates are typical, how much they vary, and what the measurements tell us about each patient.
 
-You can predict a new patient's trajectory **before seeing any measurements**, using what BET learned from the group. **After seeing a few measurements**, you can update that prediction using information from the patient. BET also helps you measure whether those predictions were accurate and how uncertain they are.
+You can predict a new patient's trajectory *before seeing any measurements*, using what BET learned from the group. *After seeing a few measurements*, you can update that prediction using information from the patient. BET also helps you measure whether those predictions were accurate and how uncertain they are.
 
-This approach is called *hierarchical Bayesian inference*. You do not need to master the terminology to use the basic workflow. Throughout the manual, *population* means the group whose shared patterns BET learns; it does not require a medical or demographic population.
+This approach is called **hierarchical Bayesian inference**. You do not need to master the terminology to use the basic workflow. Throughout the manual, **population** means the group whose shared patterns BET learns; it does not require a medical or demographic population.
 
 ## The workflow at a glance
 
