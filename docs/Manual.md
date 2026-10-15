@@ -520,7 +520,7 @@ The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `V
 
 `Estimator.Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs an estimator using the supplied functions. Provide `data` if it was not saved. Passing `ModelFn=None` returns the saved record without reconstructing an executable estimator.
 
-`ValidateMethod(method)` checks a custom Method's required interface; see **Writing a custom inference Method** in Part 7 for implementation details. Public exports are defined in package `__init__.py`.
+`ValidateMethod(method)` checks a custom Method's required interface; see **Adding a custom inference method** in Part 7 for implementation details. Public exports are defined in package `__init__.py`.
 
 ## Part 9: Checking that your model works
 
@@ -528,7 +528,7 @@ A program can run without errors and still give misleading scientific results. S
 
 ### Verification and further reading
 
-The repository's `TESTING.md` explains how to run automated tests, while Part 7 documents how to add an inference method. The included `Examples/` directory contains NUTS, SVI, and Save/Load scripts. The one-page `docs/Cheatsheet.md` is a compact companion, not a replacement for this manual.
+The repository's `TESTING.md` explains how to run automated tests, while Part 7 documents how to add an inference method. The included `Examples/` directory contains NUTS, SVI, and Save/Load scripts. The concise `docs/Cheatsheet.md` is a quick reference, not a replacement for this manual.
 
 Smoke and integration tests show that supported workflows execute; they do not establish identifiability, credible-interval calibration, or scientific validity. For research claims, add application-specific simulation-based recovery and posterior predictive checks.
 
