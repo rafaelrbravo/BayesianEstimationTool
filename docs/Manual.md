@@ -4,7 +4,7 @@ BayesianEstimationTool (BET) helps you learn from a group of related individuals
 
 Imagine measuring how quickly tumors grow in several patients. The same growth equation might describe every patient, but each patient's growth rate can differ. If you estimate each rate separately, a patient with only one or two measurements gives you little information. BET instead learns from the whole group: what growth rates are typical, how much they vary, and what the measurements tell us about each patient.
 
-You can then predict a new patient's trajectory in two ways. **Before seeing any measurements**, use what the group taught you. **After seeing a few measurements**, update the prediction to reflect what you have learned about that patient. BET also helps you measure whether those predictions were accurate and how uncertain they are.
+You can predict a new patient's trajectory **before seeing any measurements**, using what BET learned from the group. **After seeing a few measurements**, you can update that prediction using information from the patient. BET also helps you measure whether those predictions were accurate and how uncertain they are.
 
 This approach is called *hierarchical Bayesian inference*. You do not need to master the terminology to use the basic workflow. Throughout the manual, *population* means the group whose shared patterns BET learns; it does not require a medical or demographic population.
 
@@ -57,7 +57,7 @@ To implement this workflow:
 7. Choose held-out individuals. Call `Test` for predictions from the population alone, or provide a test likelihood and inference method to update individual effects using measurements available at prediction time.
 8. Define a scoring function and call `ScoreTrainSamples` or `ScoreTestSamples` to evaluate predictions. Keep track of which dimensions represent samples and which represent individuals.
 
-The next part puts these pieces together in a complete growth example. Later sections explain the technical details, including how BET represents correlated individual effects and how to configure inference methods.
+Part 2 combines these steps in a growth example. Later sections explain correlated individual effects and inference-method configuration.
 
 ## Part 2: Worked example
 
@@ -65,7 +65,7 @@ The next part puts these pieces together in a complete growth example. Later sec
 
 Suppose we measure a growing quantity eight times for each of ten people. We want to learn how growth rates differ across people, then predict the last five measurements for four people the model has never seen. We will first predict using only what we learned from the other six people, then see whether the first three measurements from each new person improve the predictions.
 
-We generate example data ourselves, so you can follow the workflow without downloading a dataset. The growth equation is deliberately simple; the workflow also applies to more detailed scientific models.
+We generate synthetic data so you can follow the workflow without downloading a dataset. The growth equation is deliberately simple; the workflow also applies to more detailed scientific models.
 
 #### Create example measurements and a growth model
 
@@ -116,7 +116,7 @@ est.Train(train_ids, train_likelihood,
           Svi(numSteps=1500, numSamples=300, progressBar=False))
 ```
 
-The first six people form the **training group** (the individuals used to fit the model). BET uses their measurements to estimate typical growth, variation between people, and measurement noise. The other four form the **test group** (new individuals): their measurements are not used during training.
+The first six people form the **training group** used to fit the model. BET uses their measurements to estimate typical growth, between-person variation, and measurement noise. The other four form the **test group**: their measurements are excluded from training.
 
 Here `Svi` is the inference method that estimates the unknown quantities. These settings are illustrative, not a guarantee of accurate inference. For research, check the fitted predictions and sensitivity to modeling choices. The later personalized-prediction step repeats inference for 20 sampled population states, so it may take time. For a quick run, reduce `nGlobalSamples` in both `Test` calls to the same value and adjust the corresponding shape assertions; you can also reduce the SVI step counts.
 
@@ -165,13 +165,13 @@ Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize error
 
 To examine uncertainty in trajectories rather than errors, use a score function returning `model_out["prediction"]` and summarize its posterior draw axes. The resulting intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
 
-The same **Train → Test → Score** workflow applies to more complicated models, including models defined by differential equations.
+The **Train → Test → Score** workflow also applies to more complex models, including differential-equation models.
 
 The assertions check score dimensions, not predictive accuracy; the printed MAE values are not expected to match fixed numbers. Part 5 builds on these scores to check fit on the training group.
 
 ## Part 3: Building blocks and individual differences
 
-The worked example used one growth rate per individual. This part explains how its pieces fit together, and how BET can learn relationships between several individual characteristics.
+The worked example used one growth rate per individual. This part explains the model components and how BET can learn relationships among several individual characteristics.
 
 ### What each function receives
 
@@ -326,7 +326,7 @@ Before population fitting, test the model and likelihood on one individual, then
 
 ### Models defined by differential equations
 
-Some scientific models describe *how fast a quantity changes* rather than giving its value directly. A differential equation solver turns those rates of change into a predicted trajectory. `ModelFn` can call a JAX-compatible ODE solver such as `jax.experimental.ode.odeint`. Use JAX arrays and differentiable operations, and return outputs at observation times. In the workflows tested for this project, `odeint` has worked more reliably with BET's batching than Diffrax. Compatibility is model-dependent, so verify gradients and numerical behavior. Diffrax is an optional external dependency, not part of BET's installation requirements.
+Some scientific models specify *rates of change* rather than values directly. A differential equation solver converts those rates into a predicted trajectory. `ModelFn` can call a JAX-compatible ODE solver such as `jax.experimental.ode.odeint`. Use JAX arrays and differentiable operations, and return outputs at observation times. In the workflows tested for this project, `odeint` has worked more reliably with BET's batching than Diffrax. Compatibility is model-dependent, so verify gradients and numerical behavior. Diffrax is an optional external dependency, not part of BET's installation requirements.
 
 ```python
 from jax.experimental.ode import odeint
@@ -387,7 +387,7 @@ For inspection without reconstructing an estimator, call `Estimator.Load("fit.np
 
 ### Adding a custom inference method
 
-Most users can use NUTS or SVI without implementing anything new. This section is for developers who want BET to run a different inference algorithm while keeping its existing training, testing, and scoring workflows.
+Most users can rely on NUTS or SVI. This section explains how developers can add another inference algorithm without changing BET's training, testing, or scoring workflows.
 
 BET separates inference algorithms from its population and individual workflows. NUTS and SVI are built in; to integrate another backend, implement the minimum Method interface and validate it before fitting.
 
