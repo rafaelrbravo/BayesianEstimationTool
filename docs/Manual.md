@@ -46,10 +46,6 @@ This approach is called **hierarchical Bayesian inference**. You do not need to 
 
 *BET tracks uncertainty rather than returning only one answer.* Different plausible parameter values can produce different predictions. Samples from the fitted distribution let you examine that variation. Predictions of the underlying model are not automatically noisy future measurements; the observation model describes that additional variation.
 
-### Automatic vectorization
-
-Write `ModelFn`, `TrainLikelihoodFn`, `TestLikelihoodFn`, and `ScoreFn` for one individual at a time. BET applies them across individuals and parameter samples using JAX vectorization, so you do not need to write those loops yourself. These functions should use JAX-compatible operations and avoid side effects. Vectorization enables efficient batched computation, although actual parallel execution depends on the operations and hardware.
-
 ### Designing a BET model
 
 To implement this workflow:
@@ -64,6 +60,10 @@ To implement this workflow:
 8. Define a scoring function and call `ScoreTrainSamples` or `ScoreTestSamples` to evaluate predictions. Keep track of which dimensions represent samples and which represent individuals.
 
 Part 2 combines these steps in a growth example. Later sections explain correlated local z-scores and inference-method configuration.
+
+### Automatic vectorization
+
+Write `ModelFn`, `TrainLikelihoodFn`, `TestLikelihoodFn`, and `ScoreFn` for one individual at a time. BET applies them across individuals and parameter samples using JAX vectorization, so you do not need to write those loops yourself. These functions should use JAX-compatible operations and avoid side effects. Vectorization enables efficient batched computation, although actual parallel execution depends on the operations and hardware.
 
 ## Part 2: Worked example
 
