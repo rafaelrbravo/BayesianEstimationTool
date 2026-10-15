@@ -61,11 +61,13 @@ The next part puts these pieces together in a complete growth example. Later sec
 
 ## Part 2: Worked example
 
-### Predicting longitudinal growth
+### Predicting growth for someone new
 
-This tutorial connects population training, predictions for unseen individuals, and updating those predictions after observing the beginning of each individual's trajectory. It uses synthetic exponential-growth data so that no external dataset is required. The goal is to compare **population-only prediction** against **prediction conditioned on three measurements**, using the same trained population model.
+Suppose we measure a growing quantity eight times for each of ten people. We want to learn how growth rates differ across people, then predict the last five measurements for four people the model has never seen. We will first predict using only what we learned from the other six people, then see whether the first three measurements from each new person improve the predictions.
 
-#### Generate data and define the model
+We generate example data ourselves, so you can follow the workflow without downloading a dataset. The growth equation is deliberately simple; the same approach works with more detailed scientific models.
+
+#### Create example measurements and a growth model
 
 ```python
 import jax.numpy as jnp
@@ -96,7 +98,9 @@ def train_likelihood(global_params, local_zs, data, model_out):
     return {"y": (data["y"], dist.Normal(model_out["prediction"], global_params["noise"]))}
 ```
 
-`g_mean` and `g_sd` set the population center and spread of growth rates. Each individual's standardized `local_zs["g"]` becomes a physical growth rate through `g_mean + g_sd * z`. The separate `noise` parameter describes measurement variation, not biological heterogeneity.
+The model has three unknown population-level quantities. `g_mean` describes a typical growth rate; `g_sd` describes how much rates differ between people; and `noise` describes random variation in measurements. The individual value `local_zs["g"]` says where one person falls relative to the typical rate. The model converts it to that person's growth rate using `g_mean + g_sd * z`.
+
+`global_prior` describes plausible starting ranges for the three unknown quantities. `train_likelihood` says that each measurement is expected to be near the model's prediction, with variation controlled by `noise`. The data generator uses known values only to create this synthetic example; BET does not see those values when fitting.
 
 #### Train on six individuals
 
@@ -110,13 +114,13 @@ est.Train(train_ids, train_likelihood,
           Svi(numSteps=1500, numSamples=300, progressBar=False))
 ```
 
-The first six individuals train the population model; the other four are held out. The short optimization run is for demonstration only. In research applications, inspect convergence, posterior predictive behavior, and prior sensitivity.
+The first six people form the **training group**. BET uses their measurements to estimate typical growth, variation between people, and measurement noise. The other four form the **test group**: their measurements are not used during training.
 
-The conditioning example below runs a separate SVI fit for each of 20 sampled population states. It is intended to illustrate the workflow, not to be a quick smoke test; reduce `nGlobalSamples` and SVI steps when first checking that the code executes.
+Here `Svi` is the inference method that estimates the unknown quantities. These settings are illustrative, not a guarantee of accurate inference. For research, check the fitted predictions and sensitivity to modeling choices. The later personalized-prediction step repeats inference for 20 sampled population states, so it may take time; use fewer states and steps for an initial run.
 
-#### Predict without seeing any test observations
+#### Predict using the group alone
 
-First define a score for the **future** measurements, at indices 3 through 7. Scoring can use held-out outcomes even though inference must not use them.
+To see how well our predictions work, we calculate the average absolute difference between predictions and measurements for the **last five time points** (indices 3 through 7). These measurements are available for evaluation, but we must not use them to personalize the predictions.
 
 ```python
 def future_mae(model_out, data):
@@ -127,11 +131,11 @@ before = est.ScoreTestSamples(future_mae)
 print("Population-only mean future MAE:", float(jnp.mean(before)))
 ```
 
-Here BET samples 20 population posterior states and generates 100 local-effect draws for each state. None of the held-out individuals' observed `y` values inform their latent effects. The score array has shape `[20, 100, 4]`: global draw, local draw, and held-out individual.
+BET considers 20 plausible versions of the learned population and 100 possible growth-rate differences for each one. Because it has not used any test person's measurements to estimate their growth rate, these are **population-only predictions**. The score array has shape `[20, 100, 4]`: population draw, individual-effect draw, and test person. Each number measures a possible prediction's error.
 
-#### Update predictions after three observations
+#### Personalize predictions using three measurements
 
-Next, define a test likelihood that reveals only the first three measurements. Masking is important: the remaining measurements must not affect inference.
+Now suppose we have received the first three measurements for each test person. We can use those observations to estimate their growth rate more specifically. A **mask** marks which measurements BET is allowed to use for that update. The last five remain hidden from inference, even though we retain them to check the predictions afterward.
 
 ```python
 def test_likelihood(global_params, local_zs, data, model_out):
@@ -149,20 +153,15 @@ after = est.ScoreTestSamples(future_mae)
 print("Conditioned mean future MAE:", float(jnp.mean(after)))
 ```
 
-BET now infers each held-out individual's local growth effect from the first three observations, conditional on each sampled population state. The score still evaluates measurements at indices 3 through 7, which were excluded from the test likelihood. This second test call replaces the previous test state; the `before` scores remain available because they were already stored in a separate variable.
+BET updates each test person's growth-rate estimate using their first three measurements and the population information learned earlier. We still score only the last five measurements, which BET did not use for the update. Calling `Test` again replaces the previous test state inside `est`, but the earlier `before` scores remain in their own variable.
 
-#### Interpret the comparison
+#### What did the extra measurements buy us?
 
-Both `before` and `after` have shape `[20, 100, 4]`. Averaging their values summarizes future absolute errors across population draws, local draws, and held-out individuals. Early measurements often improve predictions, but not necessarily in every small synthetic experiment.
-
-The two stages answer different questions:
-
-- **Population-only:** What can we predict for a new individual before observing their trajectory?
-- **Conditioned:** What can we predict after observing that individual's first three measurements?
+Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize errors across plausible population parameters, individual effects, and test people. If the `after` mean is lower, those three early measurements helped on average. With only ten synthetic people, an improvement is not guaranteed.
 
 To examine uncertainty in trajectories rather than errors, use a score function returning `model_out["prediction"]` and summarize its posterior draw axes. The resulting intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
 
-The same Train → Test → Score workflow also applies to differentiable mechanistic ODE models.
+The same **Train → Test → Score** workflow applies to more complicated models, including models defined by differential equations. Part 5 revisits scoring in more detail and adds a check on the training group.
 
 ## Part 3: Building blocks and individual differences
 
