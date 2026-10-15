@@ -6,7 +6,7 @@ Imagine measuring how quickly tumors grow in several patients. The same growth e
 
 You can then predict a new patient's trajectory in two ways. **Before seeing any measurements**, use what the group taught you. **After seeing a few measurements**, update the prediction to reflect what you have learned about that patient. BET also helps you measure whether those predictions were accurate and how uncertain they are.
 
-The statistical name for learning about individuals and their shared population in this way is *hierarchical Bayesian inference*. You do not need to master that terminology before using the basic workflow. Throughout the manual, *population* means the group whose shared patterns BET learns; it does not require a medical or demographic population.
+This approach is called *hierarchical Bayesian inference*. You do not need to master the terminology to use the basic workflow. Throughout the manual, *population* means the group whose shared patterns BET learns; it does not require a medical or demographic population.
 
 ## The workflow at a glance
 
@@ -46,7 +46,7 @@ The statistical name for learning about individuals and their shared population 
 
 ### Designing a BET model
 
-The following steps translate those ideas into the API:
+To implement this workflow:
 
 1. Prepare `data` as a dictionary of arrays. Every array's first axis identifies the individual; later axes can represent times, features, or positions.
 2. Write `ModelFn(globalParams, localZs, data)` to predict outputs for **one individual**. Return a dictionary of named outputs. Keep this function deterministic: do not sample random variables inside it.
@@ -65,7 +65,7 @@ The next part puts these pieces together in a complete growth example. Later sec
 
 Suppose we measure a growing quantity eight times for each of ten people. We want to learn how growth rates differ across people, then predict the last five measurements for four people the model has never seen. We will first predict using only what we learned from the other six people, then see whether the first three measurements from each new person improve the predictions.
 
-We generate example data ourselves, so you can follow the workflow without downloading a dataset. The growth equation is deliberately simple; the same approach works with more detailed scientific models.
+We generate example data ourselves, so you can follow the workflow without downloading a dataset. The growth equation is deliberately simple; the workflow also applies to more detailed scientific models.
 
 #### Create example measurements and a growth model
 
@@ -189,7 +189,7 @@ For example, if `data["y"]` contains measurements from 10 people at 8 times, its
 
 ### Representing individual differences
 
-The example so far has one individual-specific parameter: growth rate. BET can also represent several differences at once, and can learn whether they tend to occur together.
+The example has one individual-specific parameter, growth rate. BET can represent several individual differences and learn whether they tend to occur together.
 
 BET needs a consistent way to describe how each individual differs from the population. It uses **local z-scores**: numbers that describe an individual's position relative to a typical value. Local z-scores represent individual-to-individual differences on a standardized scale. For example, `z=0` gives the model's central growth rate; positive or negative values change it according to the transformation you define. With `rate = exp(log_rate_mean + log_rate_sd * z)`, `log_rate_mean` sets the center on the log scale and `log_rate_sd` sets its spread. Before conditioning on individual observations, each z-score has a standard-normal marginal distribution.
 
@@ -213,7 +213,7 @@ Define population means, scales, and transformations explicitly; BET does not cr
 
 ## Part 4: How BET learns from data
 
-Once you have defined a model and its observations, BET must find plausible parameter values. It offers two built-in ways to do this. Both produce samples of possible parameter values, but they differ in how they obtain those samples and how much computation they require.
+After you define the model and observations, BET estimates plausible parameter values using one of two built-in inference methods. Both produce parameter samples, but their algorithms and computational costs differ.
 
 ### Choosing between NUTS and SVI
 
@@ -227,7 +227,7 @@ Once you have defined a model and its observations, BET must find plausible para
 
 ## Part 5: Checking predictions
 
-A model can fit the people it learned from and still predict poorly for someone new. **Scoring** means comparing predictions with observed outcomes. Part 2 compared population-only and personalized predictions for new individuals; here we add a training-set check and show how to interpret all three scores.
+A model can fit its training individuals yet predict poorly for new ones. **Scoring** compares predictions with observed outcomes. Part 2 compared population-only and personalized predictions for new individuals; here we add a training-set check and show how to interpret all three scores.
 
 This section continues with the same `est`, `test_ids`, and `future_mae` from Part 2. The first three test measurements may be used for personalization; the last five are reserved for evaluation.
 
@@ -464,7 +464,7 @@ If a result looks wrong or a call fails, start with the practical checks below. 
 
 ### Detailed public API reference
 
-The preceding sections explain *why* you would use each operation. This reference records *how* to call it and what each option means.
+The preceding sections explain when to use each operation. This reference provides call signatures and option descriptions.
 
 The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `ValidateMethod`, together with public `Estimator` methods.
 
@@ -520,7 +520,7 @@ The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `V
 
 ## Part 9: Checking that your model works
 
-A program can run without errors and still give misleading scientific results. Software tests check whether BET behaves as implemented; model checks ask whether your assumptions and fitted predictions are appropriate for the problem you care about. Both matter.
+A program can run without errors yet produce misleading scientific results. Software tests check whether BET behaves as implemented; model checks ask whether your assumptions and fitted predictions are appropriate for the problem you care about. Both matter.
 
 ### Verification and further reading
 
