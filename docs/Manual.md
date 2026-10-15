@@ -181,7 +181,7 @@ The worked example used one growth rate per individual. This part explains the m
 
 `Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)` sets up the model:
 
-- `data`: A dictionary of arrays, each with individuals along the first axis. All arrays must have the same number of individuals; remaining axes can represent times, features, or spatial coordinates.
+- `data`: A dictionary of arrays, each with individuals along the first axis. All arrays must have the same number of individuals; remaining axes can represent times, features, or spatial coordinates. For example, measurements from 10 patients at 8 times give `data["y"]` shape `(10, 8)`; the corresponding one-patient shape, `dataShapes["y"]`, is `(8,)`.
 - `ModelFn`: Function that computes model outputs for one individual.
 - `localZNames`: Names of the local latent z-scores to infer; omit when there are no individual-specific latent variables.
 - `GlobalPriorFn`: Function defining prior distributions for global parameters; optional when there are no global parameters to infer.
@@ -218,11 +218,9 @@ The worked example used one growth rate per individual. This part explains the m
 ### Functions supplied to BET
 
 - `ModelFn(globalParams, localZs, data)` receives dictionaries of global parameters, one individual's local z-scores, and that individual's data. It returns a dictionary of model outputs. BET vectorizes it across individuals and posterior draws, so avoid Python side effects and converting traced JAX values to NumPy.
-- `GlobalPriorFn(dataShapes)` returns a dictionary mapping global parameter names to NumPyro distributions. `dataShapes` gives the shape of each data array for one individual, without the leading individual axis.
+- `GlobalPriorFn(dataShapes)` returns a dictionary mapping global parameter names to NumPyro distributions. `dataShapes` gives the shape of each data array for one individual, without the leading individual axis. Global parameters are shared across the training population.
 - `TrainLikelihoodFn(globalParams, localZs, data, modelOut)` describes training observations; `TestLikelihoodFn(globalParams, localZs, data, modelOut)` describes the test observations available for personalization. Both return dictionaries mapping site names to `(observed_value, distribution)` tuples. A site may contain a scalar or vector of observations; its observation, distribution, and mask shapes must agree.
 - `ScoreFn(modelOut, data)` returns a scalar or array for one individual; BET evaluates it across posterior samples and individuals.
-
-For example, if `data["y"]` contains measurements from 10 patients at 8 times, its full shape is `(10, 8)`, but `dataShapes["y"]` is `(8,)`. Global parameters are shared across the training population.
 
 ### Representing individual differences
 
