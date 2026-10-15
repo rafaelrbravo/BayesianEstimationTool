@@ -1,59 +1,63 @@
 # BayesianEstimationTool Manual
 
-BayesianEstimationTool (BET) helps you fit a mechanistic model to a population of related individuals and then use what you learned to predict outcomes for a new individual. An *individual* (or *entry*) might be a patient, experiment, or replicate. You supply the scientific model and how observations arise; BET handles the repeated work of hierarchical Bayesian inference, population-to-individual transfer, and posterior prediction.
+BayesianEstimationTool (BET) helps you learn from a group of related individuals and make predictions for someone new. An *individual* might be a patient, an experiment, or a simulated system. You provide a model of how the system works and the measurements you have collected; BET estimates its unknown parameters and helps you test its predictions.
 
-A mathematical model describes how a system changes or behaves. For example, a simple tumor growth model can describe how tumor size changes over time using a growth-rate parameter: a larger rate produces faster growth. If tumor sizes are measured repeatedly for several patients, the model can be compared with each patient's measurements to estimate how quickly their tumors grow. The same equations can describe every patient, even though the parameter values may differ.
+Imagine measuring how quickly tumors grow in several patients. The same growth equation might describe every patient, but each patient's growth rate can differ. If you estimate each rate separately, a patient with only one or two measurements gives you little information. BET instead learns from the whole group: what growth rates are typical, how much they vary, and what the measurements tell us about each patient.
 
-Rather than estimating each patient's growth rate independently, BET uses a **hierarchical model** to learn how growth rates vary across the patient population. This allows information from patients with more measurements to inform estimates for patients with less data. For a new patient, BET can generate predictions from the learned population distribution before any tumor measurements are available, or use the patient's available measurements to update their individual growth-rate estimate. These are **population prediction** and **observation-conditioned prediction**, respectively. The distinction is central to BET's training and testing workflow.
+You can then predict a new patient's trajectory in two ways. **Before seeing any measurements**, use what the group taught you. **After seeing a few measurements**, update the prediction to reflect what you have learned about that patient. BET also helps you measure whether those predictions were accurate and how uncertain they are.
+
+The statistical name for learning about individuals and their shared population in this way is *hierarchical Bayesian inference*. You do not need to master that terminology before using the basic workflow.
 
 ## The workflow at a glance
 
-1. **Describe the data.** Store observations and covariates for each entry in arrays.
-2. **Define the mechanistic model.** Write a function that predicts outputs for one entry from shared and individual parameters.
-3. **Define uncertainty.** Supply priors for shared parameters, names for individual latent effects, and a likelihood describing measurement noise.
-4. **Train.** Infer population parameters and the distribution of individual effects from training entries.
-5. **Test.** Predict for unseen entries, optionally conditioning on their available observations.
-6. **Score and inspect.** Compare predictions with held-out data and examine posterior uncertainty.
+1. **Organize observations.** Put each individual's measurements and inputs into arrays.
+2. **Describe the system.** Write a function that predicts what happens when its parameters are known.
+3. **Describe what is unknown.** Specify which parameters are shared, which vary by individual, and how measurements differ from ideal predictions.
+4. **Learn from the group.** Use `Train` to estimate the population and individual parameters.
+5. **Predict for new individuals.** Use `Test` with or without their available measurements.
+6. **Check the predictions.** Use scoring functions to compare predictions with observations held back from fitting.
 
 ## Core components
 
-| Component | Purpose | You provide |
-| --- | --- | --- |
-| `data` | Inputs for all entries | Dictionary of JAX or NumPy arrays |
-| `ModelFn` | Scientific model for one entry | Function returning named predictions |
-| `GlobalPriorFn` | Prior distributions for shared unknowns | Function returning distributions |
-| `localZNames` | Names of individual-varying standardized effects | List of strings |
-| `TrainLikelihoodFn` | How training observations relate to predictions | Function returning observations and distributions |
-| `Estimator` | Coordinates the model and inference state | Model, data, and optional prior/effect definitions |
-| `Train` / `Test` | Population fitting / new-entry prediction | Indices, likelihood, and inference method |
-| `ScoreFn` | Defines a prediction quality measure | Function returning a score per entry |
+| Component | What it does |
+| --- | --- |
+| `data` | Holds measurements and inputs for each individual |
+| `ModelFn` | Predicts what happens for one individual |
+| `GlobalPriorFn` | Describes plausible values for unknown shared parameters before fitting |
+| `localZNames` | Names the ways individuals can differ from one another |
+| `TrainLikelihoodFn` | Describes how observed measurements relate to model predictions |
+| `Estimator` | Connects your model, data, and inference results |
+| `Train` / `Test` | Learns from the training group / predicts for new individuals |
+| `ScoreFn` | Measures how well a prediction matches observations |
 
 ## Part 1: Core concepts
 
-### Overview
+### What BET learns
 
-BET separates the scientific model from hierarchical inference. You provide a deterministic model for one entry, optional priors for shared parameters, and an observation likelihood. BET handles population training, new-entry prediction, posterior sample bookkeeping, and scoring. It uses JAX to evaluate the model across entries and posterior draws, so model functions must use JAX-compatible operations and avoid side effects.
+**A model is a rule for making predictions.** For example, a growth equation uses a growth rate and a time to predict a size. BET does not choose that equation for you; you write it in `ModelFn`. BET helps determine which parameter values are consistent with your measurements.
 
-An **entry** is one independently indexed unit, such as a patient, experiment, or simulated replicate. Every data array has an entry axis first. Repeated observations within an entry occupy trailing axes and are modeled together by that entry's likelihood. Treating those observations as separate entries changes the hierarchical interpretation.
+**Some parameters describe the group; others describe individuals.** A population might have a typical growth rate, while each patient grows somewhat faster or slower. BET learns about both the shared pattern and the individual differences. In the API, shared unknown parameters are called *global parameters*. Individual differences are represented by *local effects*.
 
-**Shared parameters and local z-scores.** Global parameters are shared across training entries; local latent effects vary by entry and have standard-normal marginal priors. For example, a model might define a positive rate as `rate_i = exp(log_rate_mean + log_rate_sd * z_i)`. Here `z_i` is a z-score on the log-rate scale, while `rate_i` is lognormally distributed on its physical scale. The location and scale parameters are supplied by the user model or inferred through `GlobalPriorFn`; BET does not automatically invent a mean and scale for every local variable.
+**Measurements are imperfect.** Even a good model will not match every observation exactly. The *likelihood* describes how observations can differ from model predictions, including measurement noise. A *prior* describes plausible parameter values before those observations are used. BET combines the prior information with the measurements to estimate what values are plausible afterward; these updated estimates form the *posterior*.
 
-With multiple local variables, a learned Cholesky factor can represent correlations among their standardized effects. Positive correlation means entries high in one effect tend to be high in another **before conditioning on individual observations**. Once conditioned on data, posterior local values need not have sample mean zero or standard deviation one.
+**Learning and predicting are different steps.** During `Train`, BET uses the selected individuals to learn the population and their individual effects. During `Test`, it predicts for individuals not included in training. Without their measurements, BET draws possible individual effects from the learned population. With some measurements and a test likelihood, BET updates those effects for each new individual. To assess prediction quality fairly, keep the observations you want to predict out of the fitting step.
 
-**Training and testing serve different purposes.** Training uses selected entries to estimate shared parameters, correlations, and training-specific local effects. Testing uses the learned population state to predict outcomes for unseen entries. Without a test likelihood, BET samples local effects from the learned population distribution. With a test likelihood and inference Method, it conditions those effects on observations available for the new entry. For out-of-sample evaluation, exclude test entries from training; training itself estimates shared parameters, correlations, and training-specific local effects.
+**BET tracks uncertainty rather than returning only one answer.** Different plausible parameter values can produce different predictions. Samples from the fitted distribution let you examine that variation. Predictions of the underlying model are not automatically noisy future measurements; the observation model describes that additional variation.
 
 ### Designing a BET model
 
-1. Prepare `data` as a dictionary of equally long first-axis arrays. Decide which trailing axes represent time, features, or spatial positions.
-2. Implement `ModelFn(globalParams, localZs, data)` for **one entry**. Return named arrays or scalars in a dictionary. Do not sample NumPyro random variables in this deterministic model function.
-3. Implement `GlobalPriorFn(dataShapes)` when shared parameters must be inferred. Return NumPyro distribution objects keyed by unique parameter names. If there are no shared unknown parameters, omit the function.
-4. Specify `localZNames` only for genuine entry-varying effects. Map those standardized effects to physical parameters inside `ModelFn`.
-5. Implement the training likelihood as a dictionary of `(observation, distribution)` pairs. Use distributions with correct event and batch shapes; use explicit masks for absent observations.
-6. Select training indices and a configured `Nuts(...)` or `Svi(...)` instance. Call `Train`, inspect diagnostics, and verify model behavior with posterior predictive checks.
-7. Select held-out indices. Call `Test` without a likelihood for population prediction, or provide a test likelihood and Method for inference using partial observations.
-8. Define a score function returning a scalar or array for one entry and evaluate `ScoreTrainSamples` or `ScoreTestSamples`. Summarize over posterior axes deliberately; do not confuse draw axes with entry axes.
+The following steps translate those ideas into the API:
 
-Keep the mechanistic model's parameters distinct from the observation process. Baseline covariates may enter `ModelFn` or transformations of global parameters; observation masks determine which outcomes contribute to inference.
+1. Prepare `data` as a dictionary of arrays. Every array's first axis identifies the individual; later axes can represent times, features, or positions.
+2. Write `ModelFn(globalParams, localZs, data)` to predict outputs for **one individual**. Return a dictionary of named outputs. Keep this function deterministic: do not sample random variables inside it.
+3. If shared parameters are unknown, define `GlobalPriorFn(dataShapes)` to give their prior distributions. Otherwise, omit it.
+4. Use `localZNames` for the individual differences you want BET to estimate. Inside `ModelFn`, transform these standardized effects into meaningful parameters such as growth rates.
+5. Define `TrainLikelihoodFn` to connect observations to predictions using distributions. If measurements are missing, mask them explicitly.
+6. Choose training individuals and an inference method, `Nuts(...)` or `Svi(...)`. Call `Train` and check whether the fitted model describes the data reasonably.
+7. Choose held-out individuals. Call `Test` for predictions from the population alone, or provide a test likelihood and inference method to update individual effects using measurements available at prediction time.
+8. Define a scoring function and call `ScoreTrainSamples` or `ScoreTestSamples` to evaluate predictions. Keep track of which dimensions represent samples and which represent individuals.
+
+The next part puts these pieces together in a complete growth example. Later sections explain the technical details, including how BET represents correlated individual effects and how to configure inference methods.
 
 ## Part 2: Worked example
 
