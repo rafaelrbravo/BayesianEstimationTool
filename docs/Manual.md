@@ -173,7 +173,40 @@ The *Train → Test → Score* workflow also applies to more complex models, inc
 
 The assertions check score dimensions, not predictive accuracy; the printed MAE values are not expected to match fixed numbers. Part 5 builds on these scores to check fit on the training group.
 
-## Part 3: Building blocks and individual differences
+### Representing individual differences
+
+The example has one individual-specific parameter, growth rate. BET can represent several individual differences and learn whether they tend to occur together.
+
+BET needs a consistent way to describe how each individual differs from the population. It uses **local z-scores**: numbers that describe an individual's position relative to a typical value. Local z-scores represent individual-to-individual differences on a standardized scale. For example, `z=0` gives the model's central growth rate; positive or negative values change it according to the transformation you define. With `rate = exp(log_rate_mean + log_rate_sd * z)`, `log_rate_mean` sets the center on the log scale and `log_rate_sd` sets its spread. Before conditioning on individual observations, each z-score has a standard-normal marginal distribution.
+
+Extend the tumor-growth example by adding treatment. Each patient now has two parameters: a **growth rate**, describing how quickly the tumor grows without treatment, and a **treatment-response parameter**, describing how strongly treatment slows that growth. Both may vary between patients. For instance, patients whose tumors grow faster might also tend to respond more strongly to treatment, or the relationship might be reversed. Assuming the parameters vary independently would miss that population-level relationship.
+
+Set `localZNames=["growth", "response"]` to represent both sources of patient-to-patient variation as standardized local z-scores. BET can learn their **correlation** from the training patients. A positive correlation means patients with above-average growth z-scores tend also to have above-average response z-scores; a negative correlation means higher growth z-scores tend to accompany lower response z-scores. These are correlations between the standardized effects, not necessarily between the parameters after arbitrary transformations.
+
+BET represents this relationship using a **correlation matrix**. Internally, it uses a **Cholesky factor** of that matrix to generate correlated local z-scores. A correlation matrix specifies how pairs of effects vary together; its Cholesky factor is a triangular matrix that can transform independent standard-normal draws into correlated ones. BET places an **LKJ prior** on the correlation structure, with `lkjConcentration` controlling how strongly that prior favors correlations near zero. The inferred relationship can improve predictions for a new patient: measurements that inform their tumor growth rate can also inform their likely treatment response, even if response measurements are limited.
+
+*Choosing `lkjConcentration`.* The LKJ prior changes with this setting:
+
+- *`lkjConcentration=1`*: All valid correlation matrices have equal prior density. With more than two local z-scores, this does not mean that each pairwise correlation is uniformly distributed.
+- *`lkjConcentration=2` (default)*: Mildly favors weaker correlations. This is a reasonable starting point for most models.
+- *`lkjConcentration=4`*: Favors weaker correlations more strongly; useful when large correlations seem unlikely before seeing the data.
+- *`lkjConcentration<1`*: Favors more extreme correlation structures; generally avoid unless strong correlations are expected.
+
+When data are limited, try more than one concentration to check how much the inferred correlations depend on the prior.
+
+The model below illustrates the parameter transformation. It is a schematic treatment model, not a validated description of tumor dynamics:
+
+```python
+def model_fn(global_params, local_zs, data):
+    growth = jnp.exp(global_params["log_growth_mean"] + global_params["log_growth_sd"] * local_zs["growth"])
+    response = jnp.exp(global_params["log_response_mean"] + global_params["log_response_sd"] * local_zs["response"])
+    net_rate = growth - response * data["treatment"]
+    return {"prediction": data["baseline"] * jnp.exp(net_rate * data["time"])}
+```
+
+Define population means, scales, and transformations explicitly; BET does not create them automatically for each local variable.
+
+## Part 3: Building blocks
 
 The worked example used one growth rate per individual. This part explains the model components and how BET can learn relationships among several individual characteristics.
 
@@ -222,38 +255,6 @@ The worked example used one growth rate per individual. This part explains the m
 - `TrainLikelihoodFn(globalParams, localZs, data, modelOut)` describes training observations; `TestLikelihoodFn(globalParams, localZs, data, modelOut)` describes the test observations available for personalization. Both return dictionaries mapping site names to `(observed_value, distribution)` tuples. A site may contain a scalar or vector of observations; its observation, distribution, and mask shapes must agree.
 - `ScoreFn(modelOut, data)` returns a scalar or array for one individual; BET evaluates it across posterior samples and individuals.
 
-### Representing individual differences
-
-The example has one individual-specific parameter, growth rate. BET can represent several individual differences and learn whether they tend to occur together.
-
-BET needs a consistent way to describe how each individual differs from the population. It uses **local z-scores**: numbers that describe an individual's position relative to a typical value. Local z-scores represent individual-to-individual differences on a standardized scale. For example, `z=0` gives the model's central growth rate; positive or negative values change it according to the transformation you define. With `rate = exp(log_rate_mean + log_rate_sd * z)`, `log_rate_mean` sets the center on the log scale and `log_rate_sd` sets its spread. Before conditioning on individual observations, each z-score has a standard-normal marginal distribution.
-
-Extend the tumor-growth example by adding treatment. Each patient now has two parameters: a **growth rate**, describing how quickly the tumor grows without treatment, and a **treatment-response parameter**, describing how strongly treatment slows that growth. Both may vary between patients. For instance, patients whose tumors grow faster might also tend to respond more strongly to treatment, or the relationship might be reversed. Assuming the parameters vary independently would miss that population-level relationship.
-
-Set `localZNames=["growth", "response"]` to represent both sources of patient-to-patient variation as standardized local z-scores. BET can learn their **correlation** from the training patients. A positive correlation means patients with above-average growth z-scores tend also to have above-average response z-scores; a negative correlation means higher growth z-scores tend to accompany lower response z-scores. These are correlations between the standardized effects, not necessarily between the parameters after arbitrary transformations.
-
-BET represents this relationship using a **correlation matrix**. Internally, it uses a **Cholesky factor** of that matrix to generate correlated local z-scores. A correlation matrix specifies how pairs of effects vary together; its Cholesky factor is a triangular matrix that can transform independent standard-normal draws into correlated ones. BET places an **LKJ prior** on the correlation structure, with `lkjConcentration` controlling how strongly that prior favors correlations near zero. The inferred relationship can improve predictions for a new patient: measurements that inform their tumor growth rate can also inform their likely treatment response, even if response measurements are limited.
-
-*Choosing `lkjConcentration`.* The LKJ prior changes with this setting:
-
-- *`lkjConcentration=1`*: All valid correlation matrices have equal prior density. With more than two local z-scores, this does not mean that each pairwise correlation is uniformly distributed.
-- *`lkjConcentration=2` (default)*: Mildly favors weaker correlations. This is a reasonable starting point for most models.
-- *`lkjConcentration=4`*: Favors weaker correlations more strongly; useful when large correlations seem unlikely before seeing the data.
-- *`lkjConcentration<1`*: Favors more extreme correlation structures; generally avoid unless strong correlations are expected.
-
-When data are limited, try more than one concentration to check how much the inferred correlations depend on the prior.
-
-The model below illustrates the parameter transformation. It is a schematic treatment model, not a validated description of tumor dynamics:
-
-```python
-def model_fn(global_params, local_zs, data):
-    growth = jnp.exp(global_params["log_growth_mean"] + global_params["log_growth_sd"] * local_zs["growth"])
-    response = jnp.exp(global_params["log_response_mean"] + global_params["log_response_sd"] * local_zs["response"])
-    net_rate = growth - response * data["treatment"]
-    return {"prediction": data["baseline"] * jnp.exp(net_rate * data["time"])}
-```
-
-Define population means, scales, and transformations explicitly; BET does not create them automatically for each local variable.
 
 ## Part 4: How BET learns from data
 
