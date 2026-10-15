@@ -217,22 +217,13 @@ Once you have defined a model and its observations, BET must find plausible para
 
 ## Part 5: Checking predictions
 
-A model that fits the people it learned from may still predict poorly for someone new. **Scoring** means comparing a prediction with an observed outcome and turning the difference into a number. This part shows three ways to check the same growth model: on training individuals, on new individuals before seeing their measurements, and on those same individuals after using a few measurements to personalize the prediction.
+A model can fit the people it learned from and still predict poorly for someone new. **Scoring** means comparing predictions with observed outcomes. Part 2 compared population-only and personalized predictions for new individuals; here we add a training-set check and show how to interpret all three scores.
 
-Scoring evaluates how well a model predicts its observations. BET supports three useful checks: scoring the training individuals, predicting new individuals without using their measurements to calibrate their local effects, and predicting new individuals after calibrating those effects from available measurements.
+This section continues with the same `est`, `test_ids`, and `future_mae` from Part 2. The first three test measurements may be used for personalization; the last five are reserved for evaluation.
 
-The example below continues the synthetic growth model from Part 2. It uses the same score in all three cases: mean absolute error (MAE) for measurements at time indices 3 through 7. For the held-out individuals, only the first three measurements may be used for calibration; later measurements are reserved for scoring.
+### What the score means
 
-### Choose what to measure
-
-Here we use **mean absolute error (MAE)**: for each prediction, take the absolute difference from the observed value, then average those differences. Zero means a perfect match, and smaller values are better. We score only the later measurements, so the first three can be used for individual calibration without contaminating the evaluation.
-
-```python
-def future_mae(model_out, data):
-    return jnp.mean(jnp.abs(model_out["prediction"][3:] - data["y"][3:]))
-```
-
-This function returns one MAE per individual and posterior draw. Lower values indicate more accurate predictions. Because the score uses only the later measurements, it evaluates how well the model predicts beyond the first three time points.
+We use **mean absolute error (MAE)**: the average size of the differences between predicted and observed measurements. Zero means a perfect match; smaller is better. The `future_mae` function defined in Part 2 computes this for the last five time points. BET evaluates it separately for each individual and each sampled set of parameters.
 
 ### 1. Check fit on the training individuals
 
@@ -247,45 +238,29 @@ This measures how closely the fitted model describes the training trajectories. 
 
 ### 2. Predict new individuals from the population alone
 
-First predict for the held-out individuals without using any of their observations to infer their local growth effects:
+Part 2 already ran this comparison and stored its scores in `before`. Those predictions use the learned population but **none** of the test individuals' measurements to estimate their growth rates. To summarize them alongside the training score:
 
 ```python
-est.Test(test_ids, nGlobalSamples=20, nLocalZSamples=100)
-population_scores = est.ScoreTestSamples(future_mae)
-print("Test MAE without calibration:", float(jnp.mean(population_scores)))
+print("Test MAE without calibration:", float(jnp.mean(before)))
 ```
-
-BET draws population states from the training posterior and draws new local effects from the learned population distribution. The test individuals' measurements do not inform those local effects. This estimates how well the learned population alone predicts new individuals.
 
 ### 3. Update predictions using each individual's measurements
 
-Now allow BET to use the first three measurements for each held-out individual to infer that individual's local growth effect. The remaining measurements must not contribute to inference.
+Part 2 also stored these scores in `after`. Its test likelihood used only the first three measurements to estimate each test individual's growth rate. The score still evaluates the last five, which were never used for fitting:
 
 ```python
-def test_likelihood(global_params, local_zs, data, model_out):
-    observed = jnp.arange(data["y"].shape[-1]) < 3
-    prediction = model_out["prediction"]
-    safe_y = jnp.where(observed, data["y"], prediction)
-    return {
-        "y": (safe_y, dist.Normal(prediction, global_params["noise"]).mask(observed))
-    }
-
-est.Test(test_ids, TestLikelihoodFn=test_likelihood,
-         Method=Svi(numSteps=800, numSamples=100, progressBar=False),
-         nGlobalSamples=20)
-calibrated_scores = est.ScoreTestSamples(future_mae)
-print("Test MAE with calibration:", float(jnp.mean(calibrated_scores)))
+print("Test MAE with calibration:", float(jnp.mean(after)))
 ```
 
-The likelihood includes only the first three measurements. The score still evaluates the later measurements, which remain held out. Using the same test individuals and score in both test conditions makes the comparison informative: the difference estimates how much patient-specific calibration helps prediction in this example. Calibration does not guarantee lower error in every small dataset.
+Comparing `before` with `after` shows whether those early observations improved prediction on average. An improvement is not guaranteed in a small dataset.
 
 ### Compare the results and their uncertainty
 
-The important comparison is between the two **test** scores: they use the same unseen individuals and the same future outcomes, but only one prediction has access to each individual's first three measurements. A lower calibrated score means those early observations helped on average.
+The **test** scores answer the main prediction question. The training score is useful for diagnosing fit, but should not be used as a substitute for either test score.
 
 - **Training MAE** describes fit to individuals used to learn the model. Do not treat it as directly comparable to held-out test MAE.
-- **Test MAE without calibration** measures population-only prediction for unseen individuals.
-- **Test MAE with calibration** measures prediction after using each individual's available measurements to update their local effects. Compare it with the uncalibrated test score to assess the value of those measurements.
+- **Test MAE without calibration** measures predictions based on the population alone.
+- **Test MAE with calibration** measures predictions after incorporating each individual's available measurements.
 
 The score arrays retain variation across posterior draws and individuals. For these calls, `ScoreTrainSamples` returns an array shaped like `[posterior_draw, training_individual]`; `ScoreTestSamples` returns `[global_draw, local_draw, test_individual]` when the score is scalar per individual. Take means or quantiles over the intended axes rather than flattening them without thought. The example prints a grand mean for a simple summary; uncertainty can be examined by retaining and summarizing the draw-level scores.
 
