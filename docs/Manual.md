@@ -179,7 +179,16 @@ The worked example used one growth rate per individual. This part explains the m
 
 ### What each function receives
 
-`Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)` connects the model and its data. The `data` argument is a dictionary of arrays. The first axis of each data array indexes individuals; all arrays have the same number of individuals. Remaining axes can represent times, features, or spatial coordinates.
+`Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)` connects the data, model, and prior assumptions. Its arguments are:
+
+- `data`: Measurements and other inputs for each individual.
+- `ModelFn`: Function that computes model outputs from global parameters, local z-scores, and an individual's data.
+- `localZNames`: Names of the local latent z-scores to infer; omit this when the model has no individual-specific latent variables.
+- `GlobalPriorFn`: Function defining prior distributions for global parameters; optional when the model has no global parameters to infer.
+- `lkjConcentration`: Strength of the correlation prior for multiple local z-scores (default `2.0`); discussed below.
+- `rngSeed`: Optional random seed for reproducible sampling.
+
+The `data` argument is a dictionary of arrays. The first axis of each data array indexes individuals; all arrays have the same number of individuals. Remaining axes can represent times, features, or spatial coordinates.
 
 `ModelFn(globalParams, localZs, data)` receives global parameters, one individual's local latent values, and that individual's data as dictionaries. It returns a dictionary of model outputs. BET vectorizes the function across individuals and posterior draws, so avoid Python side effects and converting traced JAX values to NumPy.
 
