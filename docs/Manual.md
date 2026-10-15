@@ -389,7 +389,7 @@ restored = Estimator.Load("fit.npz", ModelFn=model_fn,
 For inspection without reconstructing an estimator, call `Estimator.Load("fit.npz", ModelFn=None)` to obtain the saved record as a dictionary. Saved Method names and constructor arguments support reconstruction of inference configuration; they do not serialize live NUTS or SVI engine objects.
 
 
-## Part 8: Evaluating predictions without data leakage
+## Part 7: Evaluating predictions without data leakage
 
 A model can reproduce its training data yet predict poorly for new individuals. Part 2 demonstrated scoring; here the focus is on designing an evaluation that measures genuine predictive performance.
 
@@ -420,7 +420,7 @@ Using positive `nGlobalSamples` propagates uncertainty in learned global paramet
 
 For stronger evidence of predictive performance, evaluate more held-out individuals, repeat across data splits or random seeds, and vary how many early observations are available for personalization. These checks address different questions from simply drawing more posterior samples.
 
-## Part 7: Working with incomplete data and numerical models
+## Part 8: Working with incomplete data and numerical models
 
 Individuals often have different numbers of measurements, and some measurements may be missing. BET works with arrays, so these differences need to be represented explicitly without pretending missing values were observed.
 
