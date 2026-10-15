@@ -216,13 +216,17 @@ Once you have defined a model and its observations, BET must find plausible para
 
 **Method selection.** NUTS is often preferable when reliable posterior uncertainty is central and runtime is manageable. SVI can be faster for large problems, but an apparently stable loss curve does not establish calibrated uncertainty. Compare posterior predictive behavior and uncertainty against NUTS or simulated ground truth when feasible. BET supports configured Method instances; using Method classes can reconstruct previously saved configuration when available.
 
-## Part 5: Testing and scoring
+## Part 5: Checking predictions
+
+A model that fits the people it learned from may still predict poorly for someone new. **Scoring** means comparing a prediction with an observed outcome and turning the difference into a number. This part shows three ways to check the same growth model: on training individuals, on new individuals before seeing their measurements, and on those same individuals after using a few measurements to personalize the prediction.
 
 Scoring evaluates how well a model predicts its observations. BET supports three useful checks: scoring the training individuals, predicting new individuals without using their measurements to calibrate their local effects, and predicting new individuals after calibrating those effects from available measurements.
 
 The example below continues the synthetic growth model from Part 2. It uses the same score in all three cases: mean absolute error (MAE) for measurements at time indices 3 through 7. For the held-out individuals, only the first three measurements may be used for calibration; later measurements are reserved for scoring.
 
-### Define the score
+### Choose what to measure
+
+Here we use **mean absolute error (MAE)**: for each prediction, take the absolute difference from the observed value, then average those differences. Zero means a perfect match, and smaller values are better. We score only the later measurements, so the first three can be used for individual calibration without contaminating the evaluation.
 
 ```python
 def future_mae(model_out, data):
@@ -231,7 +235,7 @@ def future_mae(model_out, data):
 
 This function returns one MAE per individual and posterior draw. Lower values indicate more accurate predictions. Because the score uses only the later measurements, it evaluates how well the model predicts beyond the first three time points.
 
-### 1. Score the training individuals
+### 1. Check fit on the training individuals
 
 After calling `Train`, score the training individuals:
 
@@ -242,7 +246,7 @@ print("Training MAE:", float(jnp.mean(train_scores)))
 
 This measures how closely the fitted model describes the training trajectories. It is a useful fit check, but it is not an unbiased estimate of performance on new individuals: these observations contributed to fitting the model.
 
-### 2. Test without patient-specific calibration
+### 2. Predict new individuals from the population alone
 
 First predict for the held-out individuals without using any of their observations to infer their local growth effects:
 
@@ -254,7 +258,7 @@ print("Test MAE without calibration:", float(jnp.mean(population_scores)))
 
 BET draws population states from the training posterior and draws new local effects from the learned population distribution. The test individuals' measurements do not inform those local effects. This estimates how well the learned population alone predicts new individuals.
 
-### 3. Test with patient-specific calibration
+### 3. Update predictions using each individual's measurements
 
 Now allow BET to use the first three measurements for each held-out individual to infer that individual's local growth effect. The remaining measurements must not contribute to inference.
 
@@ -276,7 +280,9 @@ print("Test MAE with calibration:", float(jnp.mean(calibrated_scores)))
 
 The likelihood includes only the first three measurements. The score still evaluates the later measurements, which remain held out. Using the same test individuals and score in both test conditions makes the comparison informative: the difference estimates how much patient-specific calibration helps prediction in this example. Calibration does not guarantee lower error in every small dataset.
 
-### Interpreting scores and uncertainty
+### Compare the results and their uncertainty
+
+The important comparison is between the two **test** scores: they use the same unseen individuals and the same future outcomes, but only one prediction has access to each individual's first three measurements. A lower calibrated score means those early observations helped on average.
 
 - **Training MAE** describes fit to individuals used to learn the model. Do not treat it as directly comparable to held-out test MAE.
 - **Test MAE without calibration** measures population-only prediction for unseen individuals.
@@ -296,7 +302,6 @@ The estimator retains the most recent training and test state. A new call to `Tr
 - `Test(...)` without a likelihood generates population predictions and returns `None`. With a test likelihood, it returns a list containing one inference output per selected global posterior draw. With `nGlobalSamples=None`, one median global state is used.
 - `ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[posterior_draw, training_individual, ...score_shape]`.
 - `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`.
-- `Save(path)` writes a compressed NPZ file and returns no meaningful value. `Save(None)` returns an in-memory nested record. `Estimator.Load(path, ModelFn)` returns the saved record when `ModelFn=None`; otherwise it reconstructs an estimator using the supplied functions and data as needed.
 
 ## Part 6: Working with incomplete data and numerical models
 
@@ -356,7 +361,9 @@ def model_fn(global_params, local_zs, data):
 
 Padded time grids must satisfy the solver's ordering requirements. One approach is to solve on a shared regular grid and interpolate to each individual's observation times. Check for duplicate or unsorted padded times.
 
-## Part 7: Persistence and extensibility
+## Part 7: Saving your work and extending BET
+
+Once you have trained a model, you may want to return to it later without running inference again. BET can save the results of training and testing, along with enough configuration to reconstruct an estimator. You can also add an inference algorithm beyond the two built-in choices if your project needs one.
 
 ### Saving and loading
 
@@ -396,7 +403,9 @@ restored = Estimator.Load("fit.npz", ModelFn=model_fn,
 
 For inspection without reconstructing an estimator, call `Estimator.Load("fit.npz", ModelFn=None)` to obtain the saved record as a dictionary. Saved Method names and constructor arguments support reconstruction of inference configuration; they do not serialize live NUTS or SVI engine objects.
 
-### Writing a custom inference Method
+### Adding a custom inference method
+
+Most users can use NUTS or SVI without implementing anything new. This section is for developers who want BET to run a different inference algorithm while keeping its existing training, testing, and scoring workflows.
 
 BET separates inference algorithms from its population and individual workflows. NUTS and SVI are built in; to integrate another backend, implement the minimum Method interface and validate it before fitting.
 
@@ -451,6 +460,8 @@ See `NutsMethod.py` and `SviMethod.py` for complete Method implementations.
 
 ## Part 8: Troubleshooting and API reference
 
+If a result looks wrong or a call fails, start with the practical checks below. The API reference that follows lists exact function signatures and options; you can consult it as needed rather than learning every argument before trying the worked example.
+
 ### Common mistakes and troubleshooting
 
 **Shape mismatch.** Start with one entry and print array shapes before tracing. All top-level data arrays must have the same entry count, and per-entry model outputs must match likelihood observation shapes. Broadcasting can silently produce an incorrect likelihood, so verify dimensions explicitly.
@@ -470,6 +481,8 @@ See `NutsMethod.py` and `SviMethod.py` for complete Method implementations.
 **Save/Load mismatch.** Restore compatible data shapes, Method configuration, model function, and global prior function. Python functions are not serialized; stored names are metadata, not executable code.
 
 ### Detailed public API reference
+
+The preceding sections explain *why* you would use each operation. This reference records *how* to call it and what each option means.
 
 The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `ValidateMethod`, together with public `Estimator` methods.
 
@@ -523,7 +536,9 @@ The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `V
 
 `ValidateMethod(method)` checks a custom Method's required interface; see **Writing a custom inference Method** in Part 7 for implementation details. Public exports are defined in package `__init__.py`.
 
-## Part 9: Verification
+## Part 9: Checking that your model works
+
+A program can run without errors and still give misleading scientific results. Software tests check whether BET behaves as implemented; model checks ask whether your assumptions and fitted predictions are appropriate for the problem you care about. Both matter.
 
 ### Verification and further reading
 
