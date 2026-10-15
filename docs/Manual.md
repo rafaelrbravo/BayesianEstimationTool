@@ -313,7 +313,7 @@ def likelihood(global_params, local_zs, data, model_out):
     return {"y": (safe_y, dist.Normal(pred, 0.2).mask(valid))}
 ```
 
-The model must produce finite predictions even at padded positions. Masking cannot make an intermediate `NaN` or infinity safe; multiplying a divergent log-probability by zero does not guarantee a finite gradient.
+The model must produce finite predictions even at padded positions. Masking cannot make an intermediate `NaN` or infinity safe; multiplying a divergent log-probability by zero does not guarantee a finite gradient. In this small array example, the second individual's final time and measurement are repeated placeholders, which works for a direct algebraic model but should not be passed unchanged to an ODE solver that requires strictly increasing times.
 
 For partial-observation testing, use a separate mask such as `test_observed = valid & (time <= cutoff)`. Apply it in the test likelihood, but retain the original validity mask for scoring held-out observations. Ensure hidden measurements cannot enter the model through inputs or preprocessing.
 
