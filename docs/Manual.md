@@ -181,6 +181,19 @@ BET needs a consistent way to describe how each individual differs from the popu
 
 Extend the tumor-growth example by adding treatment. Each patient now has two parameters: a **growth rate**, describing how quickly the tumor grows without treatment, and a **treatment-response parameter**, describing how strongly treatment slows that growth. Both may vary between patients. For instance, patients whose tumors grow faster might also tend to respond more strongly to treatment, or the relationship might be reversed. Assuming the parameters vary independently would miss that population-level relationship.
 
+For example, this schematic treatment model transforms each patient's local z-scores into positive growth and response parameters. It illustrates the transformation, not a validated description of tumor dynamics:
+
+```python
+def model_fn(global_params, local_zs, data):
+    growth = jnp.exp(global_params["log_growth_mean"] + global_params["log_growth_sd"] * local_zs["growth"])
+    response = jnp.exp(global_params["log_response_mean"] + global_params["log_response_sd"] * local_zs["response"])
+    net_rate = growth - response * data["treatment"]
+    return {"prediction": data["baseline"] * jnp.exp(net_rate * data["time"])}
+```
+
+
+BET does not create the global means, scales, or transformations automatically; you define them in the model.
+
 Set `localZNames=["growth", "response"]` to represent both sources of patient-to-patient variation as standardized local z-scores. BET can learn their **correlation** from the training patients. A positive correlation means patients with above-average growth z-scores tend also to have above-average response z-scores; a negative correlation means higher growth z-scores tend to accompany lower response z-scores. These are correlations between the standardized effects, not necessarily between the parameters after arbitrary transformations.
 
 BET represents this relationship using a **correlation matrix**. Internally, it uses a **Cholesky factor** of that matrix to generate correlated local z-scores. A correlation matrix specifies how pairs of effects vary together; its Cholesky factor is a triangular matrix that can transform independent standard-normal draws into correlated ones. BET places an **LKJ prior** on the correlation structure, with `lkjConcentration` controlling how strongly that prior favors correlations near zero. The inferred relationship can improve predictions for a new patient: measurements that inform their tumor growth rate can also inform their likely treatment response, even if response measurements are limited.
@@ -194,17 +207,6 @@ BET represents this relationship using a **correlation matrix**. Internally, it 
 
 When data are limited, try more than one concentration to check how much the inferred correlations depend on the prior.
 
-The model below illustrates the parameter transformation. It is a schematic treatment model, not a validated description of tumor dynamics:
-
-```python
-def model_fn(global_params, local_zs, data):
-    growth = jnp.exp(global_params["log_growth_mean"] + global_params["log_growth_sd"] * local_zs["growth"])
-    response = jnp.exp(global_params["log_response_mean"] + global_params["log_response_sd"] * local_zs["response"])
-    net_rate = growth - response * data["treatment"]
-    return {"prediction": data["baseline"] * jnp.exp(net_rate * data["time"])}
-```
-
-Define population means, scales, and transformations explicitly; BET does not create them automatically for each local variable.
 
 ## Part 3: Building blocks
 
