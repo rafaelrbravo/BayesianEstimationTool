@@ -167,7 +167,18 @@ BET updates each test person's growth-rate estimate using their first three meas
 
 Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize prediction errors across plausible global parameters, local z-scores, and test patients. Because we measure mean absolute error, lower values mean more accurate predictions of the held-out measurements. If the `after` mean is lower, using the first three measurements improved predictions of the remaining five on average. With only ten synthetic patients, an improvement is not guaranteed.
 
-To examine uncertainty in trajectories rather than errors, run `Test` with `saveModelOut=True`, then retrieve the samples with `samples = est.Save(None, saveTestModelOut=True)`. The predicted trajectories are in `samples["testModelOut"]["prediction"]`; `samples["testGlobals"]` and `samples["testLocalZs"]` contain the corresponding parameter samples. Summarize the trajectory samples across their posterior draw axes to obtain uncertainty intervals. These intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
+#### Inspecting the full inference results
+
+Scoring reduces predictions to an error measure, but BET also lets you examine the underlying posterior samples directly. **`est.Save(None)` returns a dictionary of results in memory instead of writing a file.** It includes sampled global parameters (`"trainGlobals"` and `"testGlobals"`) and, when retained, individual local z-scores (`"trainLocalZs"` and `"testLocalZs"`), along with information needed to save or restore the estimator. This lets you inspect parameter uncertainty and differences between patients, not just prediction errors.
+
+To inspect predicted trajectories as well, run `Test` with `saveModelOut=True` and request those outputs when retrieving the results:
+
+```python
+samples = est.Save(None, saveTestModelOut=True)
+trajectories = samples["testModelOut"]["prediction"]
+```
+
+The matching parameter draws are in `samples["testGlobals"]` and `samples["testLocalZs"]`. Summarize the trajectories across posterior draw axes to obtain uncertainty intervals. These intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
 
 The *Train → Test → Score* workflow also applies to more complex models, including differential-equation models.
 
