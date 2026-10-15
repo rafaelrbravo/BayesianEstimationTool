@@ -26,7 +26,7 @@ This approach is called *hierarchical Bayesian inference*. You do not need to ma
 | `GlobalPriorFn` | Describes plausible values for unknown shared parameters before fitting |
 | `localZNames` | Names the ways individuals can differ from one another |
 | `TrainLikelihoodFn` | Describes how training observations relate to model predictions |
-| `TestLikelihoodFn` | Describes how available observations from new individuals update their individual effects |
+| `TestLikelihoodFn` | Describes how available observations from new individuals update their local latent z-scores |
 | `Method` (`Nuts` / `Svi`) | Chooses how BET estimates unknown parameters from observations |
 | `Estimator` | Connects your model, data, and inference results |
 | `Train` / `Test` | Learns from the training group / predicts for new individuals |
@@ -42,7 +42,7 @@ This approach is called *hierarchical Bayesian inference*. You do not need to ma
 
 **Measurements are imperfect.** Even a good model will not match every observation exactly. The *likelihood* describes how observations can differ from model predictions, including measurement noise. A *prior* describes plausible parameter values before those observations are used. BET combines the prior information with the measurements to estimate what values are plausible afterward; these updated estimates form the *posterior*.
 
-**Learning and predicting are different steps.** During `Train`, BET uses the selected individuals to learn the population and their individual effects. During `Test`, it predicts for individuals not included in training. Without their measurements, BET draws possible individual effects from the learned population. With some measurements and a test likelihood, BET updates those effects for each new individual. The current `Test` workflow requires at least one named local effect (`localZNames`); a model with only global parameters can be trained but cannot use `Test` directly. To assess prediction quality fairly, keep the observations you want to predict out of the fitting step.
+**Learning and predicting are different steps.** During `Train`, BET uses the selected individuals to learn the population and their individual effects. During `Test`, it predicts for individuals not included in training. Without their measurements, BET draws possible local latent z-scores from the learned population. With some measurements and a test likelihood, BET updates those z-scores for each new individual. The current `Test` workflow requires at least one named local z-score (`localZNames`); a model with only global parameters can be trained but cannot use `Test` directly. To assess prediction quality fairly, keep the observations you want to predict out of the fitting step.
 
 **BET tracks uncertainty rather than returning only one answer.** Different plausible parameter values can produce different predictions. Samples from the fitted distribution let you examine that variation. Predictions of the underlying model are not automatically noisy future measurements; the observation model describes that additional variation.
 
@@ -56,10 +56,10 @@ To implement this workflow:
 4. Use `localZNames` for the individual differences you want BET to estimate. Inside `ModelFn`, transform these standardized effects into meaningful parameters such as growth rates.
 5. Define `TrainLikelihoodFn` to connect observations to predictions using distributions. If measurements are missing, mask them explicitly.
 6. Choose training individuals and an inference method, `Nuts(...)` or `Svi(...)`. Call `Train` and check whether the fitted model describes the data reasonably.
-7. Choose held-out individuals. Call `Test` for predictions from the population alone, or provide a test likelihood and inference method to update individual effects using measurements available at prediction time.
+7. Choose held-out individuals. Call `Test` for predictions from the population alone, or provide a test likelihood and inference method to update local z-scores using measurements available at prediction time.
 8. Define a scoring function and call `ScoreTrainSamples` or `ScoreTestSamples` to evaluate predictions. Keep track of which dimensions represent samples and which represent individuals.
 
-Part 2 combines these steps in a growth example. Later sections explain correlated individual effects and inference-method configuration.
+Part 2 combines these steps in a growth example. Later sections explain correlated local z-scores and inference-method configuration.
 
 ## Part 2: Worked example
 
@@ -163,7 +163,7 @@ BET updates each test person's growth-rate estimate using their first three meas
 
 #### What did the extra measurements buy us?
 
-Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize errors across plausible population parameters, individual effects, and test people. If the `after` mean is lower, those three early measurements helped on average. With only ten synthetic people, an improvement is not guaranteed.
+Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize errors across plausible population parameters, local z-scores, and test people. If the `after` mean is lower, those three early measurements helped on average. With only ten synthetic people, an improvement is not guaranteed.
 
 To examine uncertainty in trajectories rather than errors, use a score function returning `model_out["prediction"]` and summarize its posterior draw axes. The resulting intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
 
@@ -197,9 +197,9 @@ BET needs a consistent way to describe how each individual differs from the popu
 
 Extend the tumor-growth example by adding treatment. Each patient now has two parameters: a **growth rate**, describing how quickly the tumor grows without treatment, and a **treatment-response parameter**, describing how strongly treatment slows that growth. Both may vary between patients. For instance, patients whose tumors grow faster might also tend to respond more strongly to treatment, or the relationship might be reversed. Assuming the parameters vary independently would miss that population-level relationship.
 
-Set `localZNames=["growth", "response"]` to represent both sources of patient-to-patient variation as standardized local effects. BET can learn their **correlation** from the training patients. A positive correlation means patients with above-average growth effects tend also to have above-average response effects; a negative correlation means higher growth effects tend to accompany lower response effects. These are correlations between the standardized effects, not necessarily between the parameters after arbitrary transformations.
+Set `localZNames=["growth", "response"]` to represent both sources of patient-to-patient variation as standardized local z-scores. BET can learn their **correlation** from the training patients. A positive correlation means patients with above-average growth z-scores tend also to have above-average response z-scores; a negative correlation means higher growth z-scores tend to accompany lower response z-scores. These are correlations between the standardized effects, not necessarily between the parameters after arbitrary transformations.
 
-BET represents this relationship using a **correlation matrix**. Internally, it uses a **Cholesky factor** of that matrix to generate related individual effects. A correlation matrix specifies how pairs of effects vary together; its Cholesky factor is a triangular matrix that can transform independent standard-normal draws into correlated ones. BET places an LKJ prior on the correlation structure, with `lkjConcentration` controlling how strongly the prior favors correlations near zero. The inferred relationship can improve predictions for a new patient: measurements that inform their growth rate can also inform their likely treatment response, even if response measurements are limited.
+BET represents this relationship using a **correlation matrix**. Internally, it uses a **Cholesky factor** of that matrix to generate correlated local z-scores. A correlation matrix specifies how pairs of effects vary together; its Cholesky factor is a triangular matrix that can transform independent standard-normal draws into correlated ones. BET places an LKJ prior on the correlation structure, with `lkjConcentration` controlling how strongly the prior favors correlations near zero. The inferred relationship can improve predictions for a new patient: measurements that inform their growth rate can also inform their likely treatment response, even if response measurements are limited.
 
 The model below illustrates the parameter transformation. It is a schematic treatment model, not a validated description of tumor dynamics:
 
@@ -274,7 +274,7 @@ print("MAE with calibration, per person:", after_by_person)
 
 Each result has four entries, one for each test individual. Draw-level quantiles can describe variation from parameter uncertainty, but they are not confidence intervals for generalization performance across new populations.
 
-BET's predictive uncertainty has multiple sources. Sampling global parameter and Cholesky states with positive `nGlobalSamples` propagates uncertainty in the learned population; sampling or inferring local effects represents differences between new individuals. The observation likelihood describes measurement noise, which is not automatically included in deterministic model outputs. Model-structure uncertainty is not automatically represented.
+BET's predictive uncertainty has multiple sources. Sampling global parameter and Cholesky states with positive `nGlobalSamples` propagates uncertainty in the learned population; sampling or inferring local z-scores represents differences between new individuals. The observation likelihood describes measurement noise, which is not automatically included in deterministic model outputs. Model-structure uncertainty is not automatically represented.
 
 For reliable evaluation, keep test individuals out of training and ensure that only measurements available at the prediction time enter the test likelihood. Score later, held-out outcomes separately. The current `Test` implementation requires at least one named local Z, even though `Estimator` and `Train` can be used without local Zs.
 
@@ -374,7 +374,7 @@ Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True,
 | `saveTestModelOut` | Include previously retained test model outputs, if available. Disabled by default. |
 | `saveAllData` | Include the original input data, allowing loading without supplying it separately. Disabled by default. |
 
-Population posterior samples and saved Train/Test configuration are retained independently of these options. Omitting local samples or model outputs reduces file size but may limit subsequent scoring or require recomputation. In particular, to score a loaded training fit with local effects, retain training local draws or previously saved model outputs; to score loaded test predictions, retain test local draws or previously saved test model outputs. The latter outputs must have been requested during `Test` and included during `Save`. The model-output options only save outputs already retained by `Train(..., saveModelOut=True)` or `Test(..., saveModelOut=True)`; they do not generate missing outputs at save time.
+Population posterior samples and saved Train/Test configuration are retained independently of these options. Omitting local samples or model outputs reduces file size but may limit subsequent scoring or require recomputation. In particular, to score a loaded training fit with local z-scores, retain training local draws or previously saved model outputs; to score loaded test predictions, retain test local draws or previously saved test model outputs. The latter outputs must have been requested during `Test` and included during `Save`. The model-output options only save outputs already retained by `Train(..., saveModelOut=True)` or `Test(..., saveModelOut=True)`; they do not generate missing outputs at save time.
 
 To restore an estimator:
 
@@ -398,7 +398,7 @@ A configured Method instance must implement:
 - `_Fit(ModelFn, rngKey, samplePrefixes)`: run inference and return a dictionary with `"output"` (backend-specific results or diagnostics) and `"samples"` (posterior or explicitly approximate-posterior draws).
 - `_SaveArgs()`: return a dictionary of constructor keyword arguments so BET can reconstruct the Method from saved configuration.
 
-The `samples` dictionary maps NumPyro sample-site names to arrays with **draws along the first axis**. Retain only sites whose names start with one of `samplePrefixes`; BET uses these names to identify global parameters, local effects, Cholesky factors, and optionally model outputs.
+The `samples` dictionary maps NumPyro sample-site names to arrays with **draws along the first axis**. Retain only sites whose names start with one of `samplePrefixes`; BET uses these names to identify global parameters, local z-scores, Cholesky factors, and optionally model outputs.
 
 This minimal skeleton illustrates the interface:
 
@@ -476,9 +476,9 @@ The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `V
 
 - `data`: dictionary of arrays sharing a leading entry axis.
 - `ModelFn`: deterministic per-entry model function returning a dictionary.
-- `localZNames`: optional list of named standardized local effects.
+- `localZNames`: optional list of named local latent z-scores.
 - `GlobalPriorFn`: optional function returning named NumPyro distributions for shared parameters.
-- `lkjConcentration`: concentration of the LKJ correlation prior when multiple local effects are used.
+- `lkjConcentration`: concentration of the LKJ correlation prior when multiple local z-scores are used.
 - `rngSeed`: optional reproducibility seed.
 
 #### Train
@@ -510,7 +510,7 @@ The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `V
 
 `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` scores the most recent test state. Its output axes are global draw, local draw, test entry, then any score dimensions. Check what each axis represents before aggregating uncertainty.
 
-**Models without local effects:** `Estimator` and `Train` support models without local Zs, but the current `Test` implementation rejects them (`Test() requires at least one local Z`). Setting `saveModelOut=True` does not bypass this restriction. Consequently, `ScoreTestSamples` cannot be used for such models through the `Test` workflow.
+**Models without local z-scores:** `Estimator` and `Train` support models without local Zs, but the current `Test` implementation rejects them (`Test() requires at least one local Z`). Setting `saveModelOut=True` does not bypass this restriction. Consequently, `ScoreTestSamples` cannot be used for such models through the `Test` workflow.
 
 #### Persistence
 
