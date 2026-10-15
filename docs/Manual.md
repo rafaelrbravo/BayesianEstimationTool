@@ -131,6 +131,7 @@ def future_mae(model_out, data):
 est.Test(test_ids, nGlobalSamples=20, nLocalZSamples=100)
 before = est.ScoreTestSamples(future_mae)
 print("Population-only mean future MAE:", float(jnp.mean(before)))
+assert before.shape == (20, 100, 4)
 ```
 
 BET considers 20 plausible versions of the learned population and 100 possible growth-rate differences for each one. Because it has not used any test person's measurements to estimate their growth rate, these are **population-only predictions**. The score array has shape `[20, 100, 4]`: population draw, individual-effect draw, and test person. Each number measures a possible prediction's error.
@@ -153,6 +154,7 @@ est.Test(test_ids, TestLikelihoodFn=test_likelihood,
          nGlobalSamples=20)
 after = est.ScoreTestSamples(future_mae)
 print("Conditioned mean future MAE:", float(jnp.mean(after)))
+assert after.shape == (20, 100, 4)
 ```
 
 BET updates each test person's growth-rate estimate using their first three measurements and the population information learned earlier. We still score only the last five measurements, which BET did not use for the update. Calling `Test` again replaces the previous test state inside `est`, but the earlier `before` scores remain in their own variable.
@@ -163,7 +165,9 @@ Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize error
 
 To examine uncertainty in trajectories rather than errors, use a score function returning `model_out["prediction"]` and summarize its posterior draw axes. The resulting intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
 
-The same **Train → Test → Score** workflow applies to more complicated models, including models defined by differential equations. Part 5 revisits scoring in more detail and adds a check on the training group.
+The same **Train → Test → Score** workflow applies to more complicated models, including models defined by differential equations.
+
+**Checking the example:** The two `assert` statements verify the expected score dimensions; if either fails, the script stops rather than silently treating the axes incorrectly. The printed MAE values will depend on the inferred parameters and need not match a fixed number. For a quick first run, reduce `nGlobalSamples` in both `Test` calls to the same smaller value, and adjust the assertions accordingly. That changes the number of population draws, not the underlying example. Part 5 revisits scoring in more detail and adds a check on the training group.
 
 ## Part 3: Building blocks and individual differences
 
