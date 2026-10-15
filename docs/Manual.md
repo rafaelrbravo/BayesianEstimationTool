@@ -235,7 +235,7 @@ This section continues with the same `est`, `test_ids`, and `future_mae` from Pa
 
 We use **mean absolute error (MAE)**: the average size of the differences between predicted and observed measurements. Zero means a perfect match; smaller is better. The `future_mae` function defined in Part 2 computes this for the last five time points. BET evaluates it separately for each individual and each sampled set of parameters.
 
-### 1. Check fit on the training individuals
+### Check fit on the training individuals
 
 After calling `Train`, score the training individuals:
 
@@ -313,7 +313,7 @@ def likelihood(global_params, local_zs, data, model_out):
     return {"y": (safe_y, dist.Normal(pred, 0.2).mask(valid))}
 ```
 
-The model must produce finite predictions even at padded positions. Masking cannot make an intermediate `NaN` or infinity safe; multiplying a divergent log-probability by zero does not guarantee a finite gradient. In this small array example, the second individual's final time and measurement are repeated placeholders, which works for a direct algebraic model but should not be passed unchanged to an ODE solver that requires strictly increasing times.
+The model must produce finite predictions even at padded positions. Masking cannot make an intermediate `NaN` or infinity safe; multiplying a divergent log-probability by zero does not guarantee a finite gradient. Here the second individual's final time and measurement are repeated placeholders. This is suitable for a direct algebraic model, but an ODE solver requiring strictly increasing times needs different time padding.
 
 For partial-observation testing, use a separate mask such as `test_observed = valid & (time <= cutoff)`. Apply it in the test likelihood, but retain the original validity mask for scoring held-out observations. Ensure hidden measurements cannot enter the model through inputs or preprocessing.
 
