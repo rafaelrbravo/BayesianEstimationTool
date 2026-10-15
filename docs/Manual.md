@@ -210,63 +210,85 @@ Define population means, scales, and transformations explicitly; BET does not cr
 
 ## Part 5: Testing and scoring
 
-### Training, testing, and score dimensions
+Scoring evaluates how well a model predicts its observations. BET supports three useful checks: scoring the training individuals, predicting new individuals without using their measurements to calibrate their local effects, and predicting new individuals after calibrating those effects from available measurements.
 
-`Train(trainDataIdxs, TrainLikelihoodFn, Method, printSummary=False, rngSeed=None, saveLocalZs=True, saveModelOut=False)` estimates parameters from the selected individuals using a `Nuts(...)` or `Svi(...)` method.
+The example below continues the synthetic growth model from Part 2. It uses the same score in all three cases: mean absolute error (MAE) for measurements at time indices 3 through 7. For the held-out individuals, only the first three measurements may be used for calibration; later measurements are reserved for scoring.
 
-`Test(testDataIdxs, TestLikelihoodFn=None, Method=None, nGlobalSamples=None, nLocalZSamples=2000, printSummary=False, rngSeed=None, saveModelOut=False)` supports population prediction for new individuals when no test likelihood is supplied, or local-effect inference conditional on a test likelihood and Method. **The current implementation requires at least one local Z for `Test`.** `nGlobalSamples=None` uses posterior medians; a positive value samples stored training draws. `nLocalZSamples` applies to the no-likelihood mode.
+### Define the score
 
-`ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[posterior_draw, train_individual, ...score_shape]`.
+```python
+def future_mae(model_out, data):
+    return jnp.mean(jnp.abs(model_out["prediction"][3:] - data["y"][3:]))
+```
 
-`ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`.
+This function returns one MAE per individual and posterior draw. Lower values indicate more accurate predictions. Because the score uses only the later measurements, it evaluates how well the model predicts beyond the first three time points.
 
-### Interpreting test-time uncertainty
+### 1. Score the training individuals
 
-BET can represent at least two distinct sources of predictive uncertainty: uncertainty in population-level parameters and uncertainty in a new entry's local effects. The current `Test` implementation requires at least one named local Z, even though `Estimator` and `Train` can be used without local Zs. Measurement noise is described by the observation likelihood; it is not automatically included in draws of deterministic model outputs. Uncertainty in model structure is not automatically represented.
+After calling `Train`, score the training individuals:
 
-With `nGlobalSamples=None`, Test uses the posterior median for global parameters and the learned Cholesky state rather than propagating variation across the training posterior. This is a useful conditional prediction but can understate uncertainty in the population. With a positive `nGlobalSamples`, BET samples global/Cholesky states from the training posterior and performs test inference for each selected state. This can be computationally more expensive because the test inference is repeated for each selected global state.
+```python
+train_scores = est.ScoreTrainSamples(future_mae)
+print("Training MAE:", float(jnp.mean(train_scores)))
+```
 
-When no test likelihood is supplied, local effects are drawn from the learned population distribution. When a likelihood is supplied, the test method updates local effects using the observations represented by that likelihood, conditional on the selected global state. If the scientific target is prediction after one or more measurements, ensure the likelihood contains only measurements available at that prediction time. Score held-out outcomes separately and do not use them for local inference.
+This measures how closely the fitted model describes the training trajectories. It is a useful fit check, but it is not an unbiased estimate of performance on new individuals: these observations contributed to fitting the model.
 
-A score array is not itself a posterior predictive interval. To report uncertainty for a prediction, retain posterior predictions or scores over draws and calculate summaries or quantiles along the correct draw axes. State explicitly whether population uncertainty was propagated and whether scores are absolute error, squared error, log score, or another metric.
+### 2. Test without patient-specific calibration
 
-### Conditioning on partial observations: a concrete pattern
+First predict for the held-out individuals without using any of their observations to infer their local growth effects:
 
-To predict a trajectory from its first few measurements, expose only those measurements through the test likelihood. Keep scoring separate so it can evaluate later, held-out observations.
+```python
+est.Test(test_ids, nGlobalSamples=20, nLocalZSamples=100)
+population_scores = est.ScoreTestSamples(future_mae)
+print("Test MAE without calibration:", float(jnp.mean(population_scores)))
+```
+
+BET draws population states from the training posterior and draws new local effects from the learned population distribution. The test individuals' measurements do not inform those local effects. This estimates how well the learned population alone predicts new individuals.
+
+### 3. Test with patient-specific calibration
+
+Now allow BET to use the first three measurements for each held-out individual to infer that individual's local growth effect. The remaining measurements must not contribute to inference.
 
 ```python
 def test_likelihood(global_params, local_zs, data, model_out):
-    # Assumes each entry has observations on the same sorted time grid.
-    n_observed = 3
-    observed = jnp.arange(data["y"].shape[-1]) < n_observed
+    observed = jnp.arange(data["y"].shape[-1]) < 3
     prediction = model_out["prediction"]
-    # Replace held-out values before likelihood evaluation. The mask controls
-    # which finite values contribute to the log likelihood.
     safe_y = jnp.where(observed, data["y"], prediction)
     return {
-        "y": (safe_y, dist.Normal(prediction, 0.2).mask(observed))
+        "y": (safe_y, dist.Normal(prediction, global_params["noise"]).mask(observed))
     }
 
-est.Test(testDataIdxs, TestLikelihoodFn=test_likelihood,
-         Method=Svi(numSteps=1000, numSamples=200, progressBar=False))
-heldout_scores = est.ScoreTestSamples(score)
+est.Test(test_ids, TestLikelihoodFn=test_likelihood,
+         Method=Svi(numSteps=800, numSamples=100, progressBar=False),
+         nGlobalSamples=20)
+calibrated_scores = est.ScoreTestSamples(future_mae)
+print("Test MAE with calibration:", float(jnp.mean(calibrated_scores)))
 ```
 
-Here `testDataIdxs` must identify entries excluded from training. The example assumes `data["y"]` is a time series and `model_out["prediction"]` has the same shape. Adapt the mask to each entry's actual observation schedule when lengths differ. If observations are irregular or have different valid times, use a validity mask combined with the observation cutoff. Ensure the deterministic model does not use future outcomes as inputs, and make every intermediate calculation finite at padded positions.
+The likelihood includes only the first three measurements. The score still evaluates the later measurements, which remain held out. Using the same test individuals and score in both test conditions makes the comparison informative: the difference estimates how much patient-specific calibration helps prediction in this example. Calibration does not guarantee lower error in every small dataset.
 
-This call conditions local effects on the first three measurements for each selected global parameter state. With `nGlobalSamples=None` (the default), BET uses posterior medians for global parameters and the Cholesky factor; it does not integrate over their posterior variation. Set `nGlobalSamples` to a positive integer to repeat local inference across sampled global posterior states. This can be expensive, because BET runs the test inference separately for each selected state.
+### Interpreting scores and uncertainty
 
-### Return values, sample axes, and state
+- **Training MAE** describes fit to individuals used to learn the model. Do not treat it as directly comparable to held-out test MAE.
+- **Test MAE without calibration** measures population-only prediction for unseen individuals.
+- **Test MAE with calibration** measures prediction after using each individual's available measurements to update their local effects. Compare it with the uncalibrated test score to assess the value of those measurements.
 
-The estimator retains the most recent training and test state. A new call to `Train` clears the prior test state. A new call to `Test` replaces the previous test state. Score functions operate on this stored state; they do not refit the model.
+The score arrays retain variation across posterior draws and individuals. For these calls, `ScoreTrainSamples` returns an array shaped like `[posterior_draw, training_individual]`; `ScoreTestSamples` returns `[global_draw, local_draw, test_individual]` when the score is scalar per individual. Take means or quantiles over the intended axes rather than flattening them without thought. The example prints a grand mean for a simple summary; uncertainty can be examined by retaining and summarizing the draw-level scores.
 
-- `Train(...)` returns the inference method's output object. For NUTS this is NumPyro's MCMC object; for SVI it is the SVI result containing optimized parameters and losses. BET also stores the posterior samples it needs for later testing and scoring.
-- `Test(...)` without a likelihood generates population predictions and returns `None`. When `saveModelOut=True`, it stores model outputs for subsequent scoring; it does not return that dictionary. With a test likelihood, it returns a list containing one inference output per selected global posterior draw. If `nGlobalSamples=None`, BET uses one median global state, so the list has one element.
-- `ScoreTrainSamples(...)` returns an array with shape `[posterior_draw, training_entry, ...score_shape]`.
-- `ScoreTestSamples(...)` returns an array with shape `[global_draw, local_draw, test_entry, ...score_shape]`. In the no-likelihood test mode, there is one global state if medians are used; with sampled global states, the leading axis indexes those states. The local-draw axis represents variation among newly generated or inferred local effects.
-- `Save(path)` writes a compressed NPZ file and returns no meaningful value. `Save(None)` returns an in-memory nested record. `Estimator.Load(path, ModelFn)` returns the stored record as a dictionary when `ModelFn=None`; supplying a model function reconstructs an Estimator. The `ModelFn` argument must be passed explicitly.
+BET's predictive uncertainty has multiple sources. Sampling global parameter and Cholesky states with positive `nGlobalSamples` propagates uncertainty in the learned population; sampling or inferring local effects represents differences between new individuals. The observation likelihood describes measurement noise, which is not automatically included in deterministic model outputs. Model-structure uncertainty is not automatically represented.
 
-The precise model-output shape depends on what `ModelFn` returns. Always write down expected axes before aggregating: average over posterior draws to summarize uncertainty, and over entries only when that matches the scientific question. Avoid flattening global and local draws together without considering how they were generated.
+For reliable evaluation, keep test individuals out of training and ensure that only measurements available at the prediction time enter the test likelihood. Score later, held-out outcomes separately. The current `Test` implementation requires at least one named local Z, even though `Estimator` and `Train` can be used without local Zs.
+
+### Return values and estimator state
+
+The estimator retains the most recent training and test state. A new call to `Train` clears the previous test state; a new call to `Test` replaces it. The score arrays already assigned to variables remain available.
+
+- `Train(...)` returns the inference method's output object: a NumPyro MCMC object for NUTS or an SVI result for SVI. BET also stores the posterior samples needed for later testing and scoring.
+- `Test(...)` without a likelihood generates population predictions and returns `None`. With a test likelihood, it returns a list containing one inference output per selected global posterior draw. With `nGlobalSamples=None`, one median global state is used.
+- `ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[posterior_draw, training_individual, ...score_shape]`.
+- `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`.
+- `Save(path)` writes a compressed NPZ file and returns no meaningful value. `Save(None)` returns an in-memory nested record. `Estimator.Load(path, ModelFn)` returns the saved record when `ModelFn=None`; otherwise it reconstructs an estimator using the supplied functions and data as needed.
 
 ## Part 6: Missing data and numerical models
 
