@@ -173,7 +173,7 @@ The *Train → Test → Score* workflow also applies to more complex models, inc
 
 The assertions check score dimensions, not predictive accuracy; the printed MAE values are not expected to match fixed numbers. Part 6 builds on these scores to check fit on the training group.
 
-## Part 4: Building blocks
+## Part 3: Learning correlations between local z-scores
 
 The example has one individual-specific parameter, growth rate. BET can represent several individual differences and learn whether they tend to occur together.
 
@@ -208,7 +208,7 @@ BET represents this relationship using a **correlation matrix**. Internally, it 
 When data are limited, try more than one concentration to check how much the inferred correlations depend on the prior.
 
 
-## Part 4: Learning correlations between local z-scores
+## Part 4: Building blocks
 
 The worked example used one growth rate per individual. This part explains the model components and how BET can learn relationships among several individual characteristics.
 
