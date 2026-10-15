@@ -71,7 +71,7 @@ Part 2 combines these steps in a tumor growth example. Later sections explain co
 
 Suppose we measure tumor size eight times for each of ten patients. We want to learn how tumor growth rates differ across patients, then predict the last five measurements for four patients excluded from training. We will first predict using only what we learned from the other six patients, then see whether the first three measurements from each new patient improve the predictions.
 
-We generate synthetic data so you can follow the workflow without downloading a dataset. The growth equation is deliberately simple; the workflow also applies to more detailed scientific models.
+We generate synthetic data so you can follow the workflow without downloading a dataset. The growth equation is deliberately simple, but the workflow also applies to more detailed scientific models.
 
 #### Create example measurements and a growth model
 
@@ -190,7 +190,7 @@ The assertions check score dimensions, not predictive accuracy; the printed MAE 
 
 ## Part 3: Learning correlations between local z-scores
 
-The example has one individual-specific parameter, growth rate. BET can represent several individual differences and learn whether they tend to occur together.
+The worked example has one individual-specific parameter: growth rate. BET can represent several individual differences and learn whether they tend to occur together.
 
 BET represents individual-to-individual differences using **local z-scores** on a standardized scale. For example, `z=0` gives the model's central growth rate; positive or negative values change it according to the transformation you define. With `rate = exp(log_rate_mean + log_rate_sd * z)`, `log_rate_mean` sets the center on the log scale and `log_rate_sd` sets its spread. Before conditioning on individual observations, each z-score has a standard-normal marginal distribution.
 
@@ -234,7 +234,7 @@ Parts 2 and 3 showed how to train a model, make predictions, and represent corre
 - `ModelFn(globalParams, localZs, data)`: Receives dictionaries of global parameters, one individual's local z-scores, and that individual's data; returns a dictionary of model outputs. Use JAX-compatible operations without Python side effects or converting traced values to NumPy.
 - `localZNames`: Names of the local latent z-scores to infer; omit when there are no individual-specific latent variables.
 - `GlobalPriorFn(dataShapes)`: Returns a dictionary mapping shared global parameter names to NumPyro prior distributions. `dataShapes` contains each array's shape for one individual, without the leading individual axis. Optional when there are no global parameters to infer.
-- `lkjConcentration`: Controls the correlation prior for multiple local z-scores (default `2.0`); discussed below.
+- `lkjConcentration`: Controls the correlation prior for multiple local z-scores (default `2.0`); see Part 3.
 - `rngSeed`: Optional random seed for reproducible sampling.
 
 `est.Train(trainDataIdxs, TrainLikelihoodFn, Method, printSummary=False, rngSeed=None, saveLocalZs=True, saveModelOut=False)` learns from the training individuals:
@@ -418,7 +418,7 @@ Bayesian inference can be fragile when a model is difficult to fit. Parameters t
 
 **Keep model evaluations fast and differentiable.** NUTS and SVI may evaluate the model and its gradients many thousands of times during training or test-time personalization. For differential-equation models, use a differentiable ODE solver rather than manually simulating the dynamics with a Python time-step loop; use an analytical solution when one is available. Check runtime across plausible parameter values: regimes that force a numerical solver to take tiny steps can make inference prohibitively slow.
 
-For specific failures, start with the checks below. The API reference is in Part 4.
+For specific failures, use the checks below. See Part 4 for the API reference.
 
 ### Common problems
 
