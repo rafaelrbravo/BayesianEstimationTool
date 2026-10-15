@@ -165,7 +165,7 @@ BET updates each test person's growth-rate estimate using their first three meas
 
 #### What did the extra measurements buy us?
 
-Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize errors across plausible global parameters, local z-scores, and test people. If the `after` mean is lower, those three early measurements helped on average. With only ten synthetic people, an improvement is not guaranteed.
+Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize prediction errors across plausible global parameters, local z-scores, and test patients. Because we measure mean absolute error, lower values mean more accurate predictions of the held-out measurements. If the `after` mean is lower, using the first three measurements improved predictions of the remaining five on average. With only ten synthetic patients, an improvement is not guaranteed.
 
 To examine uncertainty in trajectories rather than errors, use a score function returning `model_out["prediction"]` and summarize its posterior draw axes. The resulting intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
 
