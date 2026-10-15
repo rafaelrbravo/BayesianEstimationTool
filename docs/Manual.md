@@ -136,7 +136,7 @@ print("Population-only mean future MAE:", float(jnp.mean(before)))
 assert before.shape == (20, 100, 4)
 ```
 
-BET considers 20 plausible versions of the learned population and 100 possible growth-rate differences for each one. Because it has not used any test person's measurements to estimate their growth rate, these are **population-only predictions**. *Runtime tip:* The later personalized-prediction step repeats inference for each of the 20 sampled global parameter states, so it may take time. For a quicker run, reduce `nGlobalSamples` in both `Test` calls to the same value and update the corresponding shape assertions; you can also reduce the SVI step counts.
+BET considers 20 plausible versions of the learned population and 100 possible growth-rate differences for each one. We did not supply a `TestLikelihoodFn` to `Test`, so BET does not use any measurements from the test patients to estimate their local latent z-scores. Instead, it samples those z-scores from the learned population, producing **population-only predictions**. *Runtime tip:* The later personalized-prediction step repeats inference for each of the 20 sampled global parameter states, so it may take time. For a quicker run, reduce `nGlobalSamples` in both `Test` calls to the same value and update the corresponding shape assertions; you can also reduce the SVI step counts.
 
 The score array has shape `[20, 100, 4]`: population draw, individual-effect draw, and test person. Each number measures a possible prediction's error.
 
