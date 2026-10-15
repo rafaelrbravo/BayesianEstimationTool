@@ -376,7 +376,7 @@ Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True,
 | `saveTestModelOut` | Include previously retained test model outputs, if available. Disabled by default. |
 | `saveAllData` | Include the original input data, allowing loading without supplying it separately. Disabled by default. |
 
-Population posterior samples and saved Train/Test configuration are retained independently of these options. Omitting local samples or model outputs reduces file size but may limit subsequent scoring or require recomputation. The model-output options only save outputs already retained by `Train(..., saveModelOut=True)` or `Test(..., saveModelOut=True)`; they do not generate missing outputs at save time.
+Population posterior samples and saved Train/Test configuration are retained independently of these options. Omitting local samples or model outputs reduces file size but may limit subsequent scoring or require recomputation. In particular, to score a loaded training fit with local effects, retain training local draws or previously saved model outputs; to score loaded test predictions, retain test local draws or previously saved test model outputs. The latter outputs must have been requested during `Test` and included during `Save`. The model-output options only save outputs already retained by `Train(..., saveModelOut=True)` or `Test(..., saveModelOut=True)`; they do not generate missing outputs at save time.
 
 To restore an estimator:
 
