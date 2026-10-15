@@ -285,9 +285,9 @@ For reliable evaluation, keep test individuals out of training and ensure that o
 The estimator retains the most recent training and test results, so later calls can reuse their parameter samples. A new call to `Train` clears the previous test state; a new call to `Test` replaces it. The score arrays already assigned to variables remain available.
 
 - `Train(...)` returns the inference method's output object: a NumPyro MCMC object for NUTS or an SVI result for SVI. BET also stores the posterior samples needed for later testing and scoring.
-- `Test(...)` without a likelihood generates population predictions and returns `None`. With a test likelihood, it returns a list containing one inference output per selected global posterior draw. With `nGlobalSamples=None`, one median global state is used.
+- `Test(...)` without a likelihood generates population predictions and returns `None`. With a test likelihood, it returns a list containing one inference output per selected global posterior draw. With `nGlobalSamples=None`, BET uses one state assembled from the componentwise medians of the saved global posterior draws (and, when present, the Cholesky draws). This is a convenient point estimate, not a randomly sampled joint posterior state.
 - `ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[posterior_draw, training_individual, ...score_shape]`. For NUTS, this first axis combines draws across chains; for SVI, it contains draws from the fitted approximation.
-- `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`.
+- `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`. Here `nSamples`, when provided, selects the number of **local** draws scored for each global state; it does not change the number of global states selected by `Test`.
 
 ## Part 6: Working with incomplete data and numerical models
 
