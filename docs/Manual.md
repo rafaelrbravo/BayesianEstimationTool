@@ -102,6 +102,8 @@ The model has three unknown population-level quantities. `g_mean` describes a ty
 
 `global_prior` describes plausible starting ranges for the three unknown quantities. `train_likelihood` says that each measurement is expected to be near the model's prediction, with variation controlled by `noise`. The data generator uses known values only to create this synthetic example; BET does not see those values when fitting.
 
+You can run the Python blocks in this worked example in order, in one Python session. Part 5 reuses the resulting `est`, `before`, and `after` variables rather than repeating the fits. The other code blocks in the manual illustrate separate features and are not all intended to run as one script.
+
 #### Train on six individuals
 
 ```python
