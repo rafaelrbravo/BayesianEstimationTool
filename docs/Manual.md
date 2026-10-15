@@ -192,7 +192,7 @@ The assertions check score dimensions, not predictive accuracy; the printed MAE 
 
 The example has one individual-specific parameter, growth rate. BET can represent several individual differences and learn whether they tend to occur together.
 
-BET needs a consistent way to describe how each individual differs from the population. It uses **local z-scores**: numbers that describe an individual's position relative to a typical value. Local z-scores represent individual-to-individual differences on a standardized scale. For example, `z=0` gives the model's central growth rate; positive or negative values change it according to the transformation you define. With `rate = exp(log_rate_mean + log_rate_sd * z)`, `log_rate_mean` sets the center on the log scale and `log_rate_sd` sets its spread. Before conditioning on individual observations, each z-score has a standard-normal marginal distribution.
+BET represents individual-to-individual differences using **local z-scores** on a standardized scale. For example, `z=0` gives the model's central growth rate; positive or negative values change it according to the transformation you define. With `rate = exp(log_rate_mean + log_rate_sd * z)`, `log_rate_mean` sets the center on the log scale and `log_rate_sd` sets its spread. Before conditioning on individual observations, each z-score has a standard-normal marginal distribution.
 
 Extend the tumor-growth example by adding treatment. Each patient now has two parameters: a **growth rate**, describing how quickly the tumor grows without treatment, and a **treatment-response parameter**, describing how strongly treatment slows that growth. Both may vary between patients. For instance, patients whose tumors grow faster might also tend to respond more strongly to treatment, or the relationship might be reversed. Assuming the parameters vary independently would miss that population-level relationship.
 
@@ -221,7 +221,6 @@ BET represents this relationship using a **correlation matrix**. Internally, it 
 - *`lkjConcentration<1`*: Favors more extreme correlation structures; generally avoid unless strong correlations are expected.
 
 When data are limited, try more than one concentration to check how much the inferred correlations depend on the prior.
-
 
 ## Part 4: Building blocks
 
@@ -329,7 +328,6 @@ restored = Estimator.Load("fit.npz", ModelFn=model_fn,
 
 For inspection without reconstructing an estimator, call `Estimator.Load("fit.npz", ModelFn=None)` to obtain the saved record as a dictionary. Saved Method names and constructor arguments support reconstruction of inference configuration; they do not serialize live NUTS or SVI engine objects.
 
-
 ## Part 7: Working with incomplete data and numerical models
 
 Individuals often have different numbers of measurements, and some measurements may be missing. BET works with arrays, so these differences need to be represented explicitly without pretending missing values were observed.
@@ -361,7 +359,6 @@ def likelihood(global_params, local_zs, data, model_out):
 The model must produce finite predictions even at padded positions. Masking cannot make an intermediate `NaN` or infinity safe; multiplying a divergent log-probability by zero does not guarantee a finite gradient. Here the second individual's final measurement is a placeholder, and its padded time advances from 3 to 4 to keep the time array increasing. The validity mask excludes that position from inference. A real ODE model still needs a time grid compatible with its solver and finite predictions at padded positions.
 
 For partial-observation testing, use a separate mask such as `test_observed = valid & (time <= cutoff)`. Apply it in the test likelihood, but retain the original validity mask for scoring held-out observations. Ensure hidden measurements cannot enter the model through inputs or preprocessing.
-
 
 ### Models defined by differential equations
 
@@ -415,14 +412,15 @@ For stronger evidence of predictive performance, evaluate more held-out individu
 
 ## Part 9: Troubleshooting
 
-Bayesian inference can be fragile when a model is difficult to fit. Parameters that compensate for one another, parameters that barely affect predictions, and very large or unstable gradients can all prevent reliable fitting. Complex dynamics and likelihoods can make the problem harder still.
+Bayesian inference can be fragile when a model is difficult to fit. Parameters that compensate for one another, parameters that barely affect predictions, and very large or unstable gradients can make reliable fitting difficult or impossible. Complex dynamics and likelihoods can make the problem harder still.
 
-**Build complexity incrementally.** Start with a simple model that fits reliably, ideally checking parameter recovery on synthetic data with known values. Add one mechanism or parameter at a time and check that inference still behaves sensibly before proceeding. If fitting breaks down, investigate the most recent addition rather than debugging the entire complex model at once. Getting a complex model to work from the outset is often much harder than building toward it.
+**Build complexity incrementally.** Start with a simple model that fits reliably, ideally checking parameter recovery on synthetic data with known values. Add one mechanism or parameter at a time and check that inference still behaves sensibly before proceeding. If fitting breaks down, investigate the most recent addition rather than debugging the entire complex model at once. Building toward a complex model is usually easier to debug than fitting it all at once.
 
-**Keep model evaluations fast and differentiable.** NUTS and SVI may evaluate the model and its gradients many thousands of times during training or test-time personalization. For differential-equation models, use a differentiable ODE solver rather than manually simulating the dynamics with a Python time-step loop; use an analytical solution when one is available. Check runtime across plausible parameter values: regimes that force a numerical solver to take tiny steps can make inference prohibitively slow. 
+**Keep model evaluations fast and differentiable.** NUTS and SVI may evaluate the model and its gradients many thousands of times during training or test-time personalization. For differential-equation models, use a differentiable ODE solver rather than manually simulating the dynamics with a Python time-step loop; use an analytical solution when one is available. Check runtime across plausible parameter values: regimes that force a numerical solver to take tiny steps can make inference prohibitively slow.
+
 For specific failures, start with the checks below. The API reference is in Part 4.
 
-### Common mistakes and troubleshooting
+### Common problems
 
 **Shape mismatch.** Start with one entry and print array shapes before tracing. All top-level data arrays must have the same entry count, and per-entry model outputs must match likelihood observation shapes. Broadcasting can silently produce an incorrect likelihood, so verify dimensions explicitly.
 
