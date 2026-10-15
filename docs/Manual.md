@@ -118,7 +118,7 @@ est.Train(train_ids, train_likelihood,
 
 The first six people form the **training group** (the individuals used to fit the model). BET uses their measurements to estimate typical growth, variation between people, and measurement noise. The other four form the **test group** (new individuals): their measurements are not used during training.
 
-Here `Svi` is the inference method that estimates the unknown quantities. These settings are illustrative, not a guarantee of accurate inference. For research, check the fitted predictions and sensitivity to modeling choices. The later personalized-prediction step repeats inference for 20 sampled population states, so it may take time; use fewer states and steps for an initial run.
+Here `Svi` is the inference method that estimates the unknown quantities. These settings are illustrative, not a guarantee of accurate inference. For research, check the fitted predictions and sensitivity to modeling choices. The later personalized-prediction step repeats inference for 20 sampled population states, so it may take time. For a quick run, reduce `nGlobalSamples` in both `Test` calls to the same value and adjust the corresponding shape assertions; you can also reduce the SVI step counts.
 
 #### Predict using the group alone
 
@@ -167,7 +167,7 @@ To examine uncertainty in trajectories rather than errors, use a score function 
 
 The same **Train → Test → Score** workflow applies to more complicated models, including models defined by differential equations.
 
-**Checking the example:** The two `assert` statements verify the expected score dimensions; if either fails, the script stops rather than silently treating the axes incorrectly. The printed MAE values will depend on the inferred parameters and need not match a fixed number. For a quick first run, reduce `nGlobalSamples` in both `Test` calls to the same smaller value, and adjust the assertions accordingly. That changes the number of population draws, not the underlying example. Part 5 revisits scoring in more detail and adds a check on the training group.
+The assertions check score dimensions, not predictive accuracy; the printed MAE values are not expected to match fixed numbers. Part 5 builds on these scores to check fit on the training group.
 
 ## Part 3: Building blocks and individual differences
 
