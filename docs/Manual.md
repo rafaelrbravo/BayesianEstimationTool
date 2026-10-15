@@ -238,18 +238,18 @@ Parts 2 and 3 showed how to train a model, make predictions, and represent corre
 
 - `trainDataIdxs`: Indices of the individuals used for training.
 - `TrainLikelihoodFn`: Function describing how their observations relate to model predictions.
-- `Method`: Inference method, such as `Nuts(...)` or `Svi(...)`.
+- `Method`: Configured inference method, such as `Nuts(...)` or `Svi(...)`, or a supported Method class that can reuse saved configuration.
 - `printSummary`: Whether to print an inference summary.
 - `rngSeed`: Optional seed for this training run.
-- `saveLocalZs`: Whether to retain training local z-score samples.
+- `saveLocalZs`: Whether to retain training local z-score samples (default `True`). For later training scores, retain either these draws or model outputs.
 - `saveModelOut`: Whether to retain model outputs for the training samples.
 
 `est.Test(testDataIdxs, TestLikelihoodFn=None, Method=None, nGlobalSamples=None, nLocalZSamples=2000, printSummary=False, rngSeed=None, saveModelOut=False)` makes predictions for test individuals:
 
 - `testDataIdxs`: Indices of the individuals to predict.
 - `TestLikelihoodFn`: Optional function using available test observations to update their local z-scores. Omit for population-only predictions.
-- `Method`: Inference method for that update, when a test likelihood is supplied.
-- `nGlobalSamples`: Number of sampled global parameter states used for testing; `None` uses the available training draws.
+- `Method`: Inference method for that update, when a test likelihood is supplied; it can reuse saved configuration.
+- `nGlobalSamples`: Number of sampled global parameter states used for testing; `None` uses the posterior median global state; a positive integer samples training posterior states.
 - `nLocalZSamples`: Number of local z-score draws per global state for population-only predictions.
 - `printSummary`: Whether to print an inference summary.
 - `rngSeed`: Optional seed for this test run.
@@ -257,7 +257,7 @@ Parts 2 and 3 showed how to train a model, make predictions, and represent corre
 
 `est.ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` and `est.ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` evaluate predictions:
 
-- `ScoreFn`: Function that compares one individual's model output with their data and returns a scalar or array.
+- `ScoreFn`: Function that compares one individual's model output with their data and returns a scalar or array. Training scores have axes (draw, training individual, score dimensions); test scores have axes (global draw, local draw, test individual, score dimensions).
 - `nSamples`: Optional number of posterior draws to score; `None` uses all available draws.
 - `rngSeed`: Optional seed when selecting draws.
 
@@ -269,61 +269,13 @@ Parts 2 and 3 showed how to train a model, make predictions, and represent corre
 - `ScoreFn(modelOut, data)` returns a scalar or array for one individual; BET evaluates it across posterior samples and individuals.
 
 
-### Detailed public API reference
+### Additional API details
 
-The preceding sections explain when to use each operation. This reference provides call signatures and option descriptions.
+**Models without local z-scores.** `Estimator` and `Train` support models without local z-scores, but `Test` currently requires at least one (`Test() requires at least one local Z`). Consequently, `ScoreTestSamples` is unavailable through that workflow.
 
-The signatures below cover the public exports `Estimator`, `Nuts`, `Svi`, and `ValidateMethod`, together with public `Estimator` methods.
+**Saving and loading.** `est.Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True, saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False)` saves the estimator state to a compressed file. With `fileName=None`, it returns the results as a dictionary instead. `Estimator.Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs the estimator; supply `data` unless it was saved. With `ModelFn=None`, it returns the saved record without reconstructing an estimator. See Part 8 for examples and persistence options.
 
-#### Estimator construction
-
-`Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)`
-
-- `data`: dictionary of arrays sharing a leading entry axis.
-- `ModelFn`: deterministic per-entry model function returning a dictionary.
-- `localZNames`: optional list of named local latent z-scores.
-- `GlobalPriorFn`: optional function returning named NumPyro distributions for shared parameters.
-- `lkjConcentration`: concentration of the LKJ correlation prior when multiple local z-scores are used.
-- `rngSeed`: optional reproducibility seed.
-
-#### Train
-
-`Train(trainDataIdxs, TrainLikelihoodFn, Method, printSummary=False, rngSeed=None, saveLocalZs=True, saveModelOut=False)`
-
-- `trainDataIdxs`: selected training entries.
-- `TrainLikelihoodFn`: per-entry likelihood factory.
-- `Method`: inference Method instance or supported Method class.
-- `printSummary`: request inference summary output.
-- `rngSeed`: optional call-specific seed.
-- `saveLocalZs`: retain local posterior draws for later use.
-- `saveModelOut`: retain generated model outputs rather than recomputing them.
-
-#### Test
-
-`Test(testDataIdxs, TestLikelihoodFn=None, Method=None, nGlobalSamples=None, nLocalZSamples=2000, printSummary=False, rngSeed=None, saveModelOut=False)`
-
-- `testDataIdxs`: entries for population prediction or local updating.
-- `TestLikelihoodFn`: omitted for unconditioned population prediction; provided for observation-conditioned inference.
-- `Method`: inference Method for observation-conditioned testing; may reuse saved configuration.
-- `nGlobalSamples`: `None` uses posterior median population state; a positive integer selects trained posterior states.
-- `nLocalZSamples`: number of local draws in no-likelihood testing.
-- `printSummary`, `rngSeed`, `saveModelOut`: reporting, reproducibility, and output retention.
-
-#### Scoring
-
-`ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` scores training posterior predictions. Its output axes are posterior draw, training entry, then any score dimensions. If the model has local Zs, training must retain either local posterior draws (`saveLocalZs=True`, the default) or model outputs (`saveModelOut=True`); otherwise training scores cannot be reconstructed.
-
-`ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` scores the most recent test state. Its output axes are global draw, local draw, test entry, then any score dimensions. Check what each axis represents before aggregating uncertainty.
-
-**Models without local z-scores:** `Estimator` and `Train` support models without local Zs, but the current `Test` implementation rejects them (`Test() requires at least one local Z`). Setting `saveModelOut=True` does not bypass this restriction. Consequently, `ScoreTestSamples` cannot be used for such models through the `Test` workflow.
-
-#### Persistence
-
-`Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True, saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False)` writes a compressed state file; with `fileName=None`, it returns a record. The flags control whether local draws, model outputs, and data are included. Saving data improves portability but increases file size and may create data-sensitivity obligations.
-
-`Estimator.Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs an estimator using the supplied functions. Provide `data` if it was not saved. Passing `ModelFn=None` returns the saved record without reconstructing an executable estimator.
-
-`ValidateMethod(method)` checks a custom Method's required interface; see **Adding a custom inference method** in Part 5 for implementation details. Public exports are defined in package `__init__.py`.
+**Custom methods.** `ValidateMethod(method)` checks whether a custom inference method implements BET's required interface. See Part 5 for implementation details.
 
 ## Part 5: How BET learns from data
 
