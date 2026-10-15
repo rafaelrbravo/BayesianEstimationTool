@@ -336,38 +336,7 @@ restored = Estimator.Load("fit.npz", ModelFn=model_fn,
 For inspection without reconstructing an estimator, call `Estimator.Load("fit.npz", ModelFn=None)` to obtain the saved record as a dictionary. Saved Method names and constructor arguments support reconstruction of inference configuration; they do not serialize live NUTS or SVI engine objects.
 
 
-## Part 7: Evaluating predictions without data leakage
-
-A model can reproduce its training data yet predict poorly for new individuals. Part 2 demonstrated scoring; here the focus is on designing an evaluation that measures genuine predictive performance.
-
-### Separate fitting, personalization, and evaluation
-
-Keep test individuals out of training. For each test individual, distinguish measurements available **at prediction time** from later outcomes reserved for evaluation. In the worked example, the first three measurements can update the individual's local z-scores, while the final five are held out for scoring. Neither the model inputs nor the test likelihood should expose those future outcomes during prediction.
-
-Training scores answer a different question: how well does the fitted model describe individuals it learned from? They can reveal poor fit but are not an unbiased estimate of performance on new individuals. Population-only test scores measure prediction without individual observations; personalized test scores measure prediction after using the permitted early observations. Compare the latter two against the **same held-out outcomes** to assess the value of personalization.
-
-### Interpret scores at the right level
-
-The worked example uses mean absolute error (MAE), where lower is better. BET computes a score for each sampled prediction and individual. A mean across posterior draws summarizes errors under the fitted model; draws are not independent patients or repeated validation experiments. In particular, the mean of MAEs computed on sampled trajectories need not equal the MAE of the posterior-mean trajectory.
-
-A single overall mean can hide differences between patients. To check whether personalization helps broadly rather than only for a few individuals, retain the test-individual axis:
-
-```python
-before_by_person = jnp.mean(before, axis=(0, 1))
-after_by_person = jnp.mean(after, axis=(0, 1))
-print("MAE without calibration, per person:", before_by_person)
-print("MAE with calibration, per person:", after_by_person)
-```
-
-These arrays have one value per test patient. Quantiles across posterior draws describe uncertainty conditional on the fitted model; they are **not** confidence intervals for performance across future patient populations.
-
-### Check what uncertainty is represented
-
-Using positive `nGlobalSamples` propagates uncertainty in learned global parameters and correlations; local z-score draws represent uncertainty and variation between individuals. Deterministic model outputs do not automatically include new observation noise, and none of these draws accounts for possible errors in the model's structure.
-
-For stronger evidence of predictive performance, evaluate more held-out individuals, repeat across data splits or random seeds, and vary how many early observations are available for personalization. These checks address different questions from simply drawing more posterior samples.
-
-## Part 8: Working with incomplete data and numerical models
+## Part 7: Working with incomplete data and numerical models
 
 Individuals often have different numbers of measurements, and some measurements may be missing. BET works with arrays, so these differences need to be represented explicitly without pretending missing values were observed.
 
@@ -424,6 +393,37 @@ def model_fn(global_params, local_zs, data):
 ```
 
 Padded time grids must satisfy the solver's ordering requirements. One approach is to solve on a shared regular grid and interpolate to each individual's observation times. Check for duplicate or unsorted padded times.
+
+## Part 8: Evaluating predictions without data leakage
+
+A model can reproduce its training data yet predict poorly for new individuals. Part 2 demonstrated scoring; here the focus is on designing an evaluation that measures genuine predictive performance.
+
+### Separate fitting, personalization, and evaluation
+
+Keep test individuals out of training. For each test individual, distinguish measurements available **at prediction time** from later outcomes reserved for evaluation. In the worked example, the first three measurements can update the individual's local z-scores, while the final five are held out for scoring. Neither the model inputs nor the test likelihood should expose those future outcomes during prediction.
+
+Training scores answer a different question: how well does the fitted model describe individuals it learned from? They can reveal poor fit but are not an unbiased estimate of performance on new individuals. Population-only test scores measure prediction without individual observations; personalized test scores measure prediction after using the permitted early observations. Compare the latter two against the **same held-out outcomes** to assess the value of personalization.
+
+### Interpret scores at the right level
+
+The worked example uses mean absolute error (MAE), where lower is better. BET computes a score for each sampled prediction and individual. A mean across posterior draws summarizes errors under the fitted model; draws are not independent patients or repeated validation experiments. In particular, the mean of MAEs computed on sampled trajectories need not equal the MAE of the posterior-mean trajectory.
+
+A single overall mean can hide differences between patients. To check whether personalization helps broadly rather than only for a few individuals, retain the test-individual axis:
+
+```python
+before_by_person = jnp.mean(before, axis=(0, 1))
+after_by_person = jnp.mean(after, axis=(0, 1))
+print("MAE without calibration, per person:", before_by_person)
+print("MAE with calibration, per person:", after_by_person)
+```
+
+These arrays have one value per test patient. Quantiles across posterior draws describe uncertainty conditional on the fitted model; they are **not** confidence intervals for performance across future patient populations.
+
+### Check what uncertainty is represented
+
+Using positive `nGlobalSamples` propagates uncertainty in learned global parameters and correlations; local z-score draws represent uncertainty and variation between individuals. Deterministic model outputs do not automatically include new observation noise, and none of these draws accounts for possible errors in the model's structure.
+
+For stronger evidence of predictive performance, evaluate more held-out individuals, repeat across data splits or random seeds, and vary how many early observations are available for personalization. These checks address different questions from simply drawing more posterior samples.
 
 ## Part 9: Troubleshooting
 
