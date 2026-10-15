@@ -208,7 +208,7 @@ BET represents this relationship using a **correlation matrix**. Internally, it 
 When data are limited, try more than one concentration to check how much the inferred correlations depend on the prior.
 
 
-## Part 3: Building blocks
+## Part 3: Learning correlations between local z-scores
 
 The worked example used one growth rate per individual. This part explains the model components and how BET can learn relationships among several individual characteristics.
 
