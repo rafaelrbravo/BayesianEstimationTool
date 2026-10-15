@@ -173,7 +173,9 @@ The worked example used one growth rate per individual. This part explains how i
 
 `ModelFn(globalParams, localZs, data)` receives global parameters, one individual's local latent values, and that individual's data as dictionaries. It returns a dictionary of model outputs. BET vectorizes the function across individuals and posterior draws, so avoid Python side effects and converting traced JAX values to NumPy.
 
-`GlobalPriorFn(dataShapes)` describes plausible values of shared unknown parameters before seeing the measurements. It returns a dictionary mapping parameter names to NumPyro distributions. The `dataShapes` argument describes each data array **for one individual**, without the leading individual axis. The global parameters are shared by the training population.
+`GlobalPriorFn(dataShapes)` describes plausible values of shared unknown parameters before seeing the measurements. It returns a dictionary mapping parameter names to NumPyro distributions. The `dataShapes` argument describes each data array **for one individual**, without the leading individual axis.
+
+For example, if `data["y"]` contains measurements from 10 people at 8 times, its full shape is `(10, 8)`, but `dataShapes["y"]` is `(8,)`. The first dimension selects the person; the remaining dimensions describe that person's data. BET removes only the first dimension when constructing `dataShapes`. The global parameters are shared by the training population.
 
 `TrainLikelihoodFn(globalParams, localZs, data, modelOut)` and `TestLikelihoodFn` return dictionaries mapping site names to `(observed_value, distribution)` tuples. A site may contain a scalar or a vector of observations. Its observation, distribution, and mask shapes must agree.
 
@@ -263,6 +265,8 @@ The **test** scores answer the main prediction question. The training score is u
 - **Training MAE** describes fit to individuals used to learn the model. Do not treat it as directly comparable to held-out test MAE.
 - **Test MAE without calibration** measures predictions based on the population alone.
 - **Test MAE with calibration** measures predictions after incorporating each individual's available measurements.
+
+A score is computed once for each sampled prediction, not just once for the entire test group. This is why scoring produces an array rather than a single number: you can average scores for a quick comparison or inspect how they vary across individuals and plausible parameter values.
 
 The score arrays retain variation across posterior draws and individuals. For these calls, `ScoreTrainSamples` returns an array shaped like `[posterior_draw, training_individual]`; `ScoreTestSamples` returns `[global_draw, local_draw, test_individual]` when the score is scalar per individual. Take means or quantiles over the intended axes rather than flattening them without thought. The example prints a grand mean for a simple summary; uncertainty can be examined by retaining and summarizing the draw-level scores.
 
