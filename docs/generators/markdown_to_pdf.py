@@ -5,6 +5,7 @@ Markdown is read-only and remains the sole source of documentation content.
 """
 import argparse
 import os
+import shutil
 from pathlib import Path
 
 import requests
@@ -39,7 +40,14 @@ def convert(source: Path, destination: Path | None = None) -> Path:
     html = ("<!doctype html><html><head><meta charset='utf-8'></head>"
             "<body><article class='markdown-body'>" + response.text + "</article></body></html>")
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        bundled = Path(playwright.chromium.executable_path)
+        system_chromium = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome")
+        if bundled.exists():
+            browser = playwright.chromium.launch()
+        elif system_chromium:
+            browser = playwright.chromium.launch(executable_path=system_chromium)
+        else:
+            raise RuntimeError("Chromium not found. Install Playwright Chromium or a system Chromium browser.")
         page = browser.new_page()
         page.set_content(html, wait_until="load")
         page.add_style_tag(content=css_response.text)
