@@ -267,7 +267,16 @@ The **test** scores answer the main prediction question. The training score is u
 
 A score is computed once for each sampled prediction, not just once for the entire test group. This is why scoring produces an array rather than a single number: you can average scores for a quick comparison or inspect how they vary across individuals and plausible parameter values.
 
-The score arrays retain variation across posterior draws and individuals. For these calls, `ScoreTrainSamples` returns an array shaped like `[posterior_draw, training_individual]`; `ScoreTestSamples` returns `[global_draw, local_draw, test_individual]` when the score is scalar per individual. Take means or quantiles over the intended axes rather than flattening them without thought. The example prints a grand mean for a simple summary. For a more informative comparison, first average over draws separately for each test individual, then inspect the four individual means; this shows whether an overall improvement is shared across people or driven by only one. Draw-level quantiles can describe variation from parameter uncertainty, but they are not confidence intervals for generalization performance across new populations.
+The score arrays retain variation across posterior draws and individuals. For these calls, `ScoreTrainSamples` returns an array shaped like `[posterior_draw, training_individual]`; `ScoreTestSamples` returns `[global_draw, local_draw, test_individual]` when the score is scalar per individual. Take means or quantiles over the intended axes rather than flattening them without thought. The example prints a grand mean for a simple summary. To see whether an overall improvement is shared across people or driven by one individual, average over both draw axes while keeping the individual axis:
+
+```python
+before_by_person = jnp.mean(before, axis=(0, 1))
+after_by_person = jnp.mean(after, axis=(0, 1))
+print("MAE without calibration, per person:", before_by_person)
+print("MAE with calibration, per person:", after_by_person)
+```
+
+Each result has four entries, one for each test individual. Draw-level quantiles can describe variation from parameter uncertainty, but they are not confidence intervals for generalization performance across new populations.
 
 BET's predictive uncertainty has multiple sources. Sampling global parameter and Cholesky states with positive `nGlobalSamples` propagates uncertainty in the learned population; sampling or inferring local effects represents differences between new individuals. The observation likelihood describes measurement noise, which is not automatically included in deterministic model outputs. Model-structure uncertainty is not automatically represented.
 
