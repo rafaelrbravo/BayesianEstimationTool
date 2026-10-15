@@ -348,9 +348,43 @@ Padded time grids must satisfy the solver's ordering requirements. One approach 
 
 ## Part 7: Persistence and extensibility
 
-### Saving, loading, and custom methods
+### Saving and loading
 
-`est.Save("fit.npz", saveAllData=True)` saves inference state together with the data. To restore it, call `Estimator.Load("fit.npz", ModelFn=model_fn, GlobalPriorFn=global_prior)`. If data were not saved, also supply `data=`. In either case, supply the original model and prior functions again: executable Python functions are not serialized.
+`Save` preserves the fitted population posterior, training/test configuration, selected entry indices, and RNG state in a compressed `.npz` file. You can also choose whether to retain individual local-effect samples, model outputs, and the original data.
+
+```python
+est.Save("fit.npz", saveAllData=True)
+restored = Estimator.Load("fit.npz", ModelFn=model_fn, GlobalPriorFn=global_prior)
+```
+
+The full signature is:
+
+```python
+Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True,
+     saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False)
+```
+
+| Option | What it controls |
+| --- | --- |
+| `fileName` | Destination for the compressed `.npz` file. If `None`, return an in-memory nested record instead of writing a file. |
+| `saveTrainLocalZs` | Include training individuals' posterior local-effect samples. Enabled by default. |
+| `saveTestLocalZs` | Include the latest test individuals' local-effect samples and their associated sampled global/Cholesky states. Enabled by default. |
+| `saveTrainModelOut` | Include previously retained training model outputs, if available. Disabled by default. |
+| `saveTestModelOut` | Include previously retained test model outputs, if available. Disabled by default. |
+| `saveAllData` | Include the original input data, allowing loading without supplying it separately. Disabled by default. |
+
+Population posterior samples and saved Train/Test configuration are retained independently of these options. Omitting local samples or model outputs reduces file size but may limit subsequent scoring or require recomputation. The model-output options only save outputs already retained by `Train(..., saveModelOut=True)` or `Test(..., saveModelOut=True)`; they do not generate missing outputs at save time.
+
+To restore an estimator:
+
+```python
+restored = Estimator.Load("fit.npz", ModelFn=model_fn,
+                          GlobalPriorFn=global_prior, data=data)
+```
+
+`Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs the saved estimator, including available posterior samples and configuration. Omit `data` if the file was saved with `saveAllData=True`; otherwise supply the original data. You must supply the model function and, when used, the global-prior function again because Python functions are not serialized. BET warns when their names differ from the saved names, but a matching name does not guarantee identical behavior.
+
+For inspection without reconstructing an estimator, call `Estimator.Load("fit.npz", ModelFn=None)` to obtain the saved record as a dictionary. Saved Method names and constructor arguments support reconstruction of inference configuration; they do not serialize live NUTS or SVI engine objects.
 
 ### Writing a custom inference Method
 
