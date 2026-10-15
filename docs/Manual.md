@@ -346,43 +346,21 @@ Optional features include:
 
 See `NutsMethod.py` and `SviMethod.py` for complete Method implementations.
 
-## Part 6: Checking predictions
+## Part 6: Evaluating predictions without data leakage
 
-A model can fit its training individuals yet predict poorly for new ones. **Scoring** compares predictions with observed outcomes. Part 2 compared population-only and personalized predictions for new individuals; here we add a training-set check and show how to interpret all three scores.
+A model can reproduce its training data yet predict poorly for new individuals. Part 2 demonstrated scoring; here the focus is on designing an evaluation that measures genuine predictive performance.
 
-This section reuses `est`, `test_ids`, and `future_mae` from Part 2. The first three test measurements may be used for personalization; the last five are reserved for evaluation.
+### Separate fitting, personalization, and evaluation
 
-### What the score means
+Keep test individuals out of training. For each test individual, distinguish measurements available **at prediction time** from later outcomes reserved for evaluation. In the worked example, the first three measurements can update the individual's local z-scores, while the final five are held out for scoring. Neither the model inputs nor the test likelihood should expose those future outcomes during prediction.
 
-We use **mean absolute error (MAE)**, the average absolute difference between predicted and observed measurements. Zero means a perfect match; smaller is better. The `future_mae` function defined in Part 2 computes this for the last five time points. BET evaluates it separately for each individual and each sampled set of parameters.
+Training scores answer a different question: how well does the fitted model describe individuals it learned from? They can reveal poor fit but are not an unbiased estimate of performance on new individuals. Population-only test scores measure prediction without individual observations; personalized test scores measure prediction after using the permitted early observations. Compare the latter two against the **same held-out outcomes** to assess the value of personalization.
 
-### Check fit on the training individuals
+### Interpret scores at the right level
 
-After calling `Train`, score the training individuals:
+The worked example uses mean absolute error (MAE), where lower is better. BET computes a score for each sampled prediction and individual. A mean across posterior draws summarizes errors under the fitted model; draws are not independent patients or repeated validation experiments. In particular, the mean of MAEs computed on sampled trajectories need not equal the MAE of the posterior-mean trajectory.
 
-```python
-train_scores = est.ScoreTrainSamples(future_mae)
-print("Training MAE:", float(jnp.mean(train_scores)))
-```
-
-This checks how closely the fitted model describes training trajectories. It does not provide an unbiased estimate of performance on new individuals because these observations contributed to fitting.
-
-### Compare predictions for new individuals
-
-Part 2 already computed two sets of test scores. The `before` scores use only the learned population: no measurements from the test individuals were used to estimate their growth rates. The `after` scores come from predictions updated using each test individual's first three measurements. In both cases, the score evaluates the final five measurements, which were held out from individual calibration.
-
-```python
-print("Test MAE without calibration:", float(jnp.mean(before)))
-print("Test MAE with calibration:", float(jnp.mean(after)))
-```
-
-Comparing these values shows whether early measurements improved predictions on average; improvement is not guaranteed, especially with a small test group.
-
-### Compare the results and their uncertainty
-
-The two test scores indicate whether early measurements improve predictions for new individuals. Training MAE instead measures fit to data used during learning; it is not held-out forecasting performance.
-
-BET computes a score for every sampled prediction, so the result is an array rather than one number. Each posterior draw represents a plausible parameter setting, not an independent experiment. Averaging across draws summarizes prediction errors under the fitted model; it does not increase the number of independent individuals evaluated. Because `future_mae` is applied to each sampled trajectory **before** scores are averaged, this is the mean of the sampled MAEs—not the MAE of the posterior-mean trajectory. Those are different summaries and can give different values. For these calls, `ScoreTrainSamples` returns an array shaped like `[posterior_draw, training_individual]`; `ScoreTestSamples` returns `[global_draw, local_draw, test_individual]` when the score is scalar per individual. Take means or quantiles over the intended axes rather than flattening them without thought. The example prints a grand mean for a simple summary. To see whether an overall improvement is shared across people or driven by one individual, average over both draw axes while keeping the individual axis:
+A single overall mean can hide differences between patients. To check whether personalization helps broadly rather than only for a few individuals, retain the test-individual axis:
 
 ```python
 before_by_person = jnp.mean(before, axis=(0, 1))
@@ -391,20 +369,13 @@ print("MAE without calibration, per person:", before_by_person)
 print("MAE with calibration, per person:", after_by_person)
 ```
 
-Each result has four entries, one for each test individual. Draw-level quantiles can describe variation from parameter uncertainty, but they are not confidence intervals for generalization performance across new populations.
+These arrays have one value per test patient. Quantiles across posterior draws describe uncertainty conditional on the fitted model; they are **not** confidence intervals for performance across future patient populations.
 
-BET's predictive uncertainty has multiple sources. Sampling global parameter and Cholesky states with positive `nGlobalSamples` propagates uncertainty in the learned population; sampling or inferring local z-scores represents differences between new individuals. The observation likelihood describes measurement noise, which is not automatically included in deterministic model outputs. Model-structure uncertainty is not automatically represented.
+### Check what uncertainty is represented
 
-For reliable evaluation, keep test individuals out of training and ensure that only measurements available at the prediction time enter the test likelihood. Score later, held-out outcomes separately. The current `Test` implementation requires at least one named local Z, even though `Estimator` and `Train` can be used without local Zs.
+Using positive `nGlobalSamples` propagates uncertainty in learned global parameters and correlations; local z-score draws represent uncertainty and variation between individuals. Deterministic model outputs do not automatically include new observation noise, and none of these draws accounts for possible errors in the model's structure.
 
-### Return values and estimator state
-
-The estimator retains the most recent training and test results, so later calls can reuse their parameter samples. A new call to `Train` clears the previous test state; a new call to `Test` replaces it. The score arrays already assigned to variables remain available.
-
-- `Train(...)` returns the inference method's output object: a NumPyro MCMC object for NUTS or an SVI result for SVI. BET also stores the posterior samples needed for later testing and scoring.
-- `Test(...)` without a likelihood generates population predictions and returns `None`. With a test likelihood, it returns a list containing one inference output per selected global posterior draw. With `nGlobalSamples=None`, BET uses one state assembled from the componentwise medians of the saved global posterior draws (and, when present, the Cholesky draws). This is a convenient point estimate, not a randomly sampled joint posterior state.
-- `ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[posterior_draw, training_individual, ...score_shape]`. For NUTS, this first axis combines draws across chains; for SVI, it contains draws from the fitted approximation.
-- `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`. Here `nSamples`, when provided, selects the number of *local* draws scored for each global state; it does not change the number of global states selected by `Test`.
+For stronger evidence of predictive performance, evaluate more held-out individuals, repeat across data splits or random seeds, and vary how many early observations are available for personalization. These checks address different questions from simply drawing more posterior samples.
 
 ## Part 7: Working with incomplete data and numerical models
 
