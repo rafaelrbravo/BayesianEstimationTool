@@ -1,12 +1,12 @@
 # BayesianEstimationTool Manual
 
-BayesianEstimationTool (BET) helps you learn from a group of related individuals and make predictions for someone new. An *individual* might be a patient, an experiment, or a simulated system. You provide a model of how the system works and the measurements you have collected; BET estimates its unknown parameters and helps you test its predictions.
+BayesianEstimationTool (BET) helps you learn from a group of related individuals and make predictions for someone new. An *individual* (also called an *entry* in some API descriptions) might be a patient, an experiment, or a simulated system. This manual uses *individual* for all three; the examples happen to use people. You provide a model of how the system works and the measurements you have collected; BET estimates its unknown parameters and helps you test its predictions.
 
 Imagine measuring how quickly tumors grow in several patients. The same growth equation might describe every patient, but each patient's growth rate can differ. If you estimate each rate separately, a patient with only one or two measurements gives you little information. BET instead learns from the whole group: what growth rates are typical, how much they vary, and what the measurements tell us about each patient.
 
 You can then predict a new patient's trajectory in two ways. **Before seeing any measurements**, use what the group taught you. **After seeing a few measurements**, update the prediction to reflect what you have learned about that patient. BET also helps you measure whether those predictions were accurate and how uncertain they are.
 
-The statistical name for learning about individuals and their shared population in this way is *hierarchical Bayesian inference*. You do not need to master that terminology before using the basic workflow.
+The statistical name for learning about individuals and their shared population in this way is *hierarchical Bayesian inference*. You do not need to master that terminology before using the basic workflow. Throughout the manual, *population* means the group whose shared patterns BET learns; it does not require a medical or demographic population.
 
 ## The workflow at a glance
 
@@ -114,7 +114,7 @@ est.Train(train_ids, train_likelihood,
           Svi(numSteps=1500, numSamples=300, progressBar=False))
 ```
 
-The first six people form the **training group**. BET uses their measurements to estimate typical growth, variation between people, and measurement noise. The other four form the **test group**: their measurements are not used during training.
+The first six people form the **training group** (the individuals used to fit the model). BET uses their measurements to estimate typical growth, variation between people, and measurement noise. The other four form the **test group** (new individuals): their measurements are not used during training.
 
 Here `Svi` is the inference method that estimates the unknown quantities. These settings are illustrative, not a guarantee of accurate inference. For research, check the fitted predictions and sensitivity to modeling choices. The later personalized-prediction step repeats inference for 20 sampled population states, so it may take time; use fewer states and steps for an initial run.
 
@@ -169,11 +169,11 @@ The worked example used one growth rate per individual. This part explains how i
 
 ### What each function receives
 
-`Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)` takes a dictionary of arrays. The first axis of each data array indexes individuals; all arrays have the same number of individuals. Remaining axes can represent times, features, or spatial coordinates.
+`Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)` connects the model and its data. The `data` argument is a dictionary of arrays. The first axis of each data array indexes individuals; all arrays have the same number of individuals. Remaining axes can represent times, features, or spatial coordinates.
 
 `ModelFn(globalParams, localZs, data)` receives global parameters, one individual's local latent values, and that individual's data as dictionaries. It returns a dictionary of model outputs. BET vectorizes the function across individuals and posterior draws, so avoid Python side effects and converting traced JAX values to NumPy.
 
-`GlobalPriorFn(dataShapes)` returns a dictionary of parameter names mapped to NumPyro distribution objects. `dataShapes` contains the shape of each data array for a single individual, rather than the entire dataset. The global parameters are shared by the training population.
+`GlobalPriorFn(dataShapes)` describes plausible values of shared unknown parameters before seeing the measurements. It returns a dictionary mapping parameter names to NumPyro distributions. The `dataShapes` argument describes each data array **for one individual**, without the leading individual axis. The global parameters are shared by the training population.
 
 `TrainLikelihoodFn(globalParams, localZs, data, modelOut)` and `TestLikelihoodFn` return dictionaries mapping site names to `(observed_value, distribution)` tuples. A site may contain a scalar or a vector of observations. Its observation, distribution, and mask shapes must agree.
 
@@ -181,7 +181,9 @@ The worked example used one growth rate per individual. This part explains how i
 
 ### Representing individual differences
 
-BET needs a consistent way to describe how each individual differs from the population. It uses **local z-scores**: numbers that describe an individual's position relative to a typical value. Local z-scores represent entry-to-entry differences on a standardized scale. For example, `z=0` gives the model's central growth rate; positive or negative values change it according to the transformation you define. With `rate = exp(log_rate_mean + log_rate_sd * z)`, `log_rate_mean` sets the center on the log scale and `log_rate_sd` sets its spread. Before conditioning on individual observations, each z-score has a standard-normal marginal distribution.
+The example so far has one individual-specific parameter: growth rate. BET can also represent several differences at once, and can learn whether they tend to occur together.
+
+BET needs a consistent way to describe how each individual differs from the population. It uses **local z-scores**: numbers that describe an individual's position relative to a typical value. Local z-scores represent individual-to-individual differences on a standardized scale. For example, `z=0` gives the model's central growth rate; positive or negative values change it according to the transformation you define. With `rate = exp(log_rate_mean + log_rate_sd * z)`, `log_rate_mean` sets the center on the log scale and `log_rate_sd` sets its spread. Before conditioning on individual observations, each z-score has a standard-normal marginal distribution.
 
 Extend the tumor-growth example by adding treatment. Each patient now has two parameters: a **growth rate**, describing how quickly the tumor grows without treatment, and a **treatment-response parameter**, describing how strongly treatment slows that growth. Both may vary between patients. For instance, patients whose tumors grow faster might also tend to respond more strongly to treatment, or the relationship might be reversed. Assuming the parameters vary independently would miss that population-level relationship.
 
@@ -270,7 +272,7 @@ For reliable evaluation, keep test individuals out of training and ensure that o
 
 ### Return values and estimator state
 
-The estimator retains the most recent training and test state. A new call to `Train` clears the previous test state; a new call to `Test` replaces it. The score arrays already assigned to variables remain available.
+The estimator retains the most recent training and test results, so later calls can reuse their parameter samples. A new call to `Train` clears the previous test state; a new call to `Test` replaces it. The score arrays already assigned to variables remain available.
 
 - `Train(...)` returns the inference method's output object: a NumPyro MCMC object for NUTS or an SVI result for SVI. BET also stores the posterior samples needed for later testing and scoring.
 - `Test(...)` without a likelihood generates population predictions and returns `None`. With a test likelihood, it returns a list containing one inference output per selected global posterior draw. With `nGlobalSamples=None`, one median global state is used.
@@ -516,7 +518,7 @@ A program can run without errors and still give misleading scientific results. S
 
 ### Verification and further reading
 
-The repository's `TESTING.md` explains how to run automated tests, while Part 7 documents the custom inference interface. The included `Examples/` directory contains NUTS, SVI, and Save/Load scripts. The one-page `docs/Cheatsheet.md` is a compact companion, not a replacement for this manual.
+The repository's `TESTING.md` explains how to run automated tests, while Part 7 documents how to add an inference method. The included `Examples/` directory contains NUTS, SVI, and Save/Load scripts. The one-page `docs/Cheatsheet.md` is a compact companion, not a replacement for this manual.
 
 Smoke and integration tests show that supported workflows execute; they do not establish identifiability, credible-interval calibration, or scientific validity. For research claims, add application-specific simulation-based recovery and posterior predictive checks.
 
