@@ -421,6 +421,8 @@ Bayesian inference can be fragile when a model is difficult to fit. Parameters m
 
 **Build complexity incrementally.** Start with a simple model that fits reliably, ideally checking parameter recovery on synthetic data with known values. Add one mechanism or parameter at a time and check that inference still behaves sensibly before proceeding. If fitting breaks down, investigate the most recent addition rather than debugging the entire complex model at once. Getting a complex model to work from the outset is often much harder than building toward it.
 
+**Keep model evaluations fast and differentiable.** NUTS and SVI may evaluate the model and its gradients many thousands of times during training or test-time personalization. For differential-equation models, use a differentiable ODE solver rather than manually simulating the dynamics with a Python time-step loop; use an analytical solution when one is available. Check runtime across plausible parameter values: regimes that force a numerical solver to take tiny steps can make inference prohibitively slow. Parameters that barely affect predictions provide little information for inference, while very large or unstable gradients can prevent reliable fitting. Test both runtime and gradients before scaling up to the full model.
+
 For specific failures, start with the checks below. The API reference is in Part 4.
 
 ### Common mistakes and troubleshooting
