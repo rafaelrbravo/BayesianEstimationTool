@@ -25,7 +25,9 @@ This approach is called *hierarchical Bayesian inference*. You do not need to ma
 | `ModelFn` | Predicts what happens for one individual |
 | `GlobalPriorFn` | Describes plausible values for unknown shared parameters before fitting |
 | `localZNames` | Names the ways individuals can differ from one another |
-| `TrainLikelihoodFn` | Describes how observed measurements relate to model predictions |
+| `TrainLikelihoodFn` | Describes how training observations relate to model predictions |
+| `TestLikelihoodFn` | Describes how available observations from new individuals update their individual effects |
+| `Method` (`Nuts` / `Svi`) | Chooses how BET estimates unknown parameters from observations |
 | `Estimator` | Connects your model, data, and inference results |
 | `Train` / `Test` | Learns from the training group / predicts for new individuals |
 | `ScoreFn` | Measures how well a prediction matches observations |
