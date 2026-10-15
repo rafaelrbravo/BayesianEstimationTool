@@ -181,20 +181,14 @@ The worked example used one growth rate per individual. This part explains the m
 
 `Estimator(data, ModelFn, localZNames=None, GlobalPriorFn=None, lkjConcentration=2.0, rngSeed=None)` connects the data, model, and prior assumptions. Its arguments are:
 
-- `data`: Measurements and other inputs for each individual.
-- `ModelFn`: Function that computes model outputs from global parameters, local z-scores, and an individual's data.
-- `localZNames`: Names of the local latent z-scores to infer; omit this when the model has no individual-specific latent variables.
-- `GlobalPriorFn`: Function defining prior distributions for global parameters; optional when the model has no global parameters to infer.
-- `lkjConcentration`: Strength of the correlation prior for multiple local z-scores (default `2.0`); discussed below.
+- `data`: A dictionary of arrays, each with individuals along the first axis. All arrays must have the same number of individuals; remaining axes can represent times, features, or spatial coordinates.
+- `ModelFn(globalParams, localZs, data)`: Computes model outputs for one individual from dictionaries of global parameters, local z-scores, and individual data. It returns a dictionary of outputs. BET vectorizes this function across individuals and posterior draws, so avoid Python side effects and converting traced JAX values to NumPy.
+- `localZNames`: Names of the local latent z-scores to infer; omit when the model has no individual-specific latent variables.
+- `GlobalPriorFn(dataShapes)`: Returns a dictionary mapping global parameter names to NumPyro prior distributions. Optional when there are no global parameters to infer. `dataShapes` gives the shape of each data array for one individual, without the leading individual axis.
+- `lkjConcentration`: Controls the correlation prior for multiple local z-scores (default `2.0`); discussed below.
 - `rngSeed`: Optional random seed for reproducible sampling.
 
-The `data` argument is a dictionary of arrays. The first axis of each data array indexes individuals; all arrays have the same number of individuals. Remaining axes can represent times, features, or spatial coordinates.
-
-`ModelFn(globalParams, localZs, data)` receives global parameters, one individual's local latent values, and that individual's data as dictionaries. It returns a dictionary of model outputs. BET vectorizes the function across individuals and posterior draws, so avoid Python side effects and converting traced JAX values to NumPy.
-
-`GlobalPriorFn(dataShapes)` describes plausible values of shared unknown parameters before seeing the measurements. It returns a dictionary mapping parameter names to NumPyro distributions. The `dataShapes` argument describes each data array **for one individual**, without the leading individual axis.
-
-For example, if `data["y"]` contains measurements from 10 people at 8 times, its full shape is `(10, 8)`, but `dataShapes["y"]` is `(8,)`. The first dimension selects the person; the remaining dimensions describe that person's data. BET removes only the first dimension when constructing `dataShapes`. The global parameters are shared by the training population.
+For example, if `data["y"]` contains measurements from 10 patients at 8 times, its full shape is `(10, 8)`, but `dataShapes["y"]` is `(8,)`. Global parameters are shared across the training population.
 
 `TrainLikelihoodFn(globalParams, localZs, data, modelOut)` and `TestLikelihoodFn` return dictionaries mapping site names to `(observed_value, distribution)` tuples. A site may contain a scalar or a vector of observations. Its observation, distribution, and mask shapes must agree.
 
