@@ -36,22 +36,22 @@ This approach is called **hierarchical Bayesian inference**. You do not need to 
 
 ### What BET learns
 
-**A model is a rule for making predictions.** For example, a growth equation uses a growth rate and a time to predict a size. BET does not choose that equation for you; you write it in `ModelFn`. BET helps determine which parameter values are consistent with your measurements.
+*A model is a rule for making predictions.* For example, a growth equation uses a growth rate and a time to predict a size. BET does not choose that equation for you; you write it in `ModelFn`. BET helps determine which parameter values are consistent with your measurements.
 
-**Some parameters describe the group; others describe individuals.** A population might have a typical growth rate, while each patient's tumor grows somewhat faster or slower. BET learns about both the shared pattern and the individual differences. In the API, shared unknown parameters are called **global parameters**. Individual differences are represented by **local latent z-scores** (`localZs`): standardized, unobserved values that describe how each individual differs from the group. Your model combines these z-scores with global parameters to obtain meaningful individual parameters, such as each patient's tumor growth rate.
+*Some parameters describe the group; others describe individuals.* A population might have a typical growth rate, while each patient's tumor grows somewhat faster or slower. BET learns about both the shared pattern and the individual differences. In the API, shared unknown parameters are called **global parameters**. Individual differences are represented by **local latent z-scores** (`localZs`): standardized, unobserved values that describe how each individual differs from the group. Your model combines these z-scores with global parameters to obtain meaningful individual parameters, such as each patient's tumor growth rate.
 
-**Measurements are imperfect.** Even a good model will not match every observation exactly. The *likelihood* describes how observations can differ from model predictions, including measurement noise. A *prior* describes plausible parameter values before those observations are used. BET combines the prior information with the measurements to estimate what values are plausible afterward; these updated estimates form the *posterior*.
+*Measurements are imperfect.* Even a good model will not match every observation exactly. The **likelihood** describes how observations can differ from model predictions, including measurement noise. A **prior** describes plausible parameter values before those observations are used. BET combines the prior information with the measurements to estimate what values are plausible afterward; these updated estimates form the **posterior**.
 
-**Learning and predicting are different steps.** During `Train`, BET uses the selected individuals to learn the global parameters and each training individual's local latent z-scores. During `Test`, it predicts for individuals not included in training. Without their measurements, BET draws possible local latent z-scores from the learned population. With some measurements and a test likelihood, BET updates those z-scores for each new individual. The current `Test` workflow requires at least one named local z-score (`localZNames`); a model with only global parameters can be trained but cannot use `Test` directly. To assess prediction quality fairly, keep the observations you want to predict out of the fitting step.
+*Learning and predicting are different steps.* During `Train`, BET uses the selected individuals to learn the global parameters and each training individual's local latent z-scores. During `Test`, it predicts for individuals not included in training. Without their measurements, BET draws possible local latent z-scores from the learned population. With some measurements and a test likelihood, BET updates those z-scores for each new individual. The current `Test` workflow requires at least one named local z-score (`localZNames`); a model with only global parameters can be trained but cannot use `Test` directly. To assess prediction quality fairly, keep the observations you want to predict out of the fitting step.
 
-**BET tracks uncertainty rather than returning only one answer.** Different plausible parameter values can produce different predictions. Samples from the fitted distribution let you examine that variation. Predictions of the underlying model are not automatically noisy future measurements; the observation model describes that additional variation.
+*BET tracks uncertainty rather than returning only one answer.* Different plausible parameter values can produce different predictions. Samples from the fitted distribution let you examine that variation. Predictions of the underlying model are not automatically noisy future measurements; the observation model describes that additional variation.
 
 ### Designing a BET model
 
 To implement this workflow:
 
 1. Prepare `data` as a dictionary of arrays. Every array's first axis identifies the individual; later axes can represent times, features, or positions.
-2. Write `ModelFn(globalParams, localZs, data)` to predict outputs for **one individual**. Return a dictionary of named outputs. Keep this function deterministic: do not sample random variables inside it.
+2. Write `ModelFn(globalParams, localZs, data)` to predict outputs for *one individual*. Return a dictionary of named outputs. Keep this function deterministic: do not sample random variables inside it.
 3. If shared parameters are unknown, define `GlobalPriorFn(dataShapes)` to give their prior distributions. Otherwise, omit it.
 4. Use `localZNames` for the individual differences you want BET to estimate. Inside `ModelFn`, transform these standardized effects into meaningful parameters such as growth rates.
 5. Define `TrainLikelihoodFn` to connect observations to predictions using distributions. If measurements are missing, mask them explicitly.
@@ -118,13 +118,13 @@ est.Train(train_ids, train_likelihood,
           Svi(numSteps=1500, numSamples=300, progressBar=False))
 ```
 
-The first six people form the **training group** used to fit the model. BET uses their measurements to estimate typical growth, between-person variation, and measurement noise. The other four form the **test group**: their measurements are excluded from training.
+The first six people form the *training group* used to fit the model. BET uses their measurements to estimate typical growth, between-person variation, and measurement noise. The other four form the *test group*: their measurements are excluded from training.
 
 Here `Svi` is the inference method that estimates the unknown quantities. These settings are illustrative, not a guarantee of accurate inference. For research, check the fitted predictions and sensitivity to modeling choices. The later personalized-prediction step repeats inference for 20 sampled population states, so it may take time. For a quick run, reduce `nGlobalSamples` in both `Test` calls to the same value and adjust the corresponding shape assertions; you can also reduce the SVI step counts.
 
 #### Predict using the group alone
 
-To see how well our predictions work, we calculate the average absolute difference between predictions and measurements for the **last five time points** (indices 3 through 7). These measurements are available for evaluation, but we must not use them to personalize the predictions.
+To see how well our predictions work, we calculate the average absolute difference between predictions and measurements for the *last five time points* (indices 3 through 7). These measurements are available for evaluation, but we must not use them to personalize the predictions.
 
 ```python
 def future_mae(model_out, data):
@@ -167,7 +167,7 @@ Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize error
 
 To examine uncertainty in trajectories rather than errors, use a score function returning `model_out["prediction"]` and summarize its posterior draw axes. The resulting intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
 
-The **Train → Test → Score** workflow also applies to more complex models, including differential-equation models.
+The *Train → Test → Score* workflow also applies to more complex models, including differential-equation models.
 
 The assertions check score dimensions, not predictive accuracy; the printed MAE values are not expected to match fixed numbers. Part 5 builds on these scores to check fit on the training group.
 
@@ -285,7 +285,7 @@ The estimator retains the most recent training and test results, so later calls 
 - `Train(...)` returns the inference method's output object: a NumPyro MCMC object for NUTS or an SVI result for SVI. BET also stores the posterior samples needed for later testing and scoring.
 - `Test(...)` without a likelihood generates population predictions and returns `None`. With a test likelihood, it returns a list containing one inference output per selected global posterior draw. With `nGlobalSamples=None`, BET uses one state assembled from the componentwise medians of the saved global posterior draws (and, when present, the Cholesky draws). This is a convenient point estimate, not a randomly sampled joint posterior state.
 - `ScoreTrainSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[posterior_draw, training_individual, ...score_shape]`. For NUTS, this first axis combines draws across chains; for SVI, it contains draws from the fitted approximation.
-- `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`. Here `nSamples`, when provided, selects the number of **local** draws scored for each global state; it does not change the number of global states selected by `Test`.
+- `ScoreTestSamples(ScoreFn, nSamples=None, rngSeed=None)` returns `[global_draw, local_draw, test_individual, ...score_shape]`. Here `nSamples`, when provided, selects the number of *local* draws scored for each global state; it does not change the number of global states selected by `Test`.
 
 ## Part 6: Working with incomplete data and numerical models
 
@@ -293,7 +293,7 @@ Individuals often have different numbers of measurements, and some measurements 
 
 ### Different numbers of measurements
 
-Use masks when entries have different observation counts, measurements are missing, or testing should reveal only part of a trajectory. A mask distinguishes **positions stored in an array** from **observations contributing to inference**. Held-out measurements can remain in the data for scoring while being excluded from the test likelihood.
+Use masks when entries have different observation counts, measurements are missing, or testing should reveal only part of a trajectory. A mask distinguishes *positions stored in an array* from *observations contributing to inference*. Held-out measurements can remain in the data for scoring while being excluded from the test likelihood.
 
 Pad each time series to a common length `T`. Store `time`, `y`, and a boolean `valid` mask as `[N, T]` arrays; padded positions are placeholders, not observations. Choose finite placeholder measurements that are safe for any transformations in your model; repeating the last valid measurement is often useful. Choose padded times separately to satisfy your solver's requirements: some solvers reject repeated times and need a strictly increasing grid. Exclude all padded positions from the likelihood.
 
@@ -398,7 +398,7 @@ A configured Method instance must implement:
 - `_Fit(ModelFn, rngKey, samplePrefixes)`: run inference and return a dictionary with `"output"` (backend-specific results or diagnostics) and `"samples"` (posterior or explicitly approximate-posterior draws).
 - `_SaveArgs()`: return a dictionary of constructor keyword arguments so BET can reconstruct the Method from saved configuration.
 
-The `samples` dictionary maps NumPyro sample-site names to arrays with **draws along the first axis**. Retain only sites whose names start with one of `samplePrefixes`; BET uses these names to identify global parameters, local z-scores, Cholesky factors, and optionally model outputs.
+The `samples` dictionary maps NumPyro sample-site names to arrays with *draws along the first axis*. Retain only sites whose names start with one of `samplePrefixes`; BET uses these names to identify global parameters, local z-scores, Cholesky factors, and optionally model outputs.
 
 This minimal skeleton illustrates the interface:
 
@@ -420,7 +420,7 @@ class MyMethod:
         return {"nSamples": self.nSamples}
 ```
 
-`run_my_inference` is a placeholder, **not a BET function**. The backend must produce meaningful posterior or clearly identified approximate-posterior draws. Repeating a maximum-a-posteriori (MAP) point does not measure posterior uncertainty.
+`run_my_inference` is a placeholder, *not a BET function*. The backend must produce meaningful posterior or clearly identified approximate-posterior draws. Repeating a maximum-a-posteriori (MAP) point does not measure posterior uncertainty.
 
 Validate the Method's structure before using it:
 
@@ -431,7 +431,7 @@ method = MyMethod(nSamples=100)
 bet.ValidateMethod(method)
 ```
 
-`ValidateMethod` checks required callable signatures, saved constructor arguments, and printing hooks. It **does not execute `_Fit`**, inspect returned samples or shapes, or establish statistical correctness. Test those separately on small synthetic models and with posterior predictive checks.
+`ValidateMethod` checks required callable signatures, saved constructor arguments, and printing hooks. It *does not execute `_Fit`*, inspect returned samples or shapes, or establish statistical correctness. Test those separately on small synthetic models and with posterior predictive checks.
 
 Optional features include:
 
