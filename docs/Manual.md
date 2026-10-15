@@ -297,7 +297,7 @@ Pad each time series to a common length `T`. Store `time`, `y`, and a boolean `v
 
 ```python
 data = {
-    "time": jnp.array([[0., 1., 2.], [0., 3., 3.]]),
+    "time": jnp.array([[0., 1., 2.], [0., 3., 4.]]),
     "y": jnp.array([[1.0, 1.2, 1.4], [0.9, 1.1, 1.1]]),
     "valid": jnp.array([[True, True, True], [True, True, False]]),
 }
@@ -313,7 +313,7 @@ def likelihood(global_params, local_zs, data, model_out):
     return {"y": (safe_y, dist.Normal(pred, 0.2).mask(valid))}
 ```
 
-The model must produce finite predictions even at padded positions. Masking cannot make an intermediate `NaN` or infinity safe; multiplying a divergent log-probability by zero does not guarantee a finite gradient. Here the second individual's final time and measurement are repeated placeholders. This is suitable for a direct algebraic model, but an ODE solver requiring strictly increasing times needs different time padding.
+The model must produce finite predictions even at padded positions. Masking cannot make an intermediate `NaN` or infinity safe; multiplying a divergent log-probability by zero does not guarantee a finite gradient. Here the second individual's final measurement is a placeholder, and its padded time advances from 3 to 4 to keep the time array increasing. The validity mask excludes that position from inference. A real ODE model still needs a time grid compatible with its solver and finite predictions at padded positions.
 
 For partial-observation testing, use a separate mask such as `test_observed = valid & (time <= cutoff)`. Apply it in the test likelihood, but retain the original validity mask for scoring held-out observations. Ensure hidden measurements cannot enter the model through inputs or preprocessing.
 
