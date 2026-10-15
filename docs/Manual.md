@@ -59,11 +59,11 @@ To implement this workflow:
 7. Choose held-out individuals. Call `Test` for predictions from the population alone, or provide a test likelihood and inference method to update local z-scores using measurements available at prediction time.
 8. Define a scoring function and call `ScoreTrainSamples` or `ScoreTestSamples` to evaluate predictions. Keep track of which dimensions represent samples and which represent individuals.
 
-Part 2 combines these steps in a growth example. Later sections explain correlated local z-scores and inference-method configuration.
-
 ### Automatic vectorization
 
 Write `ModelFn`, `TrainLikelihoodFn`, `TestLikelihoodFn`, and `ScoreFn` for one individual at a time. BET applies them across individuals and parameter samples using JAX vectorization, so you do not need to write those loops yourself. These functions should use JAX-compatible operations and avoid side effects. Vectorization enables efficient batched computation, although actual parallel execution depends on the operations and hardware.
+
+Part 2 combines these steps in a tumor growth example. Later sections explain correlated local z-scores and inference-method configuration.
 
 ## Part 2: Worked example
 
