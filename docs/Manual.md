@@ -246,23 +246,16 @@ print("Training MAE:", float(jnp.mean(train_scores)))
 
 This measures how closely the fitted model describes the training trajectories. It is a useful fit check, but it is not an unbiased estimate of performance on new individuals: these observations contributed to fitting the model.
 
-### 2. Predict new individuals from the population alone
+### Compare predictions for new individuals
 
-Part 2 already ran this comparison and stored its scores in `before`. Those predictions use the learned population but **none** of the test individuals' measurements to estimate their growth rates. To summarize them alongside the training score:
+Part 2 already computed two sets of test scores. The `before` scores use only the learned population: no measurements from the test individuals were used to estimate their growth rates. The `after` scores come from predictions updated using each test individual's first three measurements. In both cases, the score evaluates the final five measurements, which were held out from individual calibration.
 
 ```python
 print("Test MAE without calibration:", float(jnp.mean(before)))
-```
-
-### 3. Update predictions using each individual's measurements
-
-Part 2 also stored these scores in `after`. Its test likelihood used only the first three measurements to estimate each test individual's growth rate. The score still evaluates the last five, which were never used for fitting:
-
-```python
 print("Test MAE with calibration:", float(jnp.mean(after)))
 ```
 
-Comparing `before` with `after` shows whether those early observations improved prediction on average. An improvement is not guaranteed in a small dataset.
+Comparing these values shows whether early measurements improved predictions on average. Improvement is not guaranteed, particularly with a small test group.
 
 ### Compare the results and their uncertainty
 
