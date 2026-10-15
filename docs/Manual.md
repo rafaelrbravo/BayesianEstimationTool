@@ -259,7 +259,7 @@ Comparing these values shows whether early measurements improved predictions on 
 
 ### Compare the results and their uncertainty
 
-The **test** scores answer the main prediction question. The training score is useful for diagnosing fit, but should not be used as a substitute for either test score.
+The **test** scores answer the main prediction question. The training score is useful for diagnosing fit, but should not be used as a substitute for either test score. In this example, the training MAE also evaluates measurements from the same trajectories used for fitting, so it is not a held-out forecast.
 
 - **Training MAE** describes fit to individuals used to learn the model. Do not treat it as directly comparable to held-out test MAE.
 - **Test MAE without calibration** measures predictions based on the population alone.
@@ -267,7 +267,7 @@ The **test** scores answer the main prediction question. The training score is u
 
 A score is computed once for each sampled prediction, not just once for the entire test group. This is why scoring produces an array rather than a single number: you can average scores for a quick comparison or inspect how they vary across individuals and plausible parameter values.
 
-The score arrays retain variation across posterior draws and individuals. For these calls, `ScoreTrainSamples` returns an array shaped like `[posterior_draw, training_individual]`; `ScoreTestSamples` returns `[global_draw, local_draw, test_individual]` when the score is scalar per individual. Take means or quantiles over the intended axes rather than flattening them without thought. The example prints a grand mean for a simple summary. To see whether an overall improvement is shared across people or driven by one individual, average over both draw axes while keeping the individual axis:
+The score arrays retain variation across posterior draws and individuals. A posterior draw is one plausible parameter setting; averaging over draws gives an expected score under the fitted model, not an independent replication of the experiment. For these calls, `ScoreTrainSamples` returns an array shaped like `[posterior_draw, training_individual]`; `ScoreTestSamples` returns `[global_draw, local_draw, test_individual]` when the score is scalar per individual. Take means or quantiles over the intended axes rather than flattening them without thought. The example prints a grand mean for a simple summary. To see whether an overall improvement is shared across people or driven by one individual, average over both draw axes while keeping the individual axis:
 
 ```python
 before_by_person = jnp.mean(before, axis=(0, 1))
