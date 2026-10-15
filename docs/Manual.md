@@ -190,7 +190,10 @@ The worked example used one growth rate per individual. This part explains the m
 
 For example, if `data["y"]` contains measurements from 10 patients at 8 times, its full shape is `(10, 8)`, but `dataShapes["y"]` is `(8,)`. Global parameters are shared across the training population.
 
-`TrainLikelihoodFn(globalParams, localZs, data, modelOut)` and `TestLikelihoodFn` return dictionaries mapping site names to `(observed_value, distribution)` tuples. A site may contain a scalar or a vector of observations. Its observation, distribution, and mask shapes must agree.
+- `TrainLikelihoodFn(globalParams, localZs, data, modelOut)`: Defines the likelihood of each training individual's observations given the model outputs and parameters.
+- `TestLikelihoodFn(globalParams, localZs, data, modelOut)`: Defines which observations from a test individual are used to update their local z-scores during personalized prediction. Omit it for population-only predictions.
+
+Both functions return dictionaries mapping site names to `(observed_value, distribution)` tuples. A site may contain a scalar or a vector of observations. Its observation, distribution, and mask shapes must agree.
 
 `ScoreFn(modelOut, data)` returns a scalar or array for one individual; BET vectorizes it across posterior samples and individuals.
 
