@@ -210,7 +210,7 @@ When data are limited, try more than one concentration to check how much the inf
 
 ## Part 4: Building blocks
 
-The worked example used one growth rate per individual. This part explains the model components and how BET can learn relationships among several individual characteristics.
+Parts 2 and 3 showed how to train a model, make predictions, and represent correlated differences between individuals. This part serves as a reference for the functions and arguments used in that workflow: how to configure an `Estimator`, run `Train` and `Test`, score predictions, and define the model, priors, and likelihoods they require.
 
 ### Core workflow: Estimator, Train, Test, and Score
 
