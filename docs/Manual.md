@@ -167,7 +167,7 @@ BET updates each test person's growth-rate estimate using their first three meas
 
 Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize prediction errors across plausible global parameters, local z-scores, and test patients. Because we measure mean absolute error, lower values mean more accurate predictions of the held-out measurements. If the `after` mean is lower, using the first three measurements improved predictions of the remaining five on average. With only ten synthetic patients, an improvement is not guaranteed.
 
-To examine uncertainty in trajectories rather than errors, use a score function returning `model_out["prediction"]` and summarize its posterior draw axes. The resulting intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
+To examine uncertainty in trajectories rather than errors, run `Test` with `saveModelOut=True`, then retrieve the samples with `samples = est.Save(None, saveTestModelOut=True)`. The predicted trajectories are in `samples["testModelOut"]["prediction"]`; `samples["testGlobals"]` and `samples["testLocalZs"]` contain the corresponding parameter samples. Summarize the trajectory samples across their posterior draw axes to obtain uncertainty intervals. These intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
 
 The *Train → Test → Score* workflow also applies to more complex models, including differential-equation models.
 
