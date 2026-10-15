@@ -42,7 +42,7 @@ This approach is called *hierarchical Bayesian inference*. You do not need to ma
 
 **Measurements are imperfect.** Even a good model will not match every observation exactly. The *likelihood* describes how observations can differ from model predictions, including measurement noise. A *prior* describes plausible parameter values before those observations are used. BET combines the prior information with the measurements to estimate what values are plausible afterward; these updated estimates form the *posterior*.
 
-**Learning and predicting are different steps.** During `Train`, BET uses the selected individuals to learn the population parameters and each training individual's local latent z-scores. During `Test`, it predicts for individuals not included in training. Without their measurements, BET draws possible local latent z-scores from the learned population. With some measurements and a test likelihood, BET updates those z-scores for each new individual. The current `Test` workflow requires at least one named local z-score (`localZNames`); a model with only global parameters can be trained but cannot use `Test` directly. To assess prediction quality fairly, keep the observations you want to predict out of the fitting step.
+**Learning and predicting are different steps.** During `Train`, BET uses the selected individuals to learn the global parameters and each training individual's local latent z-scores. During `Test`, it predicts for individuals not included in training. Without their measurements, BET draws possible local latent z-scores from the learned population. With some measurements and a test likelihood, BET updates those z-scores for each new individual. The current `Test` workflow requires at least one named local z-score (`localZNames`); a model with only global parameters can be trained but cannot use `Test` directly. To assess prediction quality fairly, keep the observations you want to predict out of the fitting step.
 
 **BET tracks uncertainty rather than returning only one answer.** Different plausible parameter values can produce different predictions. Samples from the fitted distribution let you examine that variation. Predictions of the underlying model are not automatically noisy future measurements; the observation model describes that additional variation.
 
@@ -163,7 +163,7 @@ BET updates each test person's growth-rate estimate using their first three meas
 
 #### What did the extra measurements buy us?
 
-Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize errors across plausible population parameters, local z-scores, and test people. If the `after` mean is lower, those three early measurements helped on average. With only ten synthetic people, an improvement is not guaranteed.
+Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize errors across plausible global parameters, local z-scores, and test people. If the `after` mean is lower, those three early measurements helped on average. With only ten synthetic people, an improvement is not guaranteed.
 
 To examine uncertainty in trajectories rather than errors, use a score function returning `model_out["prediction"]` and summarize its posterior draw axes. The resulting intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
 
@@ -458,7 +458,7 @@ If a result looks wrong or a call fails, start with the checks below. The follow
 
 **Missing data and NaNs.** Masked observations still require finite values at points where JAX evaluates intermediate expressions. Use safe finite placeholders and keep ODE solver time grids valid even for padded observations.
 
-**Unexpectedly narrow intervals.** With `nGlobalSamples=None`, BET fixes population parameters at posterior medians and does not propagate their uncertainty. Use a positive `nGlobalSamples` to include it. Approximate SVI posteriors may also underestimate uncertainty.
+**Unexpectedly narrow intervals.** With `nGlobalSamples=None`, BET fixes global parameters at posterior medians and does not propagate their uncertainty. Use a positive `nGlobalSamples` to include it. Approximate SVI posteriors may also underestimate uncertainty.
 
 **Poor convergence.** Check observation scaling, priors, parameter identifiability, and solver gradients. For NUTS, inspect mixing and convergence diagnostics; for SVI, inspect the loss trajectory and sensitivity to initialization.
 
