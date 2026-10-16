@@ -23,13 +23,13 @@ import BayesianEstimationTool as bet
 DATA_DIR = Path(__file__).resolve().parent / "data"
 UPSTREAM_COMMIT = "939d30699fa6157c14c601712882c51106b82a24"
 BASE_URL = f"https://raw.githubusercontent.com/wahlquisty/learning-pharmacometric-covariate-structures/{UPSTREAM_COMMIT}/symbreg/data"
-FILES = ("dataframe.csv", "eleveld_infusiondata.csv", "eleveld_modelparams.csv")
+FILES = {"observations": "dataframe.csv", "events": "eleveld_infusiondata.csv", "parameters": "eleveld_modelparams.csv"}
 EXCLUDED_IDS = {893, 897}
 
 def download_data(directory=DATA_DIR):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
-    for filename in FILES:
+    for filename in FILES.values():
         if (directory / filename).is_file():
             continue
         destination = directory / filename
