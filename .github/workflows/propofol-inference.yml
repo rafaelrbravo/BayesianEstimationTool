@@ -71,7 +71,7 @@ jobs:
           set -o pipefail
           python -u Examples/PropofolCovariates/compare_covariates.py --train-steps 1000 --test-steps 300 --output-csv propofol-dev-scores.csv 2>&1 | tee propofol-dev-run.log
       - name: Summarize exported paired held-out errors
-        if: ${{ success() && github.event_name == 'workflow_dispatch' && !inputs.smoke_only }}
+        if: ${{ success() && github.event_name == 'workflow_dispatch' && !inputs.smoke_only && !inputs.full_cohort }}
         run: python Examples/PropofolCovariates/summarize_scores.py propofol-dev-scores.csv
       - name: Run full-cohort comparison (831 train, up to 200 test)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_cohort && !inputs.smoke_only }}
