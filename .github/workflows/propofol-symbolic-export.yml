@@ -59,6 +59,7 @@ jobs:
           assert data["julia_version"] == "1.8.4"
           assert data["validation"]["covariate_combinations"] == 5
           assert data["output_order"] == expected
+          assert len(data["reference_predictions"]) == 5
           assert all(isinstance(equations["common"][name], str) and equations["common"][name] for name in expected)
           assert set(equations["male"]) == {"k13", "k31"}
           assert set(equations["female"]) == {"k13", "k31"}
@@ -74,17 +75,19 @@ jobs:
           import jax.numpy as jnp
           from published_equations import load_equations, published_parameters
 
+          import tomllib
+          from pathlib import Path
+          from pk_model import published_rates_to_parameters
+
+          artifact = tomllib.loads(Path("Examples/PropofolCovariates/symbolic_equations.toml").read_text())
           equations = load_equations()
-          patients = [
-              [24., 55., 18., -0.5, -0.5],
-              [42., 78., 25., 0.5, 0.5],
-              [63., 105., 31., -0.5, 0.5],
-              [76., 135., 39., 0.5, -0.5],
-              [35., 92., 29., 0.5, 0.5],
-          ]
-          for patient in patients:
+          for reference in artifact["reference_predictions"]:
+              patient = reference["covariates"]
               covariates = jnp.array(patient)
               params = published_parameters(equations, covariates)
+              expected = published_rates_to_parameters(jnp.array(reference["rates"]))
+              np.testing.assert_allclose(np.asarray(params), np.asarray(expected), rtol=1e-5, atol=1e-6,
+                                         err_msg=f"Julia network / JAX mismatch for {patient}")
               jacobian = jax.jacrev(lambda x: published_parameters(equations, x))(covariates)
               if not bool(jnp.all(jnp.isfinite(params) & (params > 0))):
                   raise ValueError(f"Nonphysical exported PK parameters for {patient}: {params}")
