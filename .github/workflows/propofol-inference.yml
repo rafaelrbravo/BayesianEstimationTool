@@ -3,6 +3,10 @@ name: Propofol covariate inference
 on:
   workflow_dispatch:
     inputs:
+      run_published:
+        description: "Also compare the original published equations (requires validated Julia export for this commit)"
+        type: boolean
+        default: false
       smoke_only:
         description: "Run only the 10-patient SVI smoke test (skip development fit)"
         type: boolean
@@ -40,7 +44,7 @@ jobs:
       - name: Run synthetic regression tests before inference
         run: python -m pytest -q Examples/PropofolCovariates/test_*.py
       - name: Download validated published symbolic equations
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_published }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -78,7 +82,7 @@ jobs:
           set -o pipefail
           python -u Examples/PropofolCovariates/inspect_data.py 2>&1 | tee propofol-data-check.log
       - name: Run published equations versus no-covariate baseline
-        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.full_cohort }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_published && !inputs.full_cohort }}
         shell: bash
         run: |
           set -o pipefail
@@ -88,7 +92,7 @@ jobs:
             python -u Examples/PropofolCovariates/compare_published.py --train-steps 1000 --test-steps 300 --output-csv propofol-published-dev.csv 2>&1 | tee propofol-published-run.log
           fi
       - name: Run full published equations comparison
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_cohort && !inputs.smoke_only }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_published && inputs.full_cohort && !inputs.smoke_only }}
         shell: bash
         run: |
           set -o pipefail
