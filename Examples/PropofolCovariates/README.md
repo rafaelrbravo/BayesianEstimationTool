@@ -67,3 +67,5 @@ The upstream `symbreg/checkresults/get_results.jl` identifies its six learned ou
 Optional `--output-csv results.csv` saves patient IDs and paired held-out scores for independent analysis. No inference results have been generated yet.
 
 The separate GitHub Actions workflow **Propofol upstream data validation** (`.github/workflows/propofol-data-validation.yml`) can be started manually via **Actions → Propofol upstream data validation → Run workflow**. It downloads the three original CSVs on a GitHub runner and validates all 1,031 patients and their event arrays without running Bayesian inference. It is deliberately manual so routine code pushes do not depend on upstream data availability. No successful workflow run has yet been verified.
+
+The optional `eleveld_reference.py` evaluates supplied patient-specific Eleveld parameters on the same held-out patient partition using the future-only log-error metric. Run it after downloading data. These parameters come from the existing Eleveld model, not from training BET on the prescribed training split, so treat this as a solver/data sanity reference rather than a third controlled model arm.
