@@ -14,7 +14,7 @@ from compare_covariates import COVARIATE_NAMES, make_model, make_prior, validate
 from published_bet_model import make_published_model, GlobalPriorFn as PublishedPrior
 from published_equations import load_equations, published_parameters
 from load_data import load_data
-from inspect_data import read_tables, patient_ids
+from inspect_data import read_tables, patient_ids, validate_measurement_counts, validate_measurement_times
 from paired_stats import paired_bootstrap_interval
 from split import make_split, eligible_test_indices
 
@@ -57,6 +57,8 @@ def main():
     print("WARNING: Published coefficients were trained on overlapping Eleveld patients; this is NOT an independent held-out generalization test.", flush=True)
     tables = read_tables()
     ids = patient_ids(tables)
+    validate_measurement_counts(tables, ids)
+    validate_measurement_times(tables, ids)
     train, test = make_split(len(ids))
     # Use the identical development patients and future-only evaluation.
     if not args.full:
