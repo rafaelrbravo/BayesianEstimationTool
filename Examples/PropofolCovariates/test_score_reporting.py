@@ -57,3 +57,25 @@ def test_read_scores_rejects_wrong_column_order(tmp_path):
         writer.writerow([1, 1., 2., 3., 4.])
     with pytest.raises(ValueError):
         read_scores(path)
+
+
+def test_summary_cli_enforces_expected_patient_count(tmp_path, monkeypatch, capsys):
+    import sys
+    from summarize_scores import main
+
+    path = tmp_path / "scores.csv"
+    with path.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.writer(output)
+        writer.writerow(["patient_id", *COLUMNS])
+        writer.writerow([42, 2., 1., 3., 2.])
+        writer.writerow([7, 4., 5., 6., 7.])
+    monkeypatch.setattr(sys, "argv", ["summarize_scores.py", str(path), "--expected-patients", "2"])
+    main()
+    assert "2 patients" in capsys.readouterr().out
+    monkeypatch.setattr(sys, "argv", ["summarize_scores.py", str(path), "--expected-patients", "3"])
+    with pytest.raises(ValueError, match="Expected 3 held-out patients, found 2"):
+        main()
+    monkeypatch.setattr(sys, "argv", ["summarize_scores.py", str(path), "--expected-patients", "0"])
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 2
