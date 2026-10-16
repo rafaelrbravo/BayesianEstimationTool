@@ -6,6 +6,7 @@ initial linear log-parameter covariate baseline; the published functional
 forms must be verified before calling it a reproduction of the paper.
 """
 import argparse
+import csv
 
 import jax.numpy as jnp
 import numpyro.distributions as dist
@@ -48,6 +49,7 @@ def main():
     parser.add_argument("--full", action="store_true", help="Use all 831 training and 200 held-out patients")
     parser.add_argument("--train-steps", type=int, default=1000)
     parser.add_argument("--test-steps", type=int, default=300)
+    parser.add_argument("--output-csv", help="Optional per-patient held-out errors for auditing")
     args = parser.parse_args()
     if args.train_steps < 1 or args.test_steps < 1:
         parser.error("SVI steps must be positive")
@@ -98,6 +100,15 @@ def main():
         conditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn), axis=(0, 1))
         scores[label] = (unconditioned, conditioned)
         print(f"{label}: unconditioned future log error={float(jnp.mean(unconditioned)):.4f}; conditioned={float(jnp.mean(conditioned)):.4f}")
+    if args.output_csv:
+        with open(args.output_csv, "w", newline="", encoding="utf-8") as output:
+            writer = csv.writer(output)
+            writer.writerow(["patient_id", "baseline_unconditioned", "covariates_unconditioned",
+                             "baseline_conditioned", "covariates_conditioned"])
+            for i, patient_id in enumerate(selected_ids[n_train:]):
+                writer.writerow([patient_id, *[float(scores[model][setting][i])
+                                  for setting in (0, 1) for model in ("no covariates", "covariates")]])
+        print(f"Wrote held-out patient errors: {args.output_csv}")
     for i, setting in enumerate(("unconditioned", "conditioned")):
         delta = scores["covariates"][i] - scores["no covariates"][i]
         lo, hi = paired_bootstrap_interval(delta)
