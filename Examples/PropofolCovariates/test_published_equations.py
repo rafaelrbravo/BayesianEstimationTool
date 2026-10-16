@@ -91,7 +91,7 @@ def test_unused_sex_branch_singularity_does_not_poison_gradient(tmp_path):
 
 
 def test_batched_unused_sex_branch_singularity_does_not_poison_gradients(tmp_path):
-    """Document the vmap-specific risk: inactive singular equations can yield NaN gradients."""
+    """A mixed-sex batch must retain finite gradients at an inactive singularity."""
     lines = ['output_order = ["k10", "k12", "k13", "k21", "k31", "V1"]',
              "[equations.common]", 'k10 = "0.002"', 'k12 = "0.003"',
              'k13 = "0.001"', 'k21 = "0.002"', 'k31 = "0.0003"',
@@ -108,3 +108,4 @@ def test_batched_unused_sex_branch_singularity_does_not_poison_gradients(tmp_pat
         return jnp.sum(jax.vmap(lambda x: published_rates(equations, x))(covariates))
     gradient = jax.grad(summed_outputs)(patients)
     assert np.isfinite(np.asarray(gradient)).all(), "Inactive female branch poisoned batched male gradients"
+    np.testing.assert_allclose(np.asarray(gradient[:, 0]), [0.001 / 40, -0.01], rtol=1e-4, atol=1e-7)
