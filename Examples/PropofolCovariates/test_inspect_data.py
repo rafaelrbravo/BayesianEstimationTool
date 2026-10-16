@@ -27,7 +27,7 @@ def test_fractional_count_rejected():
         "observations": pd.DataFrame({"ID": [10], "CP": [1.]}),
         "events": pd.DataFrame({"ID": [10], "ISMEASUREMENT": [1.5]}),
     }
-    with pytest.raises(ValueError, match="Measurement counts disagree"):
+    with pytest.raises(ValueError, match="Invalid individual event measurement counts"):
         validate_measurement_counts(tables, [10])
 
 def test_nonfinite_count_rejected():
@@ -36,4 +36,22 @@ def test_nonfinite_count_rejected():
         "events": pd.DataFrame({"ID": [10], "ISMEASUREMENT": [float("inf")]}),
     }
     with pytest.raises(ValueError, match="Measurement counts disagree"):
+        validate_measurement_counts(tables, [10])
+
+
+def test_invalid_event_counts_cannot_cancel_in_aggregate():
+    tables = {
+        "observations": pd.DataFrame({"ID": [10], "CP": [1.]}),
+        "events": pd.DataFrame({"ID": [10, 10], "ISMEASUREMENT": [-1, 2]}),
+    }
+    with pytest.raises(ValueError, match="Invalid individual event measurement counts"):
+        validate_measurement_counts(tables, [10])
+
+
+def test_fractional_event_counts_cannot_cancel_in_aggregate():
+    tables = {
+        "observations": pd.DataFrame({"ID": [10], "CP": [1.]}),
+        "events": pd.DataFrame({"ID": [10, 10], "ISMEASUREMENT": [0.5, 0.5]}),
+    }
+    with pytest.raises(ValueError, match="Invalid individual event measurement counts"):
         validate_measurement_counts(tables, [10])
