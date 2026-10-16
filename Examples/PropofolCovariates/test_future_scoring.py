@@ -30,6 +30,8 @@ def test_conditioning_likelihood_masks_all_future_measurements():
     likelihood = TestLikelihoodFn({"sigma": jnp.array(0.2)}, {}, data,
                                   {"concentration": jnp.ones_like(concentration)})
     _, distribution = likelihood["concentration"]
-    mask = np.asarray(distribution._mask)
-    np.testing.assert_array_equal(mask, [False, True, True, False, True, False, False])
+    # A masked likelihood contributes zero log density at unobserved and future events.
+    log_prob = np.asarray(distribution.log_prob(concentration))
+    np.testing.assert_allclose(log_prob[[0, 3, 5, 6]], 0., atol=1e-7)
+    assert np.all(np.abs(log_prob[[1, 2, 4]]) > 1e-6)
     assert N_FIT == 3
