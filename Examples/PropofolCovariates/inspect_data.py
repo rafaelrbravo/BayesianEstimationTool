@@ -11,6 +11,7 @@ This script deliberately performs no fitting or preprocessing on the held-out
 patients. It checks the patient universe and event/measurement consistency.
 """
 from pathlib import Path
+import numpy as np
 import pandas as pd
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -63,7 +64,7 @@ def validate_measurement_counts(tables, ids):
     for patient_id in ids:
         expected = int(measured.get(patient_id, 0))
         actual = counts.get(patient_id, 0)
-        if not pd.notna(actual) or actual < 0 or actual != int(actual) or int(actual) != expected:
+        if not np.isfinite(actual) or actual < 0 or actual != np.floor(actual) or actual != expected:
             bad.append((patient_id, expected, actual))
     if bad:
         raise ValueError(f"Measurement counts disagree for {len(bad)} patients; first five: {bad[:5]}")
