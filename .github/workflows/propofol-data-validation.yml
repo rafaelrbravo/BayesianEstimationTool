@@ -1,0 +1,36 @@
+name: Propofol upstream data validation
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate-upstream-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dataset dependencies
+        run: python -m pip install numpy pandas
+      - name: Download original upstream CSVs
+        run: python Examples/PropofolCovariates/download_data.py
+      - name: Validate upstream patient and measurement counts
+        run: python Examples/PropofolCovariates/inspect_data.py
+      - name: Validate full event loader and units
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "Examples/PropofolCovariates")
+          import numpy as np
+          from load_data import load_data
+          data = load_data()
+          assert len(data["patient_ids"]) == 1031
+          assert np.isfinite(data["time"]).all()
+          assert np.isfinite(data["rate"]).all()
+          assert np.isfinite(data["bolus"]).all()
+          assert np.isfinite(data["covariates"]).all()
+          assert np.all(data["rate"] >= 0)
+          print("Validated", len(data["patient_ids"]), "patients and", int(data["observed"].sum()), "concentrations")
+          PY
