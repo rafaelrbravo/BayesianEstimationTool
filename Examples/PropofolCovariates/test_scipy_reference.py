@@ -80,3 +80,10 @@ def test_nonfinite_event_time_rejected():
     p = [10., 20., 30., 1., 2., 3.]
     with pytest.raises(ValueError, match="Invalid dosing"):
         predict_patient(p, events([0., float("nan")], [0., 0.], [0., 0.], [1, 1]))
+
+
+def test_upstream_rate_is_integrated_over_seconds_without_conversion():
+    """Mirror FastPKSim: raw rate 100 ug/s for 10 seconds gives 1000 ug."""
+    p = [10., 20., 30., 0., 0., 0.]
+    e = events([0., 10.], [100., 0.], [0., 0.], [1, 1])
+    np.testing.assert_allclose(predict_patient(p, e), [0., 0.1], atol=1e-12)
