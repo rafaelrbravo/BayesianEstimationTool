@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 from scipy.linalg import expm
 
-from pk_model import concentrations, rates_to_parameters
+from pk_model import concentrations, rates_to_parameters, published_rates_to_parameters
 
 
 def test_against_scipy():
@@ -57,6 +57,8 @@ def test_rate_constant_parameter_conversion():
     rates = jnp.array([cl / (60. * v1), q2 / (60. * v1), q3 / (60. * v1),
                        q2 / (60. * v2), q3 / (60. * v3), v1])
     np.testing.assert_allclose(rates_to_parameters(rates), params, rtol=1e-6)
+    published_rates = rates.at[5].multiply(1000.)
+    np.testing.assert_allclose(published_rates_to_parameters(published_rates), params, rtol=1e-6)
     time = jnp.array([0., 60., 120.])
     infusion = jnp.array([100., 50., 0.])
     bolus = jnp.array([10000., 0., 0.])
