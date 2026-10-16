@@ -32,7 +32,10 @@ jobs:
       - name: Run synthetic regression tests before inference
         run: python -m pytest -q Examples/PropofolCovariates/test_*.py
       - name: Download upstream data
-        run: python Examples/PropofolCovariates/download_data.py
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u Examples/PropofolCovariates/download_data.py 2>&1 | tee propofol-download.log
       - name: Check patient universe and measurements
         shell: bash
         run: |
@@ -69,6 +72,7 @@ jobs:
             propofol-smoke-scores.csv
             propofol-smoke-run.log
             propofol-dev-eleveld.csv
+            propofol-download.log
             propofol-data-check.log
             propofol-eleveld-run.log
             propofol-dev-run.log
