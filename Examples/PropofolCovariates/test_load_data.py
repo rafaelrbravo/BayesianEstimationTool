@@ -185,3 +185,11 @@ if __name__ == "__main__":
     test_rejects_nonfinite_bolus()
     test_rejects_inconsistent_covariates_across_measurements()
     print("Synthetic loader checks passed")
+
+
+def test_missing_covariate_rows_gives_clear_error():
+    observations = pd.DataFrame({"ID": [20], "CP": [1.], "AGE": [40], "WGT": [80], "HT": [200], "M1F2": [1], "A1V2": [2]})
+    events = pd.DataFrame({"ID": [10], "TIME": [0.], "INFUSIONRATE": [0.], "BOLUS": [0.], "ISMEASUREMENT": [0]})
+    with patch("load_data.patient_ids", return_value=[10]):
+        with np.testing.assert_raises_regex(ValueError, "Missing covariate rows"):
+            load_data(tables={"observations": observations, "events": events})
