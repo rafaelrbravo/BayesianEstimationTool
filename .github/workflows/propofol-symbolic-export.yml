@@ -19,6 +19,10 @@ jobs:
         with:
           repository: wahlquisty/learning-pharmacometric-covariate-structures
           path: upstream-covariate-structures
+      - name: Install Python for artifact validation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - name: Install Julia
         uses: julia-actions/setup-julia@v2
         with:
@@ -28,8 +32,9 @@ jobs:
       - name: Export and numerically validate published equations
         run: julia --color=yes Examples/PropofolCovariates/export_symbolic_equations.jl "$GITHUB_WORKSPACE/upstream-covariate-structures"
       - name: Verify exported TOML structure
-        shell: python
+        shell: bash
         run: |
+          python - <<'PY'
           import pathlib
           import tomllib
 
@@ -42,6 +47,7 @@ jobs:
           assert set(equations["male"]) == {"k13", "k31"}
           assert set(equations["female"]) == {"k13", "k31"}
           print(f"Validated TOML structure: {len(expected)} common equations and four sex-specific equations.")
+          PY
       - name: Upload validated equation artifact
         uses: actions/upload-artifact@v4
         with:
