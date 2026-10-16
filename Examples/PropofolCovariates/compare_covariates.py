@@ -60,8 +60,7 @@ def main():
     scale = cov[train_positions].std(axis=0)
     scale = jnp.where(scale > 0, scale, 1.)
     arrays["covariates"] = (cov - mean) / scale
-    # Keep only development patients in the JAX arrays; remap split indices.
-    # This avoids allocating inference tensors for all 1,031 patients.
+    # Reorder selected patients as training followed by held-out testing.
     n_train = len(train)
     train = jnp.arange(n_train)
     test = jnp.arange(n_train, len(selected))
