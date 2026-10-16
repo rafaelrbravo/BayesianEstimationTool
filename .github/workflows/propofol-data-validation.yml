@@ -8,12 +8,14 @@ on:
       - "Examples/PropofolCovariates/download_data.py"
       - "Examples/PropofolCovariates/inspect_data.py"
       - "Examples/PropofolCovariates/load_data.py"
+      - "Examples/PropofolCovariates/example.py"
   pull_request:
     paths:
       - ".github/workflows/propofol-data-validation.yml"
       - "Examples/PropofolCovariates/download_data.py"
       - "Examples/PropofolCovariates/inspect_data.py"
       - "Examples/PropofolCovariates/load_data.py"
+      - "Examples/PropofolCovariates/example.py"
 
 jobs:
   validate-upstream-data:
@@ -50,6 +52,34 @@ jobs:
           assert np.all(data["concentration"][data["observed"].astype(bool)] > 0)
           assert np.all(np.diff(data["time"], axis=1) >= 0)
           print("Validated", len(data["patient_ids"]), "patients and", int(data["observed"].sum()), "concentrations")
+          PY
+      - name: Validate simplified standalone example loader against upstream data
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          import numpy as np
+          import pandas as pd
+          import shutil
+          from urllib.request import urlopen
+
+          path = Path("Examples/PropofolCovariates/example.py")
+          tree = ast.parse(path.read_text())
+          keep = {"DATA_DIR", "UPSTREAM_COMMIT", "BASE_URL", "FILES"}
+          nodes = [node for node in tree.body if
+                   isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id in keep for t in node.targets)
+                   or isinstance(node, ast.FunctionDef) and node.name == "load_data"]
+          namespace = {"Path": Path, "np": np, "pd": pd, "shutil": shutil, "urlopen": urlopen}
+          exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), "exec"), namespace)
+          data = namespace["load_data"]()
+          assert len(data["patient_ids"]) == 1031
+          assert data["covariates"].shape == (1031, 5)
+          assert all(data[key].shape == data["time"].shape for key in ("rate", "bolus", "observed", "concentration"))
+          assert np.all(np.isfinite(data["covariates"]))
+          assert np.all(np.diff(data["time"], axis=1) >= 0)
+          assert np.all(data["rate"] >= 0) and np.all(data["bolus"] >= 0)
+          assert np.all(data["concentration"][data["observed"].astype(bool)] > 0)
+          print("Standalone loader passed:", len(data["patient_ids"]), "patients;", int(data["observed"].sum()), "observations")
           PY
       - name: Score supplied Eleveld parameters on held-out development patients
         run: python -u Examples/PropofolCovariates/eleveld_reference.py --development --output-csv propofol-dev-eleveld.csv
