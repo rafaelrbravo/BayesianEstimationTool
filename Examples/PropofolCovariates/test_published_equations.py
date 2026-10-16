@@ -88,3 +88,23 @@ def test_unused_sex_branch_singularity_does_not_poison_gradient(tmp_path):
     assert np.isfinite(result).all()
     assert np.isfinite(gradient).all()
     assert np.any(np.abs(np.asarray(gradient[:, 0])) > 0)
+
+
+def test_batched_unused_sex_branch_singularity_does_not_poison_gradients(tmp_path):
+    """Document the vmap-specific risk: inactive singular equations can yield NaN gradients."""
+    lines = ['output_order = ["k10", "k12", "k13", "k21", "k31", "V1"]',
+             "[equations.common]", 'k10 = "0.002"', 'k12 = "0.003"',
+             'k13 = "0.001"', 'k21 = "0.002"', 'k31 = "0.0003"',
+             'V1 = "10000"', "[equations.male]",
+             'k13 = "0.001 * x_age / 40"', 'k31 = "0.0003"',
+             "[equations.female]",
+             'k13 = "1 / (x_age - x_age)"', 'k31 = "0.0006"']
+    path = tmp_path / "symbolic_equations.toml"
+    path.write_text("\n".join(lines))
+    equations = load_equations(path)
+    patients = jnp.array([[40., 70., 25., -0.5, -0.5],
+                          [50., 80., 27., -0.5, 0.5]])
+    def summed_outputs(covariates):
+        return jnp.sum(jax.vmap(lambda x: published_rates(equations, x))(covariates))
+    gradient = jax.grad(summed_outputs)(patients)
+    assert np.isfinite(np.asarray(gradient)).all(), "Inactive female branch poisoned batched male gradients"
