@@ -45,6 +45,10 @@ def load_data(directory=None, selected_ids=None, tables=None):
         if np.any(raw_counts > np.iinfo(np.int32).max):
             raise ValueError(f"Measurement count overflow for ID {patient_id}")
         counts = raw_counts.astype(np.int32)
+        # Events after the last measured concentration cannot affect any
+        # likelihood or prediction score; omit them before padding.
+        last_measured_event = np.flatnonzero(counts > 0)[-1] + 1
+        times, rate, bolus, counts = (values[:last_measured_event] for values in (times, rate, bolus, counts))
         # The upstream Julia get_indmeas repeats an event index when its
         # IsMeasurement count exceeds one. Expand the event into same-time
         # rows so every observation has a separate likelihood contribution.
