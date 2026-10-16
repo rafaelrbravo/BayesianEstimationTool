@@ -48,7 +48,12 @@ def make_prior(use_covariates):
 
 def standardize_covariates(covariates, train_positions):
     """Center and scale every patient using training patients only."""
+    covariates = np.asarray(covariates, dtype=float)
+    if covariates.ndim != 2 or not np.isfinite(covariates).all():
+        raise ValueError("Covariates must be a finite two-dimensional array")
     training = covariates[train_positions]
+    if training.shape[0] == 0:
+        raise ValueError("At least one training patient is required for covariate standardization")
     mean = training.mean(axis=0)
     scale = training.std(axis=0)
     scale = np.where(scale > 0, scale, 1.)
