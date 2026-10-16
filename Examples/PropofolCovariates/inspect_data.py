@@ -58,9 +58,11 @@ def validate_measurement_counts(tables, ids):
     """Check every included patient's event count against positive CP rows."""
     observations = tables["observations"]
     events = tables["events"]
-    raw_concentrations = observations["CP"].to_numpy(dtype=float)
-    if np.any(~np.isfinite(raw_concentrations)) or np.any(raw_concentrations < 0):
-        raise ValueError("Invalid observed concentration values")
+    # Match the upstream get_ymeas convention: only CP > 0 is observed.
+    # Nonpositive or missing rows are not concentration measurements.
+    measured_values = observations.loc[observations["CP"] > 0, "CP"].to_numpy(dtype=float)
+    if not np.isfinite(measured_values).all():
+        raise ValueError("Invalid positive observed concentration values")
     measured = observations.loc[observations["CP"] > 0].groupby("ID").size()
     raw_counts = events["ISMEASUREMENT"].to_numpy(dtype=float)
     if np.any(~np.isfinite(raw_counts)) or np.any(raw_counts < 0) or np.any(raw_counts != np.floor(raw_counts)):
