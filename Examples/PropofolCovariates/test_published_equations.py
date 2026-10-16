@@ -99,12 +99,12 @@ def test_batched_unused_sex_branch_singularity_does_not_poison_gradients(tmp_pat
              'V1 = "10000"', "[equations.male]",
              'k13 = "0.001 * x_age / 40"', 'k31 = "0.0003"',
              "[equations.female]",
-             'k13 = "1 / (x_age - x_age)"', 'k31 = "0.0006"']
+             'k13 = "1 / (x_age - 40)"', 'k31 = "0.0006"']
     path = tmp_path / "symbolic_equations.toml"
     path.write_text("\n".join(lines))
     equations = load_equations(path)
     patients = jnp.array([[40., 70., 25., -0.5, -0.5],
-                          [50., 80., 27., -0.5, 0.5]])
+                          [50., 80., 27., 0.5, 0.5]])
     def summed_outputs(covariates):
         return jnp.sum(jax.vmap(lambda x: published_rates(equations, x))(covariates))
     gradient = jax.grad(summed_outputs)(patients)
