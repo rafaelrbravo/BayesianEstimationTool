@@ -59,6 +59,9 @@ def validate_measurement_counts(tables, ids):
     observations = tables["observations"]
     events = tables["events"]
     measured = observations.loc[observations["CP"] > 0].groupby("ID").size()
+    raw_counts = events["ISMEASUREMENT"].to_numpy(dtype=float)
+    if np.any(~np.isfinite(raw_counts)) or np.any(raw_counts < 0) or np.any(raw_counts != np.floor(raw_counts)):
+        raise ValueError("Invalid individual event measurement counts")
     counts = events.groupby("ID")["ISMEASUREMENT"].sum()
     bad = []
     for patient_id in ids:
