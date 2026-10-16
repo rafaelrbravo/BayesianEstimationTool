@@ -13,7 +13,7 @@ import jax.numpy as jnp
 import numpyro.distributions as dist
 
 import BayesianEstimationTool as bet
-from bet_baseline import PARAMETERS, REFERENCE, ScoreFn, TrainLikelihoodFn, TestLikelihoodFn
+from bet_baseline import PARAMETERS, REFERENCE, N_FIT, ScoreFn, TrainLikelihoodFn, TestLikelihoodFn
 from load_data import load_data
 from inspect_data import read_tables, patient_ids
 from pk_model import concentrations
@@ -91,8 +91,8 @@ def main():
     # Keep the prespecified test partition, excluding only patients without
     # a future concentration after the three conditioning measurements.
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
-    eligible_test = eligible_test_indices(test, ids, counts, limit=None if args.full else args.test_patients)
-    print(f"Evaluable held-out patients: {len(eligible_test)}/{len(test)} (need >=4 concentrations)")
+    eligible_test = eligible_test_indices(test, ids, counts, n_fit=N_FIT, limit=None if args.full else args.test_patients)
+    print(f"Evaluable held-out patients: {len(eligible_test)}/{len(test)} (need >{N_FIT} concentrations)")
     if not eligible_test:
         raise ValueError("No held-out patients have at least four measured concentrations")
     test = eligible_test
@@ -101,7 +101,7 @@ def main():
     positions = {patient_id: i for i, patient_id in enumerate(arrays["patient_ids"])}
     selected = [positions[patient_id] for patient_id in selected_ids]
     n_observed = arrays["observed"][selected[len(train):]].sum(axis=1)
-    if (n_observed <= 3).any():
+    if (n_observed <= N_FIT).any():
         raise ValueError("Event counts and loaded concentrations disagree for held-out patients")
     # Fit centering/scaling on TRAINING patients, never held-out patients.
     cov = arrays["covariates"]
