@@ -7,6 +7,8 @@ forms must be verified before calling it a reproduction of the paper.
 """
 import argparse
 
+import numpy as np
+
 import jax.numpy as jnp
 import numpyro.distributions as dist
 
@@ -40,6 +42,18 @@ def make_prior(use_covariates):
             priors["covariateEffects"] = dist.Normal(0., 0.2).expand((6, len(COVARIATE_NAMES))).to_event(2)
         return priors
     return GlobalPriorFn
+
+
+def paired_bootstrap_interval(delta, seed=0, n_boot=2000):
+    """Patient-level bootstrap CI for the mean paired error difference."""
+    delta = np.asarray(delta, dtype=np.float64)
+    if delta.ndim != 1 or not len(delta) or not np.all(np.isfinite(delta)):
+        raise ValueError("Expected nonempty finite patient-level differences")
+    rng = np.random.default_rng(seed)
+    means = np.empty(n_boot)
+    for i in range(n_boot):
+        means[i] = delta[rng.integers(len(delta), size=len(delta))].mean()
+    return np.quantile(means, [0.025, 0.975])
 
 
 def main():
@@ -99,7 +113,8 @@ def main():
         print(f"{label}: unconditioned future log error={float(jnp.mean(unconditioned)):.4f}; conditioned={float(jnp.mean(conditioned)):.4f}")
     for i, setting in enumerate(("unconditioned", "conditioned")):
         delta = scores["covariates"][i] - scores["no covariates"][i]
-        print(f"Paired {setting} covariate minus baseline log error: mean={float(jnp.mean(delta)):.4f}, median={float(jnp.median(delta)):.4f}, improved patients={int(jnp.sum(delta < 0))}/{len(test)}")
+        lo, hi = paired_bootstrap_interval(delta)
+        print(f"Paired {setting} covariate minus baseline log error: mean={float(jnp.mean(delta)):.4f}, median={float(jnp.median(delta)):.4f}, improved patients={int(jnp.sum(delta < 0))}/{len(test)}, patient-bootstrap 95% CI for mean=[{lo:.4f}, {hi:.4f}]")
 
 
 if __name__ == "__main__":
