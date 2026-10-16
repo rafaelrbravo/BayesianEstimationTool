@@ -56,13 +56,21 @@ def main():
     # Use the identical development patients and future-only evaluation.
     if not args.full:
         train, test = train[:100], test[:25]
+    # Keep the prespecified test partition, excluding only patients without
+    # a future concentration after the three conditioning measurements.
+    counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
+    eligible_test = [i for i in test if counts.get(ids[i], 0) > 3]
+    print(f"Evaluable held-out patients: {len(eligible_test)}/{len(test)} (need >=4 concentrations)")
+    if not eligible_test:
+        raise ValueError("No held-out patients have at least four measured concentrations")
+    test = eligible_test
     selected_ids = [ids[i] for i in list(train) + list(test)]
     arrays = load_data(selected_ids=selected_ids, tables=tables)
     positions = {patient_id: i for i, patient_id in enumerate(arrays["patient_ids"])}
     selected = [positions[patient_id] for patient_id in selected_ids]
     n_observed = arrays["observed"][selected[len(train):]].sum(axis=1)
     if (n_observed <= 3).any():
-        raise ValueError("All held-out development patients need at least four measurements")
+        raise ValueError("Event counts and loaded concentrations disagree for held-out patients")
     # Fit centering/scaling on TRAINING patients, never held-out patients.
     cov = arrays["covariates"]
     train_positions = selected[:len(train)]
