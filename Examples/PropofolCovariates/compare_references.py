@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 
-def compare(jax_csv, scipy_csv, atol=0.02, rtol=0.02):
+def compare(jax_csv, scipy_csv, atol=0.02, rtol=0.02, expected_patients=None):
     left = pd.read_csv(jax_csv)
     right = pd.read_csv(scipy_csv)
     required = {"patient_id", "eleveld_future_log_error"}
@@ -15,6 +15,11 @@ def compare(jax_csv, scipy_csv, atol=0.02, rtol=0.02):
             raise ValueError(f"{name} has missing or duplicate patient IDs")
     if set(left.patient_id) != set(right.patient_id) or len(left) == 0:
         raise ValueError("Reference patient sets differ or are empty")
+    if expected_patients is not None:
+        if isinstance(expected_patients, bool) or not isinstance(expected_patients, int) or expected_patients < 1:
+            raise ValueError("expected_patients must be a positive integer")
+        if len(left) != expected_patients:
+            raise ValueError(f"Expected {expected_patients} reference patients, found {len(left)}")
     aligned = left.merge(right, on="patient_id", validate="one_to_one", suffixes=("_jax", "_scipy"))
     jax = aligned["eleveld_future_log_error_jax"].to_numpy(dtype=float)
     scipy = aligned["eleveld_future_log_error_scipy"].to_numpy(dtype=float)
@@ -37,5 +42,6 @@ if __name__ == "__main__":
     parser.add_argument("scipy_csv")
     parser.add_argument("--atol", type=float, default=0.02)
     parser.add_argument("--rtol", type=float, default=0.02)
+    parser.add_argument("--expected-patients", type=int)
     args = parser.parse_args()
-    compare(args.jax_csv, args.scipy_csv, atol=args.atol, rtol=args.rtol)
+    compare(args.jax_csv, args.scipy_csv, atol=args.atol, rtol=args.rtol, expected_patients=args.expected_patients)
