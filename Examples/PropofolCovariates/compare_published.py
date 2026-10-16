@@ -8,7 +8,7 @@ import jax.numpy as jnp
 
 import BayesianEstimationTool as bet
 from bet_baseline import PARAMETERS, N_FIT, ScoreFn, TrainLikelihoodFn, TestLikelihoodFn
-from compare_covariates import make_model, make_prior, validate_scores, write_patient_scores
+from compare_covariates import COVARIATE_NAMES, make_model, make_prior, validate_scores, write_patient_scores
 from published_bet_model import build_published_model, GlobalPriorFn as PublishedPrior
 from load_data import load_data
 from inspect_data import read_tables, patient_ids
@@ -51,7 +51,7 @@ def main():
     n_observed = arrays["observed"][selected[len(train):]].sum(axis=1)
     if (n_observed <= N_FIT).any():
         raise ValueError("Event counts and loaded concentrations disagree for held-out patients")
-    # Fit centering/scaling on TRAINING patients, never held-out patients.
+    # Validate covariate layout while retaining original raw values.
     if arrays["covariates"].shape[1] != len(COVARIATE_NAMES):
         raise ValueError(f"Expected {len(COVARIATE_NAMES)} covariates ({COVARIATE_NAMES})")
     # Published equations require raw covariates; do not standardize.
