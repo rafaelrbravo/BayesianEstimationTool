@@ -7,7 +7,7 @@ def paired_bootstrap_interval(delta, seed=0, n_boot=2000):
     delta = np.asarray(delta, dtype=np.float64)
     if delta.ndim != 1 or not len(delta) or not np.all(np.isfinite(delta)):
         raise ValueError("Expected nonempty finite patient-level differences")
-    if not isinstance(n_boot, (int, np.integer)) or n_boot < 1:
+    if isinstance(n_boot, (bool, np.bool_)) or not isinstance(n_boot, (int, np.integer)) or n_boot < 1:
         raise ValueError("n_boot must be a positive integer")
     rng = np.random.default_rng(seed)
     means = np.empty(n_boot)
