@@ -99,6 +99,8 @@ def main():
         print(f"Training {label} model on {n_train} patients", flush=True)
         model = make_published_model(equations) if use_covariates else make_model(False)
         prior = PublishedPrior if use_covariates else make_prior(False)
+        # Each arm uses identical patients and RNG seed, but only the published
+        # arm incorporates coefficients pretrained on the overlapping cohort.
         est = bet.Estimator(data=data, ModelFn=model, localZNames=list(PARAMETERS),
                             GlobalPriorFn=prior, rngSeed=0)
         est.Train(trainDataIdxs=jnp.asarray(train), TrainLikelihoodFn=TrainLikelihoodFn,
