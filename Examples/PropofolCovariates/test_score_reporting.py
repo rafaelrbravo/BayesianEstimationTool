@@ -79,3 +79,11 @@ def test_summary_cli_enforces_expected_patient_count(tmp_path, monkeypatch, caps
     with pytest.raises(SystemExit) as exc:
         main()
     assert exc.value.code == 2
+
+
+@pytest.mark.parametrize("seed", [True, np.bool_(False), -1, 1.25, "0"])
+def test_paired_bootstrap_rejects_invalid_seed(seed):
+    from paired_stats import paired_bootstrap_interval
+
+    with pytest.raises(ValueError, match="seed"):
+        paired_bootstrap_interval(np.array([-1., 1.]), seed=seed, n_boot=10)
