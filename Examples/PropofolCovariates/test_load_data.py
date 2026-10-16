@@ -33,7 +33,7 @@ def test_padded_events_and_covariates():
     assert data["time"].shape == (2, 3)
     np.testing.assert_array_equal(data["observed"], [[1, 0, 1], [1, 0, 0]])
     np.testing.assert_allclose(data["concentration"], [[1.5, 0., 0.8], [2., 0., 0.]])
-    np.testing.assert_allclose(data["rate"], [[10./60., 0., 0.], [20./60., 0., 0.]])
+    np.testing.assert_allclose(data["rate"], [[10., 0., 0.], [20., 0., 0.]])
     np.testing.assert_allclose(data["time"][1], [0., 60., 60.])
     np.testing.assert_allclose(data["valid"][1], [1, 1, 0])
     np.testing.assert_allclose(data["covariates"], [[40., 80., 20., -0.5, 0.5], [60., 90., 90. / 1.8 ** 2, 0.5, -0.5]], rtol=1e-6)
@@ -160,19 +160,19 @@ def test_rejects_inconsistent_covariates_across_measurements():
             raise AssertionError("Conflicting age for one patient must fail")
 
 
-def test_one_minute_infusion_unit_conversion():
-    """60 ug/min for one minute delivers 60 ug, not 3600 ug."""
+def test_infusion_rate_is_already_micrograms_per_second():
+    """The upstream rate is ug/s: 60 ug/s for one minute delivers 3600 ug."""
     observations = pd.DataFrame({"ID": [10], "CP": [1.], "AGE": [40], "WGT": [80], "HT": [200], "M1F2": [1], "A1V2": [2]})
     events = pd.DataFrame({"ID": [10, 10], "TIME": [0., 60.], "INFUSIONRATE": [60., 0.], "BOLUS": [0., 0.], "ISMEASUREMENT": [0, 1]})
     with patch("load_data.patient_ids", return_value=[10]):
         data = load_data(tables={"observations": observations, "events": events})
-    np.testing.assert_allclose(data["rate"][0], [1., 0.])
-    np.testing.assert_allclose(np.diff(data["time"][0])[0] * data["rate"][0, 0], 60.)
+    np.testing.assert_allclose(data["rate"][0], [60., 0.])
+    np.testing.assert_allclose(np.diff(data["time"][0])[0] * data["rate"][0, 0], 3600.)
 
 
 if __name__ == "__main__":
     test_padded_events_and_covariates()
-    test_one_minute_infusion_unit_conversion()
+    test_infusion_rate_is_already_micrograms_per_second()
     test_rejects_mismatched_measurements()
     test_repeated_measurements_at_one_event()
     test_rejects_fractional_measurement_counts()
