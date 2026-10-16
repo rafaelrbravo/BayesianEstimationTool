@@ -72,18 +72,22 @@ def write_patient_scores(path, patient_ids, scores):
 def main():
     parser = argparse.ArgumentParser(description="Compare BET propofol PK models on held-out patients")
     parser.add_argument("--full", action="store_true", help="Use all 831 training and 200 held-out patients")
+    parser.add_argument("--train-patients", type=int, default=100, help="Development training cohort size")
+    parser.add_argument("--test-patients", type=int, default=25, help="Development held-out cohort size")
     parser.add_argument("--train-steps", type=int, default=1000)
     parser.add_argument("--test-steps", type=int, default=300)
     parser.add_argument("--output-csv", help="Optional per-patient held-out errors for auditing")
     args = parser.parse_args()
     if args.train_steps < 1 or args.test_steps < 1:
         parser.error("SVI steps must be positive")
+    if args.train_patients < 1 or args.test_patients < 1:
+        parser.error("Development cohort sizes must be positive")
     tables = read_tables()
     ids = patient_ids(tables)
     train, test = make_split(len(ids))
     # Use the identical development patients and future-only evaluation.
     if not args.full:
-        train, test = train[:100], test[:25]
+        train, test = train[:args.train_patients], test[:args.test_patients]
     # Keep the prespecified test partition, excluding only patients without
     # a future concentration after the three conditioning measurements.
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
