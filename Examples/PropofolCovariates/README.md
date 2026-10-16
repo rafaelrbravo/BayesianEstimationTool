@@ -41,3 +41,5 @@ The synthetic checks include the loader, PK solver, and future-only scoring test
 
 
 **Validation note (2026-10-16):** The PK solver and its independent SciPy reference test were run successfully in a local reproduction of the repository code. A duplicate-event-time regression test was also executed successfully (2 tests passed). This is not a successful full-repository CI run or an inference result. NumPyro inference and source-data validation remain outstanding.
+
+Additional local validation reproduced the loader's NumPy/pandas event-expansion logic and passed three focused checks (multiple repeated-measurement events, a single-measurement event, and measurement-count mismatch). This was not a direct execution of the repository loader test module. The full loader test suite and original-data validation are still outstanding.
