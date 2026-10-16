@@ -132,6 +132,8 @@ def main():
     test = eligible_test
     selected_ids = [ids[i] for i in list(train) + list(test)]
     arrays = load_data(selected_ids=selected_ids, tables=tables)
+    if len(set(arrays["patient_ids"])) != len(arrays["patient_ids"]):
+        raise ValueError("Loaded patient IDs must be unique")
     positions = {patient_id: i for i, patient_id in enumerate(arrays["patient_ids"])}
     selected = [positions[patient_id] for patient_id in selected_ids]
     if len(set(selected)) != len(selected):
