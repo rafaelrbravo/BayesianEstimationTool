@@ -159,8 +159,20 @@ def test_rejects_inconsistent_covariates_across_measurements():
         else:
             raise AssertionError("Conflicting age for one patient must fail")
 
+
+def test_one_minute_infusion_unit_conversion():
+    """60 ug/min for one minute delivers 60 ug, not 3600 ug."""
+    observations = pd.DataFrame({"ID": [10], "CP": [1.], "AGE": [40], "WGT": [80], "HT": [200], "M1F2": [1], "A1V2": [2]})
+    events = pd.DataFrame({"ID": [10, 10], "TIME": [0., 60.], "INFUSIONRATE": [60., 0.], "BOLUS": [0., 0.], "ISMEASUREMENT": [0, 1]})
+    with patch("load_data.patient_ids", return_value=[10]):
+        data = load_data(tables={"observations": observations, "events": events})
+    np.testing.assert_allclose(data["rate"][0], [1., 0.])
+    np.testing.assert_allclose(np.diff(data["time"][0])[0] * data["rate"][0, 0], 60.)
+
+
 if __name__ == "__main__":
     test_padded_events_and_covariates()
+    test_one_minute_infusion_unit_conversion()
     test_rejects_mismatched_measurements()
     test_repeated_measurements_at_one_event()
     test_rejects_fractional_measurement_counts()
