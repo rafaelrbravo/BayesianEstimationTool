@@ -66,3 +66,17 @@ def test_invalid_dosing_and_counts_rejected():
                                    ([float("nan"), 0.], [0., 0.], [1, 1])]:
         with pytest.raises(ValueError, match="Invalid dosing"):
             predict_patient(p, events([0., 10.], rates, boluses, counts))
+
+
+def test_missing_event_history_rejected():
+    import pytest
+    p = [10., 20., 30., 1., 2., 3.]
+    with pytest.raises(ValueError, match="missing event times"):
+        predict_patient(p, events([], [], [], []))
+
+
+def test_nonfinite_event_time_rejected():
+    import pytest
+    p = [10., 20., 30., 1., 2., 3.]
+    with pytest.raises(ValueError, match="Invalid dosing"):
+        predict_patient(p, events([0., float("nan")], [0., 0.], [0., 0.], [1, 1]))
