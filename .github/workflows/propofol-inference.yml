@@ -32,6 +32,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Reject conflicting experiment settings
+        if: ${{ inputs.full_cohort && inputs.smoke_only }}
+        run: |
+          echo 'full_cohort=true requires smoke_only=false; otherwise the full experiment is skipped.' >&2
+          exit 1
       - name: Install BET and numerical dependencies
         run: python -m pip install -e . numpy pandas scipy "jax[cpu]" numpyro pytest
       - name: Run synthetic regression tests before inference
