@@ -62,6 +62,8 @@ def load_data(directory=None, selected_ids=None, tables=None):
         if np.any(~np.isfinite(times)) or np.any(~np.isfinite(rate)) or np.any(~np.isfinite(bolus)) or np.any(rate < 0) or np.any(bolus < 0):
             raise ValueError(f"Invalid dosing for ID {patient_id}")
         cov_rows = obs.loc[obs.ID == patient_id, covariates].to_numpy(dtype=np.float64)
+        if len(cov_rows) == 0:
+            raise ValueError(f"Missing covariate rows for ID {patient_id}")
         if not np.all(np.isfinite(cov_rows)):
             raise ValueError(f"Missing covariate for ID {patient_id}")
         if not np.allclose(cov_rows, cov_rows[0], rtol=0, atol=1e-6):
