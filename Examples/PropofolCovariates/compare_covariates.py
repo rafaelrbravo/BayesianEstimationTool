@@ -5,6 +5,8 @@ Covariates are standardized using training patients only. This is an
 initial linear log-parameter covariate baseline; the published functional
 forms must be verified before calling it a reproduction of the paper.
 """
+import argparse
+
 import jax.numpy as jnp
 import numpyro.distributions as dist
 
@@ -41,11 +43,19 @@ def make_prior(use_covariates):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Compare BET propofol PK models on held-out patients")
+    parser.add_argument("--full", action="store_true", help="Use all 831 training and 200 held-out patients")
+    parser.add_argument("--train-steps", type=int, default=1000)
+    parser.add_argument("--test-steps", type=int, default=300)
+    args = parser.parse_args()
+    if args.train_steps < 1 or args.test_steps < 1:
+        parser.error("SVI steps must be positive")
     tables = read_tables()
     ids = patient_ids(tables)
     train, test = make_split(len(ids))
     # Use the identical development patients and future-only evaluation.
-    train, test = train[:100], test[:25]
+    if not args.full:
+        train, test = train[:100], test[:25]
     selected_ids = [ids[i] for i in list(train) + list(test)]
     arrays = load_data(selected_ids=selected_ids, tables=tables)
     positions = {patient_id: i for i, patient_id in enumerate(arrays["patient_ids"])}
@@ -71,11 +81,11 @@ def main():
         est = bet.Estimator(data=data, ModelFn=make_model(use_covariates), localZNames=list(PARAMETERS),
                             GlobalPriorFn=make_prior(use_covariates), rngSeed=0)
         est.Train(trainDataIdxs=jnp.asarray(train), TrainLikelihoodFn=TrainLikelihoodFn,
-                  Method=bet.Svi(numSteps=1000, numSamples=50, progressBar=False))
+                  Method=bet.Svi(numSteps=args.train_steps, numSamples=50, progressBar=False))
         est.Test(testDataIdxs=jnp.asarray(test), nLocalZSamples=50)
         unconditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn), axis=(0, 1))
         est.Test(testDataIdxs=jnp.asarray(test), TestLikelihoodFn=TestLikelihoodFn,
-                 Method=bet.Svi(numSteps=300, numSamples=50, progressBar=False))
+                 Method=bet.Svi(numSteps=args.test_steps, numSamples=50, progressBar=False))
         conditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn), axis=(0, 1))
         scores[label] = (unconditioned, conditioned)
         print(f"{label}: unconditioned future log error={float(jnp.mean(unconditioned)):.4f}; conditioned={float(jnp.mean(conditioned)):.4f}")
