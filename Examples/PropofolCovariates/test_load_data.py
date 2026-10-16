@@ -255,3 +255,15 @@ def test_loader_and_independent_scipy_reference_use_same_infusion_units():
     predicted = predict_patient([10., 20., 30., 0., 0., 0.], events)
     np.testing.assert_allclose(predicted, [0., 0.1], atol=1e-12)
     np.testing.assert_allclose(predicted[-1], data["rate"][0, 0] * 10. / (10. * 1000.), atol=1e-12)
+
+
+def test_rejects_unsorted_events_before_inference():
+    observations = pd.DataFrame({"ID": [10, 10], "CP": [1., 1.1], "AGE": [40, 40],
+                                 "WGT": [80, 80], "HT": [200, 200],
+                                 "M1F2": [1, 1], "A1V2": [2, 2]})
+    events = pd.DataFrame({"ID": [10, 10], "TIME": [30., 0.],
+                           "INFUSIONRATE": [0., 10.], "BOLUS": [0., 100.],
+                           "ISMEASUREMENT": [1, 1]})
+    with patch("load_data.patient_ids", return_value=[10]):
+        with np.testing.assert_raises_regex(ValueError, "Unsorted or missing event times"):
+            load_data(tables={"observations": observations, "events": events})
