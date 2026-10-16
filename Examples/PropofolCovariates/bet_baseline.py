@@ -10,6 +10,7 @@ import numpyro.distributions as dist
 
 import BayesianEstimationTool as bet
 from load_data import load_data
+from inspect_data import read_tables, patient_ids
 from pk_model import concentrations
 from split import make_split
 
@@ -63,11 +64,15 @@ def ScoreFn(modelOut, data):
 
 
 def main():
-    arrays = load_data()
-    train, test = make_split(len(arrays["patient_ids"]))
+    tables = read_tables()
+    ids = patient_ids(tables)
+    train, test = make_split(len(ids))
+    selected_ids = [ids[i] for i in list(train[:100]) + list(test[:25])]
+    arrays = load_data(selected_ids=selected_ids, tables=tables)
+    positions = {patient_id: i for i, patient_id in enumerate(arrays["patient_ids"])}
+    selected = [positions[patient_id] for patient_id in selected_ids]
     # Keep only development patients in the JAX arrays; remap split indices.
     # This avoids allocating inference tensors for all 1,031 patients.
-    selected = list(train[:100]) + list(test[:25])
     n_train = 100
     train = jnp.arange(n_train)
     test = jnp.arange(n_train, len(selected))
