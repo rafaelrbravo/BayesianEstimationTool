@@ -15,13 +15,6 @@ on:
         description: "After smoke, fit all 831 training patients and score eligible held-out patients (resource-intensive)"
         type: boolean
         default: false
-  push:
-    paths:
-      - ".github/workflows/propofol-inference.yml"
-      - "Examples/PropofolCovariates/**"
-      - "BayesianEstimationTool/**"
-      - "pyproject.toml"
-      - "setup.py"
 
 permissions:
   contents: read
