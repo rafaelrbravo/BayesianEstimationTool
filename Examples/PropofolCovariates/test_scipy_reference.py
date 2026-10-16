@@ -28,7 +28,7 @@ def test_constant_infusion_no_elimination():
     # With zero clearance and zero intercompartment flow, C(t) = rate*t/(V1*1000).
     # A small positive value is used for the unused peripheral volumes.
     p = [10., 20., 30., 0., 0., 0.]
-    e = events([0., 10., 20.], [6000., 6000., 0.], [0., 0., 0.], [1, 1, 1])
+    e = events([0., 10., 20.], [100., 100., 0.], [0., 0., 0.], [1, 1, 1])
     np.testing.assert_allclose(predict_patient(p, e), [0., 0.1, 0.2], atol=1e-12)
 
 
