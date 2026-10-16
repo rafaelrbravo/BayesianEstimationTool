@@ -38,3 +38,27 @@ def test_nan_rejected(tmp_path):
     write_example(path, [[10, 1., "nan", 1., 1.]])
     with pytest.raises(ValueError, match="Invalid"):
         read_scores(path)
+
+
+@pytest.mark.parametrize("rows", [
+    [],
+    [[10, -1., 1., 1., 1.]],
+    [[10, "inf", 1., 1., 1.]],
+    [[10, "bad", 1., 1., 1.]],
+])
+def test_invalid_score_rows_rejected(tmp_path, rows):
+    path = tmp_path / "scores.csv"
+    write_example(path, rows)
+    with pytest.raises(ValueError):
+        read_scores(path)
+
+
+def test_changed_csv_schema_rejected(tmp_path):
+    path = tmp_path / "scores.csv"
+    with open(path, "w", newline="", encoding="utf-8") as output:
+        writer = csv.writer(output)
+        writer.writerow(["id", "baseline_unconditioned", "covariates_unconditioned",
+                         "baseline_conditioned", "covariates_conditioned"])
+        writer.writerow([10, 1., 1., 1., 1.])
+    with pytest.raises(ValueError, match="columns"):
+        read_scores(path)
