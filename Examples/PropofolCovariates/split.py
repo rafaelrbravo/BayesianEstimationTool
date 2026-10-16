@@ -24,6 +24,12 @@ def make_split(n_patients=N_PATIENTS, n_test=N_TEST, seed=SEED):
     return train, test
 
 
+def eligible_test_indices(test_indices, patient_ids, measurement_counts, n_fit=3, limit=None):
+    """Keep held-out patients with future observations, preserving split order."""
+    eligible = [i for i in test_indices if measurement_counts.get(patient_ids[i], 0) > n_fit]
+    return eligible if limit is None else eligible[:limit]
+
+
 if __name__ == "__main__":
     train, test = make_split()
     print(f"Full split: {len(train)} train, {len(test)} test")
