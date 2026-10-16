@@ -61,9 +61,12 @@ def load_data(directory=None, selected_ids=None, tables=None):
             raise ValueError(f"Invalid measured concentration for ID {patient_id}")
         if np.any(~np.isfinite(times)) or np.any(~np.isfinite(rate)) or np.any(~np.isfinite(bolus)) or np.any(rate < 0) or np.any(bolus < 0):
             raise ValueError(f"Invalid dosing for ID {patient_id}")
-        patient_cov = obs.loc[obs.ID == patient_id, covariates].iloc[0].to_numpy(dtype=np.float64)
-        if not np.all(np.isfinite(patient_cov)):
+        cov_rows = obs.loc[obs.ID == patient_id, covariates].to_numpy(dtype=np.float64)
+        if not np.all(np.isfinite(cov_rows)):
             raise ValueError(f"Missing covariate for ID {patient_id}")
+        if not np.allclose(cov_rows, cov_rows[0], rtol=0, atol=1e-6):
+            raise ValueError(f"Inconsistent patient covariates for ID {patient_id}")
+        patient_cov = cov_rows[0]
         y = np.zeros(len(times))
         y[mask.astype(bool)] = concentration
         records.append((times, rate, bolus, mask, y, patient_cov))
