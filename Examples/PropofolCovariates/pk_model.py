@@ -80,4 +80,13 @@ if __name__ == "__main__":
     prediction = concentrations(p, t, infusion, zeros)
     assert float(prediction[0]) == 0
     assert float(prediction[1]) > 0
+    # Repeated timestamps accumulate boluses without advancing time.
+    # With zero clearance/exchange, infusion adds rate * elapsed seconds.
+    simple = jnp.array([10., 20., 30., 0., 0., 0.])
+    repeated_time = jnp.array([0., 0., 10., 20.])
+    repeated_rate = jnp.array([0., 100., 100., 0.])
+    repeated_bolus = jnp.array([1000., 2000., 0., 0.])
+    np.testing.assert_allclose(
+        concentrations(simple, repeated_time, repeated_rate, repeated_bolus),
+        [0.1, 0.3, 0.4, 0.5], rtol=1e-5, atol=1e-6)
     print("PK solver smoke tests passed")
