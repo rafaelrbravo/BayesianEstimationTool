@@ -72,3 +72,11 @@ def test_positive_infinite_concentration_rejected():
     }
     with pytest.raises(ValueError, match="Invalid positive observed concentration values"):
         validate_measurement_counts(tables, [10])
+
+
+def test_excluded_patient_invalid_event_counts_do_not_block_validation():
+    tables = {
+        "observations": pd.DataFrame({"ID": [10], "CP": [1.]}),
+        "events": pd.DataFrame({"ID": [10, 893], "ISMEASUREMENT": [1, float("nan")]}),
+    }
+    assert validate_measurement_counts(tables, [10]) == 1
