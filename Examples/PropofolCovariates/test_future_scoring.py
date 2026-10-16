@@ -35,3 +35,11 @@ def test_conditioning_likelihood_masks_all_future_measurements():
     np.testing.assert_allclose(log_prob[[0, 3, 5, 6]], 0., atol=1e-7)
     assert np.all(np.abs(log_prob[[1, 2, 4]]) > 1e-6)
     assert N_FIT == 3
+
+
+def test_future_score_uses_exactly_one_postconditioning_measurement():
+    observed = jnp.array([1., 0., 1., 0., 1., 0., 1.])
+    concentration = jnp.array([1., 0., 2., 0., 3., 0., 4.])
+    prediction = jnp.array([100., 100., 200., 100., 300., 100., 8.])
+    data = {"observed": observed, "concentration": concentration}
+    np.testing.assert_allclose(ScoreFn({"concentration": prediction}, data), np.log(2.), rtol=1e-6)
