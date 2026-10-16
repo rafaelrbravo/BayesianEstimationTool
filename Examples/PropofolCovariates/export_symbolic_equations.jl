@@ -123,9 +123,9 @@ result = Dict(
     "reference_predictions" => [
         Dict(
             "covariates" => collect(input),
-            "rates" => collect(normalization .* get_modeloutput(network, reshape([
+            "rates" => collect(normalization .* get_modeloutput(network, reshape(Float32.([
                 input[1] / 88, input[2] / 160, input[3] / 52.84713965, input[4], input[5]
-            ] .|> Float32, 5, 1))),
+            ]), 5, 1))),
         ) for input in test_inputs
     ],
     "equations" => Dict(
