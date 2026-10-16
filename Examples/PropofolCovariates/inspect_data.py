@@ -91,10 +91,11 @@ def validate_measurement_counts(tables, ids):
     return int(measured.reindex(ids, fill_value=0).sum())
 
 
-def validate_measurement_times(tables, ids, tolerance_seconds=1.0):
+def validate_measurement_times(tables, ids, tolerance_seconds=30.5):
     """Ensure observation order matches infusion-event measurement order.
 
-    Observation TIME is in minutes (rounded); infusion-event Time is seconds.
+    Observation TIME is in minutes, rounded to the nearest minute; infusion-event Time is seconds.
+    The default tolerance therefore allows half a minute plus a small floating-point margin.
     """
     observations = tables["observations"]
     events = tables["events"]
