@@ -48,7 +48,7 @@ Before fitting, `inspect_data.py` now checks each included patient's positive-co
 
 For the planned **831-training/200-test** experiment, run `python Examples/PropofolCovariates/compare_covariates.py --full`. The default remains the 100/25 development run. Optional `--train-steps` and `--test-steps` control SVI iteration counts (defaults 1000 and 300); the full run may be computationally expensive and has not yet been executed. The current covariate model remains an exploratory linear effect model, not the published symbolic-regression equations.
 
-The patient split has standalone reproducibility/leakage checks: `python -m pytest -q Examples/PropofolCovariates/test_split.py` (six tests). They also run in the example's GitHub Actions workflow.
+The patient split has standalone reproducibility/leakage checks: `python -m pytest -q Examples/PropofolCovariates/test_split.py`. They also run in the example's GitHub Actions workflow.
 
 **Future-only evaluation eligibility:** The patient split is fixed before modeling. The first three measured concentrations are used for optional conditioning, and later measurements for scoring. Held-out patients with three or fewer measurements cannot contribute a future score, so both scripts exclude them from evaluation without replacement and report the evaluable fraction. The full split contains 200 held-out patients, but fewer may have future measurements. This eligibility filter does not use concentration values or model predictions.
 
@@ -64,10 +64,13 @@ The upstream `symbreg/checkresults/get_results.jl` identifies its six learned ou
 
 Optional `--output-csv results.csv` saves patient IDs and paired held-out scores for independent analysis. No inference results have been generated yet.
 
-The separate GitHub Actions workflow **Propofol upstream data validation** (`.github/workflows/propofol-data-validation.yml`) can be started manually via **Actions → Propofol upstream data validation → Run workflow**. It downloads the three original CSVs on a GitHub runner and validates all 1,031 patients and their event arrays without running Bayesian inference. It is deliberately manual so routine code pushes do not depend on upstream data availability. No successful workflow run has yet been verified.
+The separate GitHub Actions workflow **Propofol upstream data validation** (`.github/workflows/propofol-data-validation.yml`) can be started manually via **Actions → Propofol upstream data validation → Run workflow**. It downloads the three original CSVs on a GitHub runner and validates all 1,031 patients and their event arrays without running Bayesian inference. It also runs automatically when the downloader, inspector, loader, or validation workflow changes (including matching pull requests); this check depends on upstream data availability. No successful workflow run has yet been verified.
 
 The optional `eleveld_reference.py` evaluates supplied patient-specific Eleveld parameters on the same held-out patient partition using the future-only log-error metric. Run it after downloading data. These parameters come from the existing Eleveld model, not from training BET on the prescribed training split, so treat this as a solver/data sanity reference rather than a third controlled model arm.
 
 To run the actual development-size comparison on a GitHub runner, manually launch **Actions → Propofol development inference → Run workflow** (`.github/workflows/propofol-inference.yml`). It installs BET, downloads and validates upstream data, fits both models with SVI on 100 training patients, evaluates up to 25 held-out patients, and uploads `propofol-dev-scores.csv` as a workflow artifact. The job has a three-hour timeout and may fail or require resource optimization; no inference run or numerical outcome has yet been verified. This is exploratory linear covariate modeling, not the paper's published symbolic equations.
 
 The optional Eleveld reference runs on the same development held-out IDs and writes `propofol-dev-eleveld.csv`; it is not a third model trained on the BET split. Its workflow step uses `continue-on-error` so reference problems do not prevent the primary BET comparison. The workflow also preserves `propofol-dev-run.log` when BET inference fails.
+
+
+The separate **Propofol synthetic regression tests** workflow (`.github/workflows/propofol-tests.yml`) runs the entire `test_*.py` suite on relevant code pushes and pull requests, and can also be started manually. It does not need the original dataset. Workflow success has not yet been verified.
