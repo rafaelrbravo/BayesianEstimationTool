@@ -23,6 +23,8 @@ def validate_published_patients(equations, covariates):
     covariates = np.asarray(covariates)
     if covariates.ndim != 2 or covariates.shape[1] != len(COVARIATE_NAMES):
         raise ValueError(f"Expected a two-dimensional array of {len(COVARIATE_NAMES)} raw covariates")
+    if covariates.shape[0] == 0:
+        raise ValueError("At least one patient is required for published equation validation")
     if not np.isfinite(covariates).all():
         raise ValueError("Published equations require finite raw covariates")
     if np.any(covariates[:, :3] <= 0):
