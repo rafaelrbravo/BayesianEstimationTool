@@ -53,7 +53,10 @@ def TestLikelihoodFn(globalParams, localZs, data, modelOut):
 
 
 def ScoreFn(modelOut, data):
-    # Evaluate only concentrations AFTER the first N_FIT measured values.\n    # This ensures conditional inference is never scored on data it used.\n    measured_index = jnp.cumsum(data["observed"])\n    mask = data["observed"].astype(bool) & (measured_index > N_FIT)
+    # Evaluate only concentrations AFTER the first N_FIT measured values.
+    # This ensures conditional inference is never scored on data it used.
+    measured_index = jnp.cumsum(data["observed"])
+    mask = data["observed"].astype(bool) & (measured_index > N_FIT)
     error = jnp.abs(jnp.log(jnp.maximum(modelOut["concentration"], 1e-6)) -
                     jnp.log(jnp.maximum(data["concentration"], 1e-6)))
     return jnp.sum(jnp.where(mask, error, 0.)) / jnp.maximum(mask.sum(), 1)
@@ -63,7 +66,11 @@ def main():
     arrays = load_data()
     train, test = make_split(len(arrays["patient_ids"]))
     data = {key: jnp.asarray(value) for key, value in arrays.items() if key != "patient_ids"}
-    # A future-only score is undefined for patients with <= N_FIT measurements.\n    n_observed = jnp.sum(data["observed"][test[:25]], axis=1)\n    if bool(jnp.any(n_observed <= N_FIT)):\n        raise ValueError("Development test patients must have at least four measured concentrations")\n    est = bet.Estimator(data=data, ModelFn=ModelFn, localZNames=list(PARAMETERS),
+    # A future-only score is undefined for patients with <= N_FIT measurements.
+    n_observed = jnp.sum(data["observed"][test[:25]], axis=1)
+    if bool(jnp.any(n_observed <= N_FIT)):
+        raise ValueError("Development test patients must have at least four measured concentrations")
+    est = bet.Estimator(data=data, ModelFn=ModelFn, localZNames=list(PARAMETERS),
                         GlobalPriorFn=GlobalPriorFn, rngSeed=0)
     est.Train(trainDataIdxs=jnp.asarray(train[:100]), TrainLikelihoodFn=TrainLikelihoodFn,
               Method=bet.Svi(numSteps=1000), printSummary=True)
