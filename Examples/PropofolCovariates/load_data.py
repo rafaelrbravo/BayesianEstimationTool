@@ -45,6 +45,8 @@ def load_data(directory=None, selected_ids=None, tables=None):
         if np.any(raw_counts > np.iinfo(np.int32).max):
             raise ValueError(f"Measurement count overflow for ID {patient_id}")
         counts = raw_counts.astype(np.int32)
+        if not np.any(counts > 0):
+            raise ValueError(f"No measured concentrations for ID {patient_id}")
         # Events after the last measured concentration cannot affect any
         # likelihood or prediction score; omit them before padding.
         last_measured_event = np.flatnonzero(counts > 0)[-1] + 1
