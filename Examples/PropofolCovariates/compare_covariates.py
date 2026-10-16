@@ -14,7 +14,7 @@ from load_data import load_data
 from pk_model import concentrations
 from split import make_split
 
-COVARIATE_NAMES = ("AGE", "WGT", "HT", "M1F2", "A1V2")
+COVARIATE_NAMES = ("AGE", "WGT", "BMI", "GDR", "AV")
 
 
 def make_model(use_covariates):
