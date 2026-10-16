@@ -68,24 +68,6 @@ jobs:
           python -u Examples/PropofolCovariates/compare_covariates.py --train-patients 10 --test-patients 5 --train-steps 20 --test-steps 10 --output-csv propofol-smoke-scores.csv 2>&1 | tee propofol-smoke-run.log
       - name: Summarize smoke-test paired held-out errors
         run: python Examples/PropofolCovariates/summarize_scores.py propofol-smoke-scores.csv
-      - name: Run development comparison (100 train, up to 25 test)
-        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.smoke_only && !inputs.full_cohort }}
-        shell: bash
-        run: |
-          set -o pipefail
-          python -u Examples/PropofolCovariates/compare_covariates.py --train-steps 1000 --test-steps 300 --output-csv propofol-dev-scores.csv 2>&1 | tee propofol-dev-run.log
-      - name: Summarize exported paired held-out errors
-        if: ${{ success() && github.event_name == 'workflow_dispatch' && !inputs.smoke_only && !inputs.full_cohort }}
-        run: python Examples/PropofolCovariates/summarize_scores.py propofol-dev-scores.csv
-      - name: Run full-cohort comparison (831 train, up to 200 test)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_cohort && !inputs.smoke_only }}
-        shell: bash
-        run: |
-          set -o pipefail
-          python -u Examples/PropofolCovariates/compare_covariates.py --full --train-steps 2000 --test-steps 500 --output-csv propofol-full-scores.csv 2>&1 | tee propofol-full-run.log
-      - name: Summarize full-cohort paired errors
-        if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.full_cohort && !inputs.smoke_only }}
-        run: python Examples/PropofolCovariates/summarize_scores.py propofol-full-scores.csv
       - name: Download validated published symbolic equations
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
@@ -116,6 +98,24 @@ jobs:
         run: |
           set -o pipefail
           python -u Examples/PropofolCovariates/compare_published.py --full --train-steps 2000 --test-steps 500 --output-csv propofol-published-full.csv 2>&1 | tee propofol-published-run.log
+      - name: Run development comparison (100 train, up to 25 test)
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.smoke_only && !inputs.full_cohort }}
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u Examples/PropofolCovariates/compare_covariates.py --train-steps 1000 --test-steps 300 --output-csv propofol-dev-scores.csv 2>&1 | tee propofol-dev-run.log
+      - name: Summarize exported paired held-out errors
+        if: ${{ success() && github.event_name == 'workflow_dispatch' && !inputs.smoke_only && !inputs.full_cohort }}
+        run: python Examples/PropofolCovariates/summarize_scores.py propofol-dev-scores.csv
+      - name: Run full-cohort comparison (831 train, up to 200 test)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_cohort && !inputs.smoke_only }}
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u Examples/PropofolCovariates/compare_covariates.py --full --train-steps 2000 --test-steps 500 --output-csv propofol-full-scores.csv 2>&1 | tee propofol-full-run.log
+      - name: Summarize full-cohort paired errors
+        if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.full_cohort && !inputs.smoke_only }}
+        run: python Examples/PropofolCovariates/summarize_scores.py propofol-full-scores.csv
       - name: Upload paired held-out errors
         if: always()
         uses: actions/upload-artifact@v4
