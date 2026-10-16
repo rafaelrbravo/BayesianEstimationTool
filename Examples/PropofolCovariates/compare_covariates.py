@@ -44,6 +44,18 @@ def make_prior(use_covariates):
     return GlobalPriorFn
 
 
+
+def write_patient_scores(path, patient_ids, scores):
+    """Export the exact patient-aligned values used in paired comparisons."""
+    with open(path, "w", newline="", encoding="utf-8") as output:
+        writer = csv.writer(output)
+        writer.writerow(["patient_id", "baseline_unconditioned", "covariates_unconditioned",
+                         "baseline_conditioned", "covariates_conditioned"])
+        for i, patient_id in enumerate(patient_ids):
+            writer.writerow([int(patient_id), *[float(scores[model][setting][i])
+                              for setting in (0, 1) for model in ("no covariates", "covariates")]])
+
+
 def main():
     parser = argparse.ArgumentParser(description="Compare BET propofol PK models on held-out patients")
     parser.add_argument("--full", action="store_true", help="Use all 831 training and 200 held-out patients")
@@ -101,13 +113,7 @@ def main():
         scores[label] = (unconditioned, conditioned)
         print(f"{label}: unconditioned future log error={float(jnp.mean(unconditioned)):.4f}; conditioned={float(jnp.mean(conditioned)):.4f}")
     if args.output_csv:
-        with open(args.output_csv, "w", newline="", encoding="utf-8") as output:
-            writer = csv.writer(output)
-            writer.writerow(["patient_id", "baseline_unconditioned", "covariates_unconditioned",
-                             "baseline_conditioned", "covariates_conditioned"])
-            for i, patient_id in enumerate(selected_ids[n_train:]):
-                writer.writerow([patient_id, *[float(scores[model][setting][i])
-                                  for setting in (0, 1) for model in ("no covariates", "covariates")]])
+        write_patient_scores(args.output_csv, selected_ids[n_train:], scores)
         print(f"Wrote held-out patient errors: {args.output_csv}")
     for i, setting in enumerate(("unconditioned", "conditioned")):
         delta = scores["covariates"][i] - scores["no covariates"][i]
