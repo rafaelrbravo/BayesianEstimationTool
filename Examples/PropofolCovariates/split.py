@@ -18,6 +18,8 @@ def make_split(n_patients=N_PATIENTS, n_test=N_TEST, seed=SEED):
     if (isinstance(n_patients, (bool, np.bool_)) or isinstance(n_test, (bool, np.bool_)) or
             not isinstance(n_patients, (int, np.integer)) or not isinstance(n_test, (int, np.integer))):
         raise ValueError("Patient and test counts must be integers")
+    if isinstance(seed, (bool, np.bool_)) or not isinstance(seed, (int, np.integer)) or seed < 0:
+        raise ValueError("seed must be a nonnegative integer")
     if not 0 < n_test < n_patients:
         raise ValueError("n_test must be between 1 and n_patients - 1")
     indices = np.random.default_rng(seed).permutation(n_patients)
