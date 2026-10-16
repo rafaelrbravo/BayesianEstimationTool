@@ -117,3 +117,36 @@ def test_batched_unused_sex_branch_singularity_does_not_poison_gradients(tmp_pat
     assert np.isfinite(np.asarray(gradient)).all(), "Inactive female branch poisoned batched male gradients"
     np.testing.assert_allclose(np.asarray(gradient[:, 0]), [0.001 / 40, -0.01], rtol=1e-4, atol=1e-7)
     np.testing.assert_allclose(np.asarray(gradient[:, 1:]), 0., atol=1e-7)
+
+
+def test_reference_validator_rejects_corrupt_predictions(tmp_path):
+    """Validate published export metadata and detect mismatched network rates."""
+    from published_equations import validate_reference_predictions
+
+    common = {"k10": "0.002", "k12": "0.003", "k13": "0.001",
+              "k21": "0.002", "k31": "0.0003", "V1": "10000"}
+    lines = ['output_order = ["k10", "k12", "k13", "k21", "k31", "V1"]', "[equations.common]"]
+    lines += [f'{name} = "{expr}"' for name, expr in common.items()]
+    lines += ["[equations.male]", 'k13 = "0.001"', 'k31 = "0.0003"',
+              "[equations.female]", 'k13 = "0.002"', 'k31 = "0.0006"']
+    path = tmp_path / "equations.toml"
+    path.write_text("\n".join(lines))
+    equations = load_equations(path)
+    patients = [[30. + i, 70., 25., -0.5 if i % 2 else 0.5, -0.5] for i in range(5)]
+    references = [{"covariates": patient,
+                   "rates": np.asarray(published_rates(equations, jnp.asarray(patient))).tolist()}
+                  for patient in patients]
+    artifact = {
+        "source_commit": "939d30699fa6157c14c601712882c51106b82a24",
+        "source_model_git_blob_sha": "aec9732b21a2beaec315eaefebb37699546f9dfa",
+        "output_units": {"k10": "1/s", "k12": "1/s", "k13": "1/s",
+                         "k21": "1/s", "k31": "1/s", "V1": "mL"},
+        "reference_predictions": references,
+    }
+    validate_reference_predictions(equations, artifact)
+    artifact["reference_predictions"][0]["rates"][0] *= 2
+    with pytest.raises(AssertionError):
+        validate_reference_predictions(equations, artifact)
+    artifact["reference_predictions"][0]["rates"][0] = float("nan")
+    with pytest.raises(ValueError, match="Nonfinite"):
+        validate_reference_predictions(equations, artifact)
