@@ -50,3 +50,17 @@ def test_loading_does_not_evaluate_at_arbitrary_inputs(tmp_path):
     equations = load_equations(path)
     result = published_parameters(equations, jnp.array([40., 70., 25., -0.5, -0.5]))
     assert np.isfinite(result).all()
+
+
+def test_sex_specific_expressions_override_unused_common_equations(tmp_path):
+    """Generic k13/k31 must not be evaluated for sex-specific predictions."""
+    lines = ['output_order = ["k10", "k12", "k13", "k21", "k31", "V1"]',
+             "[equations.common]", 'k10 = "0.002"', 'k12 = "0.003"',
+             'k13 = "1 / (x_age - x_age)"', 'k21 = "0.002"',
+             'k31 = "1 / (x_age - x_age)"', 'V1 = "10000"',
+             "[equations.male]", 'k13 = "0.001"', 'k31 = "0.0003"',
+             "[equations.female]", 'k13 = "0.002"', 'k31 = "0.0006"']
+    path = tmp_path / "equations.toml"
+    path.write_text("\n".join(lines))
+    params = published_parameters(load_equations(path), jnp.array([40., 70., 25., -0.5, -0.5]))
+    assert np.isfinite(params).all()
