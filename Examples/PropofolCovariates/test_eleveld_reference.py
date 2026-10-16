@@ -37,3 +37,9 @@ def test_reference_rejects_nonfinite_parameter():
     table.loc[0, "CL"] = np.nan
     with pytest.raises(ValueError, match="positive and finite"):
         reference_parameters(table, [20])
+
+
+def test_reference_rejects_duplicate_patient_id():
+    table = pd.concat([example_table(), example_table().iloc[[0]]], ignore_index=True)
+    with pytest.raises(ValueError, match="Duplicate Eleveld parameter rows"):
+        reference_parameters(table, [20])
