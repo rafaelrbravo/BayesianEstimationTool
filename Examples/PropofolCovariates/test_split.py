@@ -43,3 +43,9 @@ def test_eligibility_precedes_development_limit():
     assert eligible_test_indices(test, ids, counts, limit=2) == [1, 3]
     assert eligible_test_indices(test, ids, counts) == [1, 3, 4]
     assert eligible_test_indices(test, ids, counts, n_fit=4) == [3, 4]
+
+
+@pytest.mark.parametrize("n_patients,n_test", [(True, 1), (10, True), (np.bool_(False), 1)])
+def test_boolean_patient_counts_rejected(n_patients, n_test):
+    with pytest.raises(ValueError, match="integers"):
+        make_split(n_patients=n_patients, n_test=n_test)
