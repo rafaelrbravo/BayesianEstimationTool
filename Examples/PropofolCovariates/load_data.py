@@ -31,8 +31,8 @@ def load_data(directory=None, selected_ids=None, tables=None):
     required = {"TIME", "INFUSIONRATE", "BOLUS", "ISMEASUREMENT"}
     if not required.issubset(events.columns):
         raise ValueError(f"Missing event columns: {sorted(required - set(events.columns))}")
-    covariates = ["AGE", "WGT", "HT", "M1F2", "A1V2"]
-    # The source symbolic-regression network uses AGE, WGT, BMI, sex, AV.
+    covariates = ["AGE", "WGT", "HGT", "M1F2", "A1V2"]
+    # Source columns use HGT; derive BMI and recode sex/route below.
     if not set(covariates).issubset(obs.columns):
         raise ValueError("Missing covariate columns")
     records = []
