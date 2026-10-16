@@ -111,6 +111,16 @@ result = Dict(
     "input_variables" => ["AGE", "WGT", "BMI", "GDR", "AV"],
     "output_order" => ["k10", "k12", "k13", "k21", "k31", "V1"],
     "output_units" => Dict("k10" => "1/s", "k12" => "1/s", "k13" => "1/s", "k21" => "1/s", "k31" => "1/s", "V1" => "mL"),
+    # Store independently evaluated network outputs so the Python consumer
+    # can verify numerical agreement, not merely positivity and syntax.
+    "reference_predictions" => [
+        Dict(
+            "covariates" => collect(input),
+            "rates" => [normalization[i] * reference_functions[i](
+                input[1] / 88, input[2] / 160, input[3] / 52.84713965, input[4], input[5]
+            ) for i in 1:6],
+        ) for input in test_inputs
+    ],
     "equations" => Dict(
         "common" => common,
         "male" => Dict("k13" => male["k13"], "k31" => male["k31"]),
