@@ -67,11 +67,11 @@ def main():
     train, test = make_split(len(arrays["patient_ids"]))
     # Keep only development patients in the JAX arrays; remap split indices.
     # This avoids allocating inference tensors for all 1,031 patients.
-    selected = jnp.asarray(list(train[:100]) + list(test[:25]))
+    selected = list(train[:100]) + list(test[:25])
     n_train = 100
     train = jnp.arange(n_train)
     test = jnp.arange(n_train, len(selected))
-    data = {key: jnp.asarray(value)[selected] for key, value in arrays.items() if key != "patient_ids"}
+    data = {key: jnp.asarray(value[selected]) for key, value in arrays.items() if key != "patient_ids"}
     # A future-only score is undefined for patients with <= N_FIT measurements.
     n_observed = jnp.sum(data["observed"][test], axis=1)
     if bool(jnp.any(n_observed <= N_FIT)):
