@@ -105,6 +105,7 @@ result = Dict(
     "source_commit" => "939d30699fa6157c14c601712882c51106b82a24",
     "julia_version" => "1.8.4",
     "source_model" => "symbreg/bson/bson_ALE/nn_thread1loss_ALE.bson",
+    "source_model_git_blob_sha" => "aec9732b21a2beaec315eaefebb37699546f9dfa",
     "validation" => Dict("method" => "compare reconstructed equations against get_fctsfrommodel", "covariate_combinations" => length(test_inputs), "relative_tolerance" => 1e-8, "absolute_tolerance" => 1e-10),
     "input_normalization" => Dict("AGE" => 88.0, "WGT" => 160.0, "BMI" => 52.84713965),
     "input_variables" => ["AGE", "WGT", "BMI", "GDR", "AV"],
