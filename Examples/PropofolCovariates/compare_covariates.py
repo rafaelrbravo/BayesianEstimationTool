@@ -120,6 +120,8 @@ def main():
     if (n_observed <= N_FIT).any():
         raise ValueError("Event counts and loaded concentrations disagree for held-out patients")
     # Fit centering/scaling on TRAINING patients, never held-out patients.
+    if arrays["covariates"].shape[1] != len(COVARIATE_NAMES):
+        raise ValueError(f"Expected {len(COVARIATE_NAMES)} covariates ({COVARIATE_NAMES})")
     arrays["covariates"] = standardize_covariates(arrays["covariates"], selected[:len(train)])
     # Reorder selected patients as training followed by held-out testing.
     n_train = len(train)
