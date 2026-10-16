@@ -214,3 +214,17 @@ def test_upstream_infusion_rate_matches_administered_dose():
         data = load_data(tables={"observations": observations, "events": events})
     delivered_micrograms = (data["time"][0, 1] - data["time"][0, 0]) * data["rate"][0, 0]
     np.testing.assert_allclose(delivered_micrograms, 39398., rtol=0.002)
+
+
+def test_events_after_final_measurement_are_omitted():
+    """Late dosing cannot change earlier concentrations or their scores."""
+    observations = pd.DataFrame({"ID": [10], "CP": [1.5], "AGE": [40], "WGT": [80], "HT": [200], "M1F2": [1], "A1V2": [2]})
+    events = pd.DataFrame({"ID": [10, 10, 10], "TIME": [0., 30., 60.],
+                           "INFUSIONRATE": [10., 20., 30.], "BOLUS": [100., 200., 300.],
+                           "ISMEASUREMENT": [0, 1, 0]})
+    with patch("load_data.patient_ids", return_value=[10]):
+        data = load_data(tables={"observations": observations, "events": events})
+    np.testing.assert_allclose(data["time"][0], [0., 30.])
+    np.testing.assert_allclose(data["rate"][0], [10., 20.])
+    np.testing.assert_allclose(data["bolus"][0], [100., 200.])
+    np.testing.assert_array_equal(data["observed"][0], [0, 1])
