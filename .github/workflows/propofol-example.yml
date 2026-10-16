@@ -31,11 +31,11 @@ jobs:
       - name: Test dataset consistency checks
         run: python -m pytest -q Examples/PropofolCovariates/test_inspect_data.py
       - name: Test event loader
-        run: python Examples/PropofolCovariates/test_load_data.py
+        run: python -m pytest -q Examples/PropofolCovariates/test_load_data.py
       - name: Test future-only scoring
-        run: python Examples/PropofolCovariates/test_scoring.py
+        run: python -m pytest -q Examples/PropofolCovariates/test_scoring.py
       - name: Test differentiable PK solver
-        run: python Examples/PropofolCovariates/test_pk_model.py
+        run: python -m pytest -q Examples/PropofolCovariates/test_pk_model.py
       - name: Test covariate model behavior
         run: python -m pytest -q Examples/PropofolCovariates/test_covariate_models.py
       - name: Test Eleveld reference parameter alignment
