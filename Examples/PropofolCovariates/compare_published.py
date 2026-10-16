@@ -54,6 +54,21 @@ def main():
         parser.error("Development cohort sizes must be positive")
     # Validate the required Julia export before loading patient data or starting inference.
     equations = load_equations(args.equations)
+    # Recheck exported Julia-network reference outputs before any patient fit.
+    # A syntactically valid TOML alone does not establish numerical parity.
+    import tomllib
+    from pathlib import Path
+    artifact_path = Path(args.equations) if args.equations else Path(__file__).with_name("symbolic_equations.toml")
+    with artifact_path.open("rb") as source:
+        artifact = tomllib.load(source)
+    references = artifact.get("reference_predictions", [])
+    if len(references) != 5:
+        raise ValueError("Published equations require five Julia-network reference predictions")
+    from published_equations import published_rates
+    for reference in references:
+        actual = np.asarray(published_rates(equations, jnp.asarray(reference["covariates"])))
+        np.testing.assert_allclose(actual, reference["rates"], rtol=1e-5, atol=1e-7,
+                                   err_msg=f"Published equation parity failed for {reference['covariates']}")
     print("WARNING: Published coefficients were trained on overlapping Eleveld patients; this is NOT an independent held-out generalization test.", flush=True)
     tables = read_tables()
     ids = patient_ids(tables)
