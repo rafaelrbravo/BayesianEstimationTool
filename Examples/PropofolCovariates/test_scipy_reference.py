@@ -46,3 +46,23 @@ def test_unsorted_events_rejected():
     import pytest
     with pytest.raises(ValueError, match="Unsorted"):
         predict_patient(p, e)
+
+
+def test_invalid_parameters_rejected():
+    import pytest
+    e = events([0., 10.], [0., 0.], [0., 0.], [1, 1])
+    for parameters in ([0., 20., 30., 1., 2., 3.], [10., 20., 30., -1., 2., 3.],
+                       [10., 20., 30., float("nan"), 2., 3.]):
+        with pytest.raises(ValueError, match="PK volumes"):
+            predict_patient(parameters, e)
+
+
+def test_invalid_dosing_and_counts_rejected():
+    import pytest
+    p = [10., 20., 30., 1., 2., 3.]
+    for rates, boluses, counts in [([-1., 0.], [0., 0.], [1, 1]),
+                                   ([0., 0.], [-1., 0.], [1, 1]),
+                                   ([0., 0.], [0., 0.], [1.5, 1]),
+                                   ([float("nan"), 0.], [0., 0.], [1, 1])]:
+        with pytest.raises(ValueError, match="Invalid dosing"):
+            predict_patient(p, events([0., 10.], rates, boluses, counts))
