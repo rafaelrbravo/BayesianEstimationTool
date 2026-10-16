@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install dataset dependencies
-        run: python -m pip install numpy pandas
+        run: python -m pip install -e . numpy pandas scipy "jax[cpu]" numpyro
       - name: Download original upstream CSVs
         run: python Examples/PropofolCovariates/download_data.py
       - name: Validate upstream patient and measurement counts
@@ -49,3 +49,12 @@ jobs:
           assert np.all(np.diff(data["time"], axis=1) >= 0)
           print("Validated", len(data["patient_ids"]), "patients and", int(data["observed"].sum()), "concentrations")
           PY
+      - name: Score supplied Eleveld parameters on held-out development patients
+        run: python -u Examples/PropofolCovariates/eleveld_reference.py --development --output-csv propofol-dev-eleveld.csv
+      - name: Upload independent Eleveld reference scores
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: propofol-data-validation-eleveld-reference
+          path: propofol-dev-eleveld.csv
+          if-no-files-found: ignore
