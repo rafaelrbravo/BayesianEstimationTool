@@ -121,3 +121,37 @@ def published_rates(equations, covariates):
 def published_parameters(equations, covariates):
     """Return solver [V1,V2,V3,CL,Q2,Q3] from raw patient covariates."""
     return published_rates_to_parameters(published_rates(equations, covariates))
+
+
+def validate_reference_predictions(equations, artifact):
+    """Check exported Julia-network predictions before fitting patient data."""
+    import numpy as np
+
+    if artifact.get("source_commit") != "939d30699fa6157c14c601712882c51106b82a24":
+        raise ValueError("Unexpected upstream source commit in published equations")
+    if artifact.get("source_model_git_blob_sha") != "aec9732b21a2beaec315eaefebb37699546f9dfa":
+        raise ValueError("Unexpected trained BSON model in published equations")
+    if artifact.get("output_units") != dict.fromkeys(NAMES[:5], "1/s") | {"V1": "mL"}:
+        raise ValueError("Unexpected published equation output units")
+    references = artifact.get("reference_predictions", [])
+    if len(references) != 5:
+        raise ValueError("Published equations require five Julia-network reference predictions")
+    seen_profiles = set()
+    for reference in references:
+        covariates = np.asarray(reference["covariates"], dtype=float)
+        expected = np.asarray(reference["rates"], dtype=float)
+        if covariates.shape != (5,) or expected.shape != (6,):
+            raise ValueError("Invalid Julia reference covariate or rate vector shape")
+        if not np.isfinite(covariates).all() or not np.isfinite(expected).all() or np.any(expected <= 0):
+            raise ValueError("Nonfinite or nonpositive Julia reference data")
+        if covariates[3] not in (-0.5, 0.5) or covariates[4] not in (-0.5, 0.5):
+            raise ValueError("Invalid sex or arterial/venous encoding in Julia reference")
+        profile = tuple(covariates)
+        if profile in seen_profiles:
+            raise ValueError("Duplicate Julia reference covariate profile")
+        seen_profiles.add(profile)
+        actual = np.asarray(published_rates(equations, jnp.asarray(covariates)))
+        if not np.isfinite(actual).all() or np.any(actual <= 0):
+            raise ValueError(f"Nonphysical JAX published rates for {profile}")
+        np.testing.assert_allclose(actual, expected, rtol=1e-5, atol=1e-7,
+                                   err_msg=f"Published equation parity failed for {profile}")
