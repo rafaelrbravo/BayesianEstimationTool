@@ -89,4 +89,12 @@ if __name__ == "__main__":
     np.testing.assert_allclose(
         concentrations(simple, repeated_time, repeated_rate, repeated_bolus),
         [0.1, 0.3, 0.4, 0.5], rtol=1e-5, atol=1e-6)
+    # Isolated central compartment must reproduce analytic exponential elimination.
+    # CL=0.6 L/min, V1=10 L implies an elimination constant of 0.001/s.
+    elimination = jnp.array([10., 20., 30., 0.6, 0., 0.])
+    elimination_time = jnp.array([0., 60., 120.])
+    elimination_bolus = jnp.array([10000., 0., 0.])
+    np.testing.assert_allclose(
+        concentrations(elimination, elimination_time, jnp.zeros(3), elimination_bolus),
+        jnp.exp(-0.001 * elimination_time), rtol=1e-5, atol=1e-6)
     print("PK solver smoke tests passed")
