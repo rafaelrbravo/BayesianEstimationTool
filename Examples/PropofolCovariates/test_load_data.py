@@ -82,10 +82,20 @@ def test_select_patient_before_padding():
     np.testing.assert_array_equal(data["patient_ids"], [20])
     assert data["time"].shape == (1, 1)
 
+
+def test_selected_ids_preserve_sorted_order():
+    observations = pd.DataFrame({"ID": [10, 20], "CP": [1., 2.], "AGE": [40, 60], "WGT": [80, 90], "HT": [200, 180], "M1F2": [1, 2], "A1V2": [2, 1]})
+    events = pd.DataFrame({"ID": [10, 20], "TIME": [0., 0.], "INFUSIONRATE": [10., 20.], "BOLUS": [100., 0.], "ISMEASUREMENT": [1, 1]})
+    tables = {"observations": observations, "events": events}
+    with patch("load_data.patient_ids", return_value=[10, 20]):
+        data = load_data(selected_ids=[20, 10], tables=tables)
+    np.testing.assert_array_equal(data["patient_ids"], [10, 20])
+
 if __name__ == "__main__":
     test_padded_events_and_covariates()
     test_rejects_mismatched_measurements()
     test_repeated_measurements_at_one_event()
     test_rejects_fractional_measurement_counts()
     test_select_patient_before_padding()
+    test_selected_ids_preserve_sorted_order()
     print("Synthetic loader checks passed")
