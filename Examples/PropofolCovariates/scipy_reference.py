@@ -1,5 +1,6 @@
 """Independent SciPy Eleveld reference (no BET, JAX, or fitting)."""
 import argparse
+import csv
 import numpy as np
 from scipy.linalg import expm
 from inspect_data import patient_ids, read_tables
@@ -29,7 +30,7 @@ def predict_patient(parameters, events):
     return np.asarray(predictions)
 
 
-def evaluate(development=True, n_fit=3):
+def evaluate(development=True, n_fit=3, output_csv=None):
     tables = read_tables()
     ids = patient_ids(tables)
     _, test = make_split(len(ids))
@@ -47,6 +48,15 @@ def evaluate(development=True, n_fit=3):
             raise ValueError(f"Invalid reference prediction for patient {patient_id}")
         errors.append(np.mean(np.abs(np.log(np.maximum(prediction[n_fit:], 1e-6)) -
                                      np.log(observed[n_fit:]))))
+    if not errors:
+        raise ValueError("No held-out patients have future observations")
+    if not np.isfinite(errors).all():
+        raise ValueError("Nonfinite SciPy reference errors")
+    if output_csv is not None:
+        with open(output_csv, "w", newline="", encoding="utf-8") as output:
+            writer = csv.writer(output)
+            writer.writerow(["patient_id", "eleveld_future_log_error"])
+            writer.writerows((int(ids[index]), float(error)) for index, error in zip(selected, errors))
     print(f"SciPy Eleveld reference: {len(errors)} held-out patients")
     print(f"Mean future absolute log error: {np.mean(errors):.4f}")
     print(f"Median patient future absolute log error: {np.median(errors):.4f}")
@@ -56,5 +66,6 @@ def evaluate(development=True, n_fit=3):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--full", action="store_true")
+    parser.add_argument("--output-csv", help="Optional patient-level scores for cross-checking JAX reference")
     args = parser.parse_args()
-    evaluate(development=not args.full)
+    evaluate(development=not args.full, output_csv=args.output_csv)
