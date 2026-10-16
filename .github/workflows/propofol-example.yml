@@ -24,5 +24,7 @@ jobs:
         run: python -m compileall -q Examples/PropofolCovariates
       - name: Test event loader
         run: python Examples/PropofolCovariates/test_load_data.py
-      - name: Test future-only scoring\n        run: python Examples/PropofolCovariates/test_scoring.py\n      - name: Test differentiable PK solver
+      - name: Test future-only scoring
+        run: python Examples/PropofolCovariates/test_scoring.py
+      - name: Test differentiable PK solver
         run: python Examples/PropofolCovariates/test_pk_model.py
