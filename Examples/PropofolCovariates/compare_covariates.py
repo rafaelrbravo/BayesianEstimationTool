@@ -87,11 +87,13 @@ def main():
     train, test = make_split(len(ids))
     # Use the identical development patients and future-only evaluation.
     if not args.full:
-        train, test = train[:args.train_patients], test[:args.test_patients]
+        train = train[:args.train_patients]
     # Keep the prespecified test partition, excluding only patients without
     # a future concentration after the three conditioning measurements.
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
     eligible_test = [i for i in test if counts.get(ids[i], 0) > 3]
+    if not args.full:
+        eligible_test = eligible_test[:args.test_patients]
     print(f"Evaluable held-out patients: {len(eligible_test)}/{len(test)} (need >=4 concentrations)")
     if not eligible_test:
         raise ValueError("No held-out patients have at least four measured concentrations")
