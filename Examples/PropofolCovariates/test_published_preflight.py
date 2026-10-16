@@ -57,3 +57,8 @@ def test_reject_nonfinite_symbolic_output(equations):
 def test_reject_wrong_covariate_shape(equations):
     with pytest.raises(ValueError, match="two-dimensional"):
         validate_published_patients(equations, np.array([40., 70., 25., -0.5, -0.5]))
+
+
+def test_reject_empty_cohort(equations):
+    with pytest.raises(ValueError, match="At least one patient"):
+        validate_published_patients(equations, np.empty((0, 5)))
