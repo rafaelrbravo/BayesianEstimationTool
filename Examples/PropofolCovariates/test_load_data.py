@@ -269,3 +269,21 @@ def test_rejects_unsorted_events_before_inference():
     with patch("load_data.patient_ids", return_value=[10]):
         with np.testing.assert_raises_regex(ValueError, "Unsorted or missing event times"):
             load_data(tables={"observations": observations, "events": events})
+
+
+def test_rejects_invalid_categorical_covariates():
+    import pytest
+    observations = pd.DataFrame({"ID": [10], "CP": [1.5], "AGE": [40], "WGT": [80], "HT": [200], "M1F2": [0], "A1V2": [2]})
+    events = pd.DataFrame({"ID": [10], "TIME": [0.], "INFUSIONRATE": [0.], "BOLUS": [100.], "ISMEASUREMENT": [1]})
+    with patch("load_data.patient_ids", return_value=[10]):
+        with pytest.raises(ValueError, match="Invalid sex/route encoding"):
+            load_data(tables={"observations": observations, "events": events})
+
+
+def test_rejects_nonpositive_age():
+    import pytest
+    observations = pd.DataFrame({"ID": [10], "CP": [1.5], "AGE": [0], "WGT": [80], "HT": [200], "M1F2": [1], "A1V2": [2]})
+    events = pd.DataFrame({"ID": [10], "TIME": [0.], "INFUSIONRATE": [0.], "BOLUS": [100.], "ISMEASUREMENT": [1]})
+    with patch("load_data.patient_ids", return_value=[10]):
+        with pytest.raises(ValueError, match="Invalid age/height/weight"):
+            load_data(tables={"observations": observations, "events": events})
