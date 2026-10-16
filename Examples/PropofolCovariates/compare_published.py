@@ -10,7 +10,8 @@ import jax.numpy as jnp
 import BayesianEstimationTool as bet
 from bet_baseline import PARAMETERS, N_FIT, ScoreFn, TrainLikelihoodFn, TestLikelihoodFn
 from compare_covariates import COVARIATE_NAMES, make_model, make_prior, validate_scores, write_patient_scores
-from published_bet_model import build_published_model, GlobalPriorFn as PublishedPrior
+from published_bet_model import make_published_model, GlobalPriorFn as PublishedPrior
+from published_equations import load_equations
 from load_data import load_data
 from inspect_data import read_tables, patient_ids
 from paired_stats import paired_bootstrap_interval
@@ -30,6 +31,8 @@ def main():
         parser.error("SVI steps must be positive")
     if args.train_patients < 1 or args.test_patients < 1:
         parser.error("Development cohort sizes must be positive")
+    # Validate the required Julia export before loading patient data or starting inference.
+    equations = load_equations(args.equations)
     print("WARNING: Published coefficients were trained on overlapping Eleveld patients; this is NOT an independent held-out generalization test.", flush=True)
     tables = read_tables()
     ids = patient_ids(tables)
@@ -76,7 +79,7 @@ def main():
     for use_covariates in (False, True):
         label = "covariates" if use_covariates else "no covariates"
         print(f"Training {label} model on {n_train} patients", flush=True)
-        model = build_published_model(args.equations) if use_covariates else make_model(False)
+        model = make_published_model(equations) if use_covariates else make_model(False)
         prior = PublishedPrior if use_covariates else make_prior(False)
         est = bet.Estimator(data=data, ModelFn=model, localZNames=list(PARAMETERS),
                             GlobalPriorFn=prior, rngSeed=0)
