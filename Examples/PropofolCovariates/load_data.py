@@ -80,8 +80,8 @@ def load_data(directory=None, selected_ids=None, tables=None):
         # Enforce time ordering here, before JAX tracing and inference.
         if len(times) == 0 or np.any(np.diff(times) < 0):
             raise ValueError(f"Unsorted or missing event times for ID {patient_id}")
-        if len(concentration) != int(counts.sum()):
-            raise ValueError(f"Measurement count mismatch for ID {patient_id}: {len(concentration)} vs {mask.sum()}")
+        if len(concentration) != n_measurements:
+            raise ValueError(f"Measurement count mismatch for ID {patient_id}: {len(concentration)} vs {n_measurements}")
         if np.any(~np.isfinite(concentration)) or np.any(concentration <= 0):
             raise ValueError(f"Invalid measured concentration for ID {patient_id}")
         if np.any(~np.isfinite(times)) or np.any(~np.isfinite(rate)) or np.any(~np.isfinite(bolus)) or np.any(rate < 0) or np.any(bolus < 0):
