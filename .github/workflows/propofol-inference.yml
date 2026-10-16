@@ -10,7 +10,7 @@ on:
       smoke_only:
         description: "Run only the 10-patient SVI smoke test (skip development fit)"
         type: boolean
-        default: false
+        default: true
       full_cohort:
         description: "After smoke, fit all 831 training patients and score eligible held-out patients (resource-intensive)"
         type: boolean
