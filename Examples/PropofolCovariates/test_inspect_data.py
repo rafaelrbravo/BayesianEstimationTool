@@ -80,3 +80,11 @@ def test_excluded_patient_invalid_event_counts_do_not_block_validation():
         "events": pd.DataFrame({"ID": [10, 893], "ISMEASUREMENT": [1, float("nan")]}),
     }
     assert validate_measurement_counts(tables, [10]) == 1
+
+
+def test_excluded_patient_invalid_concentration_does_not_block_validation():
+    tables = {
+        "observations": pd.DataFrame({"ID": [10, 893], "CP": [1., float("inf")]}),
+        "events": pd.DataFrame({"ID": [10], "ISMEASUREMENT": [1]}),
+    }
+    assert validate_measurement_counts(tables, [10]) == 1
