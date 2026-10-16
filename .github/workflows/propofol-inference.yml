@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python -u Examples/PropofolCovariates/scipy_reference.py 2>&1 | tee propofol-scipy-reference.log
+          python -u Examples/PropofolCovariates/scipy_reference.py --output-csv propofol-dev-scipy.csv 2>&1 | tee propofol-scipy-reference.log
       - name: Run minimal end-to-end SVI smoke test
         shell: bash
         run: |
@@ -77,6 +77,7 @@ jobs:
             propofol-smoke-scores.csv
             propofol-smoke-run.log
             propofol-dev-eleveld.csv
+            propofol-dev-scipy.csv
             propofol-download.log
             propofol-data-check.log
             propofol-eleveld-run.log
