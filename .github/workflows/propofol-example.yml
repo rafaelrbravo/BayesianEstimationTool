@@ -36,5 +36,7 @@ jobs:
         run: python Examples/PropofolCovariates/test_pk_model.py
       - name: Test covariate model behavior
         run: python -m pytest -q Examples/PropofolCovariates/test_covariate_models.py
+      - name: Test Eleveld reference parameter alignment
+        run: python -m pytest -q Examples/PropofolCovariates/test_eleveld_reference.py
       - name: Test paired bootstrap intervals
         run: python -m pytest -q Examples/PropofolCovariates/test_bootstrap.py
