@@ -53,7 +53,13 @@ def main():
     scale = cov[train].std(axis=0)
     scale = jnp.where(scale > 0, scale, 1.)
     arrays["covariates"] = (cov - mean) / scale
-    data = {key: jnp.asarray(value) for key, value in arrays.items() if key != "patient_ids"}
+    # Keep only development patients in the JAX arrays; remap split indices.
+    # This avoids allocating inference tensors for all 1,031 patients.
+    selected = jnp.asarray(list(train) + list(test))
+    n_train = len(train)
+    train = jnp.arange(n_train)
+    test = jnp.arange(n_train, len(selected))
+    data = {key: jnp.asarray(value)[selected] for key, value in arrays.items() if key != "patient_ids"}
     scores = {}
     for use_covariates in (False, True):
         label = "covariates" if use_covariates else "no covariates"
