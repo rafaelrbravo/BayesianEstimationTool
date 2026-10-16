@@ -1,0 +1,28 @@
+name: Propofol example checks
+
+on:
+  push:
+    paths:
+      - "Examples/PropofolCovariates/**"
+      - ".github/workflows/propofol-example.yml"
+  pull_request:
+    paths:
+      - "Examples/PropofolCovariates/**"
+      - ".github/workflows/propofol-example.yml"
+
+jobs:
+  synthetic-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install numerical test dependencies
+        run: python -m pip install numpy pandas scipy "jax[cpu]"
+      - name: Validate syntax
+        run: python -m compileall -q Examples/PropofolCovariates
+      - name: Test event loader
+        run: python Examples/PropofolCovariates/test_load_data.py
+      - name: Test differentiable PK solver
+        run: python Examples/PropofolCovariates/test_pk_model.py
