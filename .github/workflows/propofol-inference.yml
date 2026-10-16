@@ -68,7 +68,7 @@ jobs:
           record["upstream_commit"] = "939d30699fa6157c14c601712882c51106b82a24"
           record["split_seed"] = 20261015
           record["conditioning_measurements"] = 3
-          Path("propofol-run-manifest.json").write_text(json.dumps(record, indent=2) + "\\n")
+          Path("propofol-run-manifest.json").write_text(json.dumps(record, indent=2) + chr(10))
           print(json.dumps(record, indent=2))
           PY
       - name: Install BET and numerical dependencies
