@@ -64,6 +64,7 @@ def load_data(directory=None, selected_ids=None, tables=None):
         mask = np.repeat(counts > 0, repeats).astype(np.int32)
         bolus[np.arange(len(bolus)) != first] = 0.
         concentration = o.CP.to_numpy(dtype=np.float64)
+        # Enforce time ordering here, before JAX tracing and inference.
         if len(times) == 0 or np.any(np.diff(times) < 0):
             raise ValueError(f"Unsorted or missing event times for ID {patient_id}")
         if len(concentration) != int(counts.sum()):
