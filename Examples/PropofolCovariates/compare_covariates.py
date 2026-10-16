@@ -124,12 +124,15 @@ def main():
     scores = {}
     for use_covariates in (False, True):
         label = "covariates" if use_covariates else "no covariates"
+        print(f"Training {label} model on {n_train} patients", flush=True)
         est = bet.Estimator(data=data, ModelFn=make_model(use_covariates), localZNames=list(PARAMETERS),
                             GlobalPriorFn=make_prior(use_covariates), rngSeed=0)
         est.Train(trainDataIdxs=jnp.asarray(train), TrainLikelihoodFn=TrainLikelihoodFn,
                   Method=bet.Svi(numSteps=args.train_steps, numSamples=50, progressBar=False))
+        print(f"Scoring {label} model without conditioning", flush=True)
         est.Test(testDataIdxs=jnp.asarray(test), nLocalZSamples=50)
         unconditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn), axis=(0, 1))
+        print(f"Conditioning {label} model on first {N_FIT} concentrations", flush=True)
         est.Test(testDataIdxs=jnp.asarray(test), TestLikelihoodFn=TestLikelihoodFn,
                  Method=bet.Svi(numSteps=args.test_steps, numSamples=50, progressBar=False))
         conditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn), axis=(0, 1))
