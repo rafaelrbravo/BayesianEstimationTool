@@ -39,6 +39,10 @@ The script activates the upstream `symbreg/Project.toml`, loads the committed `b
 
 **Interpretation caveat:** The published BSON model was fitted on the upstream Eleveld patient cohort, which overlaps the patient data used here. Predictions from those fixed published coefficients are therefore **not independent held-out generalization estimates** on this cohort, even if our BET split is disjoint. The exploratory linear BET comparison does fit its coefficients only on its training partition. Any eventual comparison involving the original published model must explicitly disclose this pretraining overlap; a leakage-free comparison would require retraining the published structure on training patients only or evaluating on an independent external cohort.
 
+### Fixed published-model comparison runner
+
+After producing and validating `symbolic_equations.toml`, run `python Examples/PropofolCovariates/compare_published.py` for the 100-training/25-evaluable-test development experiment, or append `--full` for the larger cohort. Use `--equations PATH` for a nondefault TOML path. This runs the same baseline, early-measurement conditioning, future-only score and paired bootstrap as the exploratory comparison, but uses **raw** covariates and fixed published equations. **Important:** The published coefficients were learned on overlapping patients; this is a descriptive compatibility comparison, not independent held-out generalization. This runner and its inference have not yet been executed successfully.
+
 ## Local validation and inference
 
 From the BET repository root, with `numpy`, `pandas`, `scipy`, `jax`, and `numpyro` installed:
