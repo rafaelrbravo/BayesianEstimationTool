@@ -22,6 +22,9 @@ from split import make_split, eligible_test_indices
 def reference_parameters(parameters, patient_ids):
     """Align Eleveld parameters by patient ID, never by CSV row position."""
     columns = ["V1", "V2", "V3", "CL", "Q2", "Q3"]
+    missing_columns = set(["ID", *columns]) - set(parameters.columns)
+    if missing_columns:
+        raise ValueError(f"Missing Eleveld parameter columns: {sorted(missing_columns)}")
     if parameters["ID"].duplicated().any():
         raise ValueError("Duplicate Eleveld parameter rows for a patient ID")
     indexed = parameters.set_index("ID")
