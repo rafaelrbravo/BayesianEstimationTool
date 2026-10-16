@@ -111,7 +111,9 @@ def test_batched_unused_sex_branch_singularity_does_not_poison_gradients(tmp_pat
     # Exercise the compiled batched path used in JAX-based inference as well.
     compiled_rates = jax.jit(jax.vmap(lambda x: published_rates(equations, x)))(patients)
     np.testing.assert_allclose(np.asarray(compiled_rates), np.asarray(rates), rtol=1e-6)
+    compiled_gradient = jax.jit(jax.grad(summed_outputs))(patients)
     gradient = jax.grad(summed_outputs)(patients)
+    np.testing.assert_allclose(np.asarray(compiled_gradient), np.asarray(gradient), rtol=1e-5, atol=1e-7)
     assert np.isfinite(np.asarray(gradient)).all(), "Inactive female branch poisoned batched male gradients"
     np.testing.assert_allclose(np.asarray(gradient[:, 0]), [0.001 / 40, -0.01], rtol=1e-4, atol=1e-7)
     np.testing.assert_allclose(np.asarray(gradient[:, 1:]), 0., atol=1e-7)
