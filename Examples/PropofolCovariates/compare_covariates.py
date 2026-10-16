@@ -105,6 +105,8 @@ def main():
         parser.error("SVI steps must be positive")
     if args.train_patients < 1 or args.test_patients < 1:
         parser.error("Development cohort sizes must be positive")
+    if args.full and args.train_patients != 100:
+        print("Note: --full overrides --train-patients and --test-patients.", flush=True)
     tables = read_tables()
     ids = patient_ids(tables)
     validate_measurement_counts(tables, ids)
