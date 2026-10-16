@@ -51,8 +51,13 @@ def summarize(ids, scores):
 def main():
     parser = argparse.ArgumentParser(description="Summarize held-out BET propofol comparison")
     parser.add_argument("scores_csv", help="Paired scores exported by compare_covariates.py")
+    parser.add_argument("--expected-patients", type=int, help="Fail if the score file does not contain exactly this many patients")
     args = parser.parse_args()
+    if args.expected_patients is not None and args.expected_patients < 1:
+        parser.error("--expected-patients must be positive")
     ids, scores = read_scores(args.scores_csv)
+    if args.expected_patients is not None and len(ids) != args.expected_patients:
+        raise ValueError(f"Expected {args.expected_patients} held-out patients, found {len(ids)}")
     summarize(ids, scores)
 
 
