@@ -29,7 +29,8 @@ def published_rates_to_parameters(rates):
 def concentrations(parameters, time, rate, bolus):
     """parameters = [V1, V2, V3, CL, Q2, Q3] in L and L/min."""
     v1, v2, v3, cl, q2, q3 = parameters
-    # Seconds are the time unit; rates are micrograms per second.
+    # Seconds are the time unit; rates are interpreted as micrograms per second
+    # to match the published simulator dynamics (despite its data-file comment).
     cl, q2, q3 = cl / 60, q2 / 60, q3 / 60
     a = jnp.array([
         [-(cl + q2 + q3) / v1, q2 / v2, q3 / v3],
@@ -50,8 +51,8 @@ def concentrations(parameters, time, rate, bolus):
             return (transition @ jnp.concatenate((amount, jnp.array([infusion]))))[:3]
 
         # Input histories must have nondecreasing times; negative durations are
-    # deliberately not clamped so invalid event histories are not hidden.
-    # Padded and repeated-measurement rows have dt=0. Avoid a costly
+        # deliberately not clamped so invalid event histories are not hidden.
+        # Padded and repeated-measurement rows have dt=0. Avoid a costly
         # matrix exponential for these rows during every inference iteration.
         next_amount = jax.lax.cond(duration > 0, propagate, lambda _: amount, operand=None)
         return next_amount, concentration
