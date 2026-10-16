@@ -113,6 +113,17 @@ def test_rejects_empty_selection():
         else:
             raise AssertionError("Empty selection must fail")
 
+
+def test_multiple_repeated_measurement_events():
+    observations = pd.DataFrame({"ID": [10] * 4, "CP": [1., 1.1, 2., 2.1], "AGE": [40] * 4, "WGT": [80] * 4, "HT": [200] * 4, "M1F2": [1] * 4, "A1V2": [2] * 4})
+    events = pd.DataFrame({"ID": [10, 10, 10], "TIME": [0., 30., 60.], "INFUSIONRATE": [10., 20., 0.], "BOLUS": [100., 200., 300.], "ISMEASUREMENT": [2, 0, 2]})
+    with patch("load_data.patient_ids", return_value=[10]):
+        data = load_data(tables={"observations": observations, "events": events})
+    np.testing.assert_allclose(data["time"][0], [0., 0., 30., 60., 60.])
+    np.testing.assert_allclose(data["bolus"][0], [100., 0., 200., 300., 0.])
+    np.testing.assert_array_equal(data["observed"][0], [1, 1, 0, 1, 1])
+    np.testing.assert_allclose(data["concentration"][0], [1., 1.1, 0., 2., 2.1])
+
 if __name__ == "__main__":
     test_padded_events_and_covariates()
     test_rejects_mismatched_measurements()
@@ -122,4 +133,5 @@ if __name__ == "__main__":
     test_selected_ids_preserve_sorted_order()
     test_rejects_nonfinite_infusion()
     test_rejects_empty_selection()
+    test_multiple_repeated_measurement_events()
     print("Synthetic loader checks passed")
