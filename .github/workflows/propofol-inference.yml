@@ -39,16 +39,6 @@ jobs:
         run: python -m pip install -e . numpy pandas scipy "jax[cpu]" numpyro pytest
       - name: Run synthetic regression tests before inference
         run: python -m pytest -q Examples/PropofolCovariates/test_*.py
-      - name: Download upstream data
-        shell: bash
-        run: |
-          set -o pipefail
-          python -u Examples/PropofolCovariates/download_data.py 2>&1 | tee propofol-download.log
-      - name: Check patient universe and measurements
-        shell: bash
-        run: |
-          set -o pipefail
-          python -u Examples/PropofolCovariates/inspect_data.py 2>&1 | tee propofol-data-check.log
       - name: Download validated published symbolic equations
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
@@ -77,6 +67,16 @@ jobs:
           assert len(artifact["reference_predictions"]) == 5, "Missing original-network parity references"
           print("Validated downloaded published-equation artifact provenance and reference records.")
           PY
+      - name: Download upstream data
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u Examples/PropofolCovariates/download_data.py 2>&1 | tee propofol-download.log
+      - name: Check patient universe and measurements
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u Examples/PropofolCovariates/inspect_data.py 2>&1 | tee propofol-data-check.log
       - name: Run published equations versus no-covariate baseline
         if: ${{ github.event_name == 'workflow_dispatch' && !inputs.full_cohort }}
         shell: bash
