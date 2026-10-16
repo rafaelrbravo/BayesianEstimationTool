@@ -31,6 +31,15 @@ def read_tables(directory=DATA_DIR):
             raise FileNotFoundError(f"Missing {path}; obtain it from the upstream symbreg/data directory")
         table = pd.read_csv(path)
         table.columns = table.columns.str.strip().str.upper()
+        if name == "observations":
+            # The upstream README calls height HGT, while its Julia loader
+            # indexes HT. Accept either spelling and normalize internally.
+            if "HT" in table and "HGT" in table:
+                if not table["HT"].equals(table["HGT"]):
+                    raise ValueError("dataframe.csv has conflicting HT and HGT height columns")
+                table = table.drop(columns="HGT")
+            elif "HGT" in table:
+                table = table.rename(columns={"HGT": "HT"})
         if "ID" not in table:
             raise ValueError(f"{filename} is missing ID")
         tables[name] = table
