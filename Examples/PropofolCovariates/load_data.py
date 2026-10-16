@@ -37,7 +37,7 @@ def load_data(directory=None, selected_ids=None, tables=None):
         e = events.loc[events.ID == patient_id]
         o = obs.loc[(obs.ID == patient_id) & (obs.CP > 0)]
         times = e.TIME.to_numpy(dtype=np.float64)
-        rate = e.INFUSIONRATE.to_numpy(dtype=np.float64) / 60.0  # upstream ug/min -> solver ug/s
+        rate = e.INFUSIONRATE.to_numpy(dtype=np.float64)  # upstream and solver both use ug/s
         bolus = e.BOLUS.to_numpy(dtype=np.float64)
         raw_counts = e.ISMEASUREMENT.to_numpy(dtype=np.float64)
         if np.any(~np.isfinite(raw_counts)) or np.any(raw_counts < 0) or np.any(raw_counts != np.floor(raw_counts)):
