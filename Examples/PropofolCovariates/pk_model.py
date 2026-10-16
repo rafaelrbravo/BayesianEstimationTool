@@ -50,10 +50,9 @@ def concentrations(parameters, time, rate, bolus):
             transition = expm(aug * duration)
             return (transition @ jnp.concatenate((amount, jnp.array([infusion]))))[:3]
 
-        # Input histories must have nondecreasing times; negative durations are
-        # deliberately not clamped so invalid event histories are not hidden.
-        # Padded and repeated-measurement rows have dt=0. Avoid a costly
-        # matrix exponential for these rows during every inference iteration.
+        # The data loader validates nondecreasing times before tracing. The
+        # positive-duration branch skips padded and repeated-measurement rows;
+        # this traced kernel does not itself raise on negative durations.
         next_amount = jax.lax.cond(duration > 0, propagate, lambda _: amount, operand=None)
         return next_amount, concentration
 
