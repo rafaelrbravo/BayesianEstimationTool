@@ -2,7 +2,7 @@
 import pandas as pd
 import pytest
 
-from inspect_data import validate_measurement_counts
+from inspect_data import validate_measurement_counts, validate_measurement_times
 
 
 def test_matching_counts():
@@ -88,3 +88,20 @@ def test_excluded_patient_invalid_concentration_does_not_block_validation():
         "events": pd.DataFrame({"ID": [10], "ISMEASUREMENT": [1]}),
     }
     assert validate_measurement_counts(tables, [10]) == 1
+
+
+def test_measurement_times_match_after_minute_to_second_conversion():
+    tables = {
+        "observations": pd.DataFrame({"ID": [10, 10, 20], "CP": [1., 2., 3.], "TIME": [1., 1., 2.]}),
+        "events": pd.DataFrame({"ID": [10, 20], "TIME": [60.5, 120.], "ISMEASUREMENT": [2, 1]}),
+    }
+    validate_measurement_times(tables, [10, 20])
+
+
+def test_measurement_time_mismatch_identifies_patient():
+    tables = {
+        "observations": pd.DataFrame({"ID": [10], "CP": [1.], "TIME": [1.]}),
+        "events": pd.DataFrame({"ID": [10], "TIME": [90.], "ISMEASUREMENT": [1]}),
+    }
+    with pytest.raises(ValueError, match="times disagree for ID 10"):
+        validate_measurement_times(tables, [10])
