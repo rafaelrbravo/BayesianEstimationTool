@@ -12,7 +12,7 @@ import BayesianEstimationTool as bet
 from bet_baseline import PARAMETERS, N_FIT, ScoreFn, TrainLikelihoodFn, TestLikelihoodFn
 from compare_covariates import COVARIATE_NAMES, make_model, make_prior, validate_scores, write_patient_scores
 from published_bet_model import make_published_model, GlobalPriorFn as PublishedPrior
-from published_equations import load_equations, published_parameters
+from published_equations import load_equations, published_parameters, validate_reference_predictions
 from load_data import load_data
 from inspect_data import read_tables, patient_ids, validate_measurement_counts, validate_measurement_times
 from paired_stats import paired_bootstrap_interval
@@ -61,35 +61,7 @@ def main():
     artifact_path = Path(args.equations) if args.equations else Path(__file__).with_name("symbolic_equations.toml")
     with artifact_path.open("rb") as source:
         artifact = tomllib.load(source)
-    if artifact.get("source_commit") != "939d30699fa6157c14c601712882c51106b82a24":
-        raise ValueError("Unexpected upstream source commit in published equations")
-    if artifact.get("source_model_git_blob_sha") != "aec9732b21a2beaec315eaefebb37699546f9dfa":
-        raise ValueError("Unexpected trained BSON model in published equations")
-    if artifact.get("output_units") != {"k10": "1/s", "k12": "1/s", "k13": "1/s", "k21": "1/s", "k31": "1/s", "V1": "mL"}:
-        raise ValueError("Unexpected published equation output units")
-    references = artifact.get("reference_predictions", [])
-    if len(references) != 5:
-        raise ValueError("Published equations require five Julia-network reference predictions")
-    from published_equations import published_rates
-    seen_profiles = set()
-    for reference in references:
-        covariates = np.asarray(reference["covariates"], dtype=float)
-        expected = np.asarray(reference["rates"], dtype=float)
-        if covariates.shape != (5,) or expected.shape != (6,):
-            raise ValueError("Invalid Julia reference covariate or rate vector shape")
-        if not np.isfinite(covariates).all() or not np.isfinite(expected).all() or np.any(expected <= 0):
-            raise ValueError("Nonfinite or nonpositive Julia reference data")
-        if covariates[3] not in (-0.5, 0.5) or covariates[4] not in (-0.5, 0.5):
-            raise ValueError("Invalid sex or arterial/venous encoding in Julia reference")
-        profile = tuple(covariates)
-        if profile in seen_profiles:
-            raise ValueError("Duplicate Julia reference covariate profile")
-        seen_profiles.add(profile)
-        actual = np.asarray(published_rates(equations, jnp.asarray(covariates)))
-        if not np.isfinite(actual).all() or np.any(actual <= 0):
-            raise ValueError(f"Nonphysical JAX published rates for {profile}")
-        np.testing.assert_allclose(actual, expected, rtol=1e-5, atol=1e-7,
-                                   err_msg=f"Published equation parity failed for {profile}")
+    validate_reference_predictions(equations, artifact)
     print("WARNING: Published coefficients were trained on overlapping Eleveld patients; this is NOT an independent held-out generalization test.", flush=True)
     tables = read_tables()
     ids = patient_ids(tables)
