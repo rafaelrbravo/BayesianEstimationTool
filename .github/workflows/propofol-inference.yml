@@ -51,6 +51,8 @@ jobs:
         run: |
           set -o pipefail
           python -u Examples/PropofolCovariates/scipy_reference.py --output-csv propofol-dev-scipy.csv 2>&1 | tee propofol-scipy-reference.log
+      - name: Check SciPy and JAX reference agreement
+        run: python Examples/PropofolCovariates/compare_references.py propofol-dev-eleveld.csv propofol-dev-scipy.csv
       - name: Run minimal end-to-end SVI smoke test
         shell: bash
         run: |
