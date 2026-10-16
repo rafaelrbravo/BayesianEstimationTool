@@ -61,8 +61,21 @@ def test_repeated_measurements_at_one_event():
     np.testing.assert_allclose(data["concentration"][0], [1.5, 1.6, 0.])
 
 
+
+def test_rejects_fractional_measurement_counts():
+    observations = pd.DataFrame({"ID": [10], "CP": [1.5], "AGE": [40], "WGT": [80], "HT": [200], "M1F2": [1], "A1V2": [2]})
+    events = pd.DataFrame({"ID": [10], "TIME": [0.], "INFUSIONRATE": [10.], "BOLUS": [100.], "ISMEASUREMENT": [1.5]})
+    with patch("load_data.read_tables", return_value={"observations": observations, "events": events}), patch("load_data.patient_ids", return_value=[10]):
+        try:
+            load_data()
+        except ValueError as error:
+            assert "Invalid measurement counts" in str(error)
+        else:
+            raise AssertionError("Fractional measurement counts must fail")
+
 if __name__ == "__main__":
     test_padded_events_and_covariates()
     test_rejects_mismatched_measurements()
     test_repeated_measurements_at_one_event()
+    test_rejects_fractional_measurement_counts()
     print("Synthetic loader checks passed")
