@@ -47,6 +47,26 @@ def _evaluate(node, variables):
     raise ValueError(f"Unsupported symbolic equation syntax: {ast.dump(node)}")
 
 
+
+def _validate_syntax(node):
+    """Check expression grammar without evaluating at arbitrary covariates."""
+    if isinstance(node, ast.Expression):
+        return _validate_syntax(node.body)
+    if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+        return
+    if isinstance(node, ast.Name) and node.id in VARIABLES:
+        return
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        return _validate_syntax(node.operand)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow)):
+        _validate_syntax(node.left)
+        _validate_syntax(node.right)
+        return
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "abs" and len(node.args) == 1 and not node.keywords:
+        return _validate_syntax(node.args[0])
+    raise ValueError(f"Unsupported symbolic equation syntax: {ast.dump(node)}")
+
+
 def load_equations(path=None):
     """Load and syntax-check all six exported expressions."""
     if path is None:
@@ -67,7 +87,7 @@ def load_equations(path=None):
         for name, expression in equations[group].items():
             # Julia uses ^ for powers; Python uses **. Reject any other syntax.
             parsed = ast.parse(expression.replace("^", "**"), mode="eval")
-            _evaluate(parsed, {key: jnp.asarray(1.) for key in VARIABLES})
+            _validate_syntax(parsed)
             compiled[group][name] = parsed
     return compiled
 
