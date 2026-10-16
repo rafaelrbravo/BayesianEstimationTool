@@ -15,7 +15,7 @@ import numpyro.distributions as dist
 import BayesianEstimationTool as bet
 from bet_baseline import PARAMETERS, REFERENCE, N_FIT, ScoreFn, TrainLikelihoodFn, TestLikelihoodFn
 from load_data import load_data
-from inspect_data import read_tables, patient_ids
+from inspect_data import read_tables, patient_ids, validate_measurement_counts, validate_measurement_times
 from pk_model import concentrations
 from paired_stats import paired_bootstrap_interval
 from split import make_split, eligible_test_indices
@@ -107,6 +107,8 @@ def main():
         parser.error("Development cohort sizes must be positive")
     tables = read_tables()
     ids = patient_ids(tables)
+    validate_measurement_counts(tables, ids)
+    validate_measurement_times(tables, ids)
     train, test = make_split(len(ids))
     # Use the identical development patients and future-only evaluation.
     if not args.full:
