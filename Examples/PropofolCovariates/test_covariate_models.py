@@ -2,9 +2,10 @@
 import csv
 
 import numpy as np
+import pytest
 import jax.numpy as jnp
 
-from compare_covariates import make_model, write_patient_scores
+from compare_covariates import make_model, write_patient_scores, validate_scores
 from bet_baseline import PARAMETERS
 
 
@@ -49,3 +50,21 @@ def test_paired_score_export_preserves_patient_order(tmp_path):
 if __name__ == "__main__":
     test_covariates_affect_only_covariate_model()
     print("Covariate model smoke checks passed")
+
+
+def test_reject_nonfinite_scores():
+    scores = {
+        "no covariates": (np.array([1., np.nan]), np.array([2., 3.])),
+        "covariates": (np.array([1., 2.]), np.array([2., 3.])),
+    }
+    with pytest.raises(ValueError, match="Invalid patient scores"):
+        validate_scores([10, 20], scores)
+
+
+def test_reject_misaligned_score_lengths():
+    scores = {
+        "no covariates": (np.array([1.]), np.array([2., 3.])),
+        "covariates": (np.array([1., 2.]), np.array([2., 3.])),
+    }
+    with pytest.raises(ValueError, match="Invalid patient scores"):
+        validate_scores([10, 20], scores)
