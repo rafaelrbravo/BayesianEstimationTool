@@ -27,3 +27,9 @@ def test_invalid_differences(delta):
 def test_invalid_bootstrap_count():
     with pytest.raises(ValueError):
         paired_bootstrap_interval([1., 2.], n_boot=0)
+
+
+def test_boolean_bootstrap_count_rejected():
+    for value in (True, False, np.bool_(True)):
+        with pytest.raises(ValueError, match="positive integer"):
+            paired_bootstrap_interval([1., 2.], n_boot=value)
