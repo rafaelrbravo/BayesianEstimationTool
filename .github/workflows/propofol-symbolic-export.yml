@@ -76,20 +76,19 @@ jobs:
           import numpy as np
           import jax
           import jax.numpy as jnp
-          from published_equations import load_equations, published_parameters, published_rates
+          from published_equations import load_equations, published_parameters, validate_reference_predictions
 
           import tomllib
           from pathlib import Path
 
           artifact = tomllib.loads(Path("Examples/PropofolCovariates/symbolic_equations.toml").read_text())
           equations = load_equations()
+          # Apply the same provenance and Julia-network parity gate as inference.
+          validate_reference_predictions(equations, artifact)
           for reference in artifact["reference_predictions"]:
               patient = reference["covariates"]
               covariates = jnp.array(patient)
               params = published_parameters(equations, covariates)
-              rates = published_rates(equations, covariates)
-              np.testing.assert_allclose(np.asarray(rates), np.asarray(reference["rates"]), rtol=1e-5, atol=1e-7,
-                                         err_msg=f"Julia network / JAX rate mismatch for {patient}")
               jacobian = jax.jacrev(lambda x: published_parameters(equations, x))(covariates)
               if not bool(jnp.all(jnp.isfinite(params) & (params > 0))):
                   raise ValueError(f"Nonphysical exported PK parameters for {patient}: {params}")
