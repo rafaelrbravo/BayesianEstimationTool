@@ -2,6 +2,9 @@ name: Propofol upstream data validation
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/propofol-data-validation.yml"
 
 jobs:
   validate-upstream-data:
