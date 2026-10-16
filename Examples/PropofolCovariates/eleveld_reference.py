@@ -20,6 +20,8 @@ from split import make_split
 def reference_parameters(parameters, patient_ids):
     """Align Eleveld parameters by patient ID, never by CSV row position."""
     columns = ["V1", "V2", "V3", "CL", "Q2", "Q3"]
+    if parameters["ID"].duplicated().any():
+        raise ValueError("Duplicate Eleveld parameter rows for a patient ID")
     indexed = parameters.set_index("ID")
     missing = set(patient_ids) - set(indexed.index)
     if missing:
