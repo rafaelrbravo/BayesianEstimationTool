@@ -17,7 +17,7 @@ def load_data(directory=None):
     required = {"TIME", "INFUSIONRATE", "BOLUS", "ISMEASUREMENT"}
     if not required.issubset(events.columns):
         raise ValueError(f"Missing event columns: {sorted(required - set(events.columns))}")
-    covariates = ["AGE", "WGT", "HT", "M1F2", "A1V2"] 
+    covariates = ["AGE", "WGT", "HT", "M1F2", "A1V2"]
     # The source symbolic-regression network uses AGE, WGT, BMI, sex, AV.
     if not set(covariates).issubset(obs.columns):
         raise ValueError("Missing covariate columns")
@@ -28,7 +28,19 @@ def load_data(directory=None):
         times = e.TIME.to_numpy(dtype=np.float64)
         rate = e.INFUSIONRATE.to_numpy(dtype=np.float64)
         bolus = e.BOLUS.to_numpy(dtype=np.float64)
-        counts = e.ISMEASUREMENT.to_numpy(dtype=np.int32)\n        if np.any(counts < 0):\n            raise ValueError(f"Negative measurement count for ID {patient_id}")\n        # The upstream Julia get_indmeas repeats an event index when its\n        # IsMeasurement count exceeds one. Expand the event into same-time\n        # rows so every observation has a separate likelihood contribution.\n        repeats = np.maximum(counts, 1)\n        first = np.repeat(np.cumsum(repeats) - repeats, repeats)\n        times = np.repeat(times, repeats)\n        rate = np.repeat(rate, repeats)\n        bolus = np.repeat(bolus, repeats)\n        mask = np.repeat(counts > 0, repeats).astype(np.int32)\n        bolus[np.arange(len(bolus)) != np.repeat(first, repeats)] = 0.
+        counts = e.ISMEASUREMENT.to_numpy(dtype=np.int32)
+        if np.any(counts < 0):
+            raise ValueError(f"Negative measurement count for ID {patient_id}")
+        # The upstream Julia get_indmeas repeats an event index when its
+        # IsMeasurement count exceeds one. Expand the event into same-time
+        # rows so every observation has a separate likelihood contribution.
+        repeats = np.maximum(counts, 1)
+        first = np.repeat(np.cumsum(repeats) - repeats, repeats)
+        times = np.repeat(times, repeats)
+        rate = np.repeat(rate, repeats)
+        bolus = np.repeat(bolus, repeats)
+        mask = np.repeat(counts > 0, repeats).astype(np.int32)
+        bolus[np.arange(len(bolus)) != np.repeat(first, repeats)] = 0.
         concentration = o.CP.to_numpy(dtype=np.float64)
         if len(times) == 0 or np.any(np.diff(times) < 0):
             raise ValueError(f"Unsorted or missing event times for ID {patient_id}")
@@ -55,9 +67,9 @@ def load_data(directory=None):
         arrays["observed"][i, :n] = mask
         arrays["concentration"][i, :n] = y
         arrays["valid"][i, :n] = 1
-        age, weight, height, sex, av = patient_cov 
-        if height <= 0 or weight <= 0: 
-            raise ValueError(f"Invalid height/weight for ID {ids[i]}") 
+        age, weight, height, sex, av = patient_cov
+        if height <= 0 or weight <= 0:
+            raise ValueError(f"Invalid height/weight for ID {ids[i]}")
         cov[i] = [age, weight, weight / (height / 100.) ** 2, sex - 1.5, av - 1.5]
     arrays["covariates"] = cov
     arrays["patient_ids"] = np.asarray(ids)
