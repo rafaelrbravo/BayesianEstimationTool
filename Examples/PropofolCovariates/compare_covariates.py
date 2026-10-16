@@ -47,7 +47,9 @@ def make_prior(use_covariates):
 
 
 def validate_scores(patient_ids, scores):
-    """Reject missing or nonfinite predictions before reporting paired effects."""
+    """Reject invalid IDs or prediction errors before reporting paired effects."""
+    if not patient_ids or len(set(patient_ids)) != len(patient_ids):
+        raise ValueError("Held-out patient IDs must be nonempty and unique")
     for model in ("no covariates", "covariates"):
         if model not in scores or len(scores[model]) != 2:
             raise ValueError(f"Missing unconditioned/conditioned scores for {model}")
@@ -71,7 +73,7 @@ def write_patient_scores(path, patient_ids, scores):
 
 def main():
     parser = argparse.ArgumentParser(description="Compare BET propofol PK models on held-out patients")
-    parser.add_argument("--full", action="store_true", help="Use all 831 training and 200 held-out patients")
+    parser.add_argument("--full", action="store_true", help="Use all 831 training patients and all eligible patients in the fixed 200-patient test partition")
     parser.add_argument("--train-patients", type=int, default=100, help="Development training cohort size")
     parser.add_argument("--test-patients", type=int, default=25, help="Development held-out cohort size")
     parser.add_argument("--train-steps", type=int, default=1000)
