@@ -17,6 +17,19 @@ from pk_model import concentrations
 from split import make_split
 
 
+def reference_parameters(parameters, patient_ids):
+    """Align Eleveld parameters by patient ID, never by CSV row position."""
+    columns = ["V1", "V2", "V3", "CL", "Q2", "Q3"]
+    indexed = parameters.set_index("ID")
+    missing = set(patient_ids) - set(indexed.index)
+    if missing:
+        raise ValueError(f"Missing Eleveld parameters for IDs: {sorted(missing)[:5]}")
+    values = indexed.loc[patient_ids, columns].to_numpy(dtype=np.float32)
+    if not np.isfinite(values).all() or not (values > 0).all():
+        raise ValueError("Eleveld parameters must be positive and finite")
+    return values
+
+
 def evaluate():
     tables = read_tables()
     ids = patient_ids(tables)
@@ -25,8 +38,7 @@ def evaluate():
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
     test_ids = [patient_id for patient_id in test_ids if counts.get(patient_id, 0) > N_FIT]
     data = load_data(selected_ids=test_ids, tables=tables)
-    params = tables["parameters"].set_index("ID").loc[data["patient_ids"],
-        ["V1", "V2", "V3", "CL", "Q2", "Q3"]].to_numpy(dtype=np.float32)
+    params = reference_parameters(tables["parameters"], data["patient_ids"])
     scores = []
     for i, parameter in enumerate(params):
         prediction = concentrations(jnp.asarray(parameter), jnp.asarray(data["time"][i]),
