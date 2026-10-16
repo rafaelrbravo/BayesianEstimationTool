@@ -109,3 +109,4 @@ def test_batched_unused_sex_branch_singularity_does_not_poison_gradients(tmp_pat
     gradient = jax.grad(summed_outputs)(patients)
     assert np.isfinite(np.asarray(gradient)).all(), "Inactive female branch poisoned batched male gradients"
     np.testing.assert_allclose(np.asarray(gradient[:, 0]), [0.001 / 40, -0.01], rtol=1e-4, atol=1e-7)
+    np.testing.assert_allclose(np.asarray(gradient[:, 1:]), 0., atol=1e-7)
