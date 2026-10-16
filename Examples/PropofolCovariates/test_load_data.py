@@ -193,3 +193,13 @@ def test_missing_covariate_rows_gives_clear_error():
     with patch("load_data.patient_ids", return_value=[10]):
         with np.testing.assert_raises_regex(ValueError, "Missing covariate rows"):
             load_data(tables={"observations": observations, "events": events})
+
+
+def test_rejects_duplicate_selected_patient_ids():
+    with patch("load_data.patient_ids", return_value=[10]):
+        try:
+            load_data(selected_ids=[10, 10], tables={"observations": pd.DataFrame(), "events": pd.DataFrame()})
+        except ValueError as error:
+            assert "contain duplicates" in str(error)
+        else:
+            raise AssertionError("Duplicate selected IDs must not be silently deduplicated")
