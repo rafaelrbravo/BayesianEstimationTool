@@ -19,6 +19,20 @@ def test_read_scores_preserves_patient_alignment(tmp_path):
     summarize(ids, scores)
 
 
+def test_paired_bootstrap_identical_errors_has_zero_interval():
+    from paired_stats import paired_bootstrap_interval
+
+    low, high = paired_bootstrap_interval(np.zeros(8), n_boot=100)
+    assert low == high == 0.
+
+
+def test_paired_bootstrap_constant_improvement():
+    from paired_stats import paired_bootstrap_interval
+
+    low, high = paired_bootstrap_interval(-np.ones(8), n_boot=100)
+    assert low == high == -1.
+
+
 @pytest.mark.parametrize("rows", [
     [[1, 1., 1., 1., 1.], [1, 2., 2., 2., 2.]],
     [[1, float("nan"), 1., 1., 1.]],
