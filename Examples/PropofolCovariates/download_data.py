@@ -22,6 +22,8 @@ def download_data(directory=DATA_DIR):
     for filename in FILES:
         destination = directory / filename
         if destination.exists():
+            if destination.stat().st_size == 0:
+                raise ValueError(f"Existing upstream file is empty: {destination}")
             print(f"Already exists: {destination}")
             continue
         temp_path = None
