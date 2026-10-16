@@ -60,10 +60,11 @@ def validate_measurement_counts(tables, ids):
     events = tables["events"]
     # Match the upstream get_ymeas convention: only CP > 0 is observed.
     # Nonpositive or missing rows are not concentration measurements.
-    measured_values = observations.loc[observations["CP"] > 0, "CP"].to_numpy(dtype=float)
-    if not np.isfinite(measured_values).all():
+    selected_observations = observations.loc[observations["ID"].isin(ids)]
+    measured_rows = selected_observations.loc[selected_observations["CP"] > 0]
+    if not np.isfinite(measured_rows["CP"].to_numpy(dtype=float)).all():
         raise ValueError("Invalid positive observed concentration values")
-    measured = observations.loc[observations["CP"] > 0].groupby("ID").size()
+    measured = measured_rows.groupby("ID").size()
     # Only validate the selected usable cohort; upstream excludes IDs 893/897.
     selected_events = events.loc[events["ID"].isin(ids)]
     raw_counts = selected_events["ISMEASUREMENT"].to_numpy(dtype=float)
