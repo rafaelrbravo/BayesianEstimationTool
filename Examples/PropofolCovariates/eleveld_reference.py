@@ -38,11 +38,11 @@ def evaluate(development=False, output_csv=None):
     tables = read_tables()
     ids = patient_ids(tables)
     _, test = make_split(len(ids))
-    if development:
-        test = test[:25]
     test_ids = [ids[i] for i in test]
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
     test_ids = [patient_id for patient_id in test_ids if counts.get(patient_id, 0) > N_FIT]
+    if development:
+        test_ids = test_ids[:25]
     data = load_data(selected_ids=test_ids, tables=tables)
     params = reference_parameters(tables["parameters"], data["patient_ids"])
     scores = []
