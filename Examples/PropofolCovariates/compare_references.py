@@ -20,6 +20,8 @@ def compare(jax_csv, scipy_csv, atol=0.02, rtol=0.02):
     scipy = aligned["eleveld_future_log_error_scipy"].to_numpy(dtype=float)
     if not np.isfinite(jax).all() or not np.isfinite(scipy).all():
         raise ValueError("Nonfinite reference errors")
+    if np.any(jax < 0) or np.any(scipy < 0):
+        raise ValueError("Reference absolute log errors must be nonnegative")
     differences = np.abs(jax - scipy)
     print(f"Compared {len(aligned)} held-out patients; maximum absolute score difference: {differences.max():.6g}")
     if not np.allclose(jax, scipy, atol=atol, rtol=rtol):
