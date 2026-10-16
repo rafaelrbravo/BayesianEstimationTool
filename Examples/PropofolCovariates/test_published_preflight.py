@@ -62,3 +62,16 @@ def test_reject_wrong_covariate_shape(equations):
 def test_reject_empty_cohort(equations):
     with pytest.raises(ValueError, match="At least one patient"):
         validate_published_patients(equations, np.empty((0, 5)))
+
+
+def test_reject_nonphysical_female_specific_equation(equations):
+    # Common equations can be valid while a sex-specific branch is nonphysical.
+    equations["female"]["k31"] = ast.parse("-0.0006", mode="eval")
+    with pytest.raises(ValueError, match="nonfinite or nonpositive"):
+        validate_published_patients(equations, np.array([[65., 80., 30., 0.5, 0.5]]))
+
+
+def test_reject_nonphysical_male_specific_equation(equations):
+    equations["male"]["k13"] = ast.parse("0", mode="eval")
+    with pytest.raises(ValueError, match="nonfinite or nonpositive"):
+        validate_published_patients(equations, np.array([[40., 70., 25., -0.5, -0.5]]))
