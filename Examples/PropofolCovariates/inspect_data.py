@@ -58,6 +58,9 @@ def validate_measurement_counts(tables, ids):
     """Check every included patient's event count against positive CP rows."""
     observations = tables["observations"]
     events = tables["events"]
+    raw_concentrations = observations["CP"].to_numpy(dtype=float)
+    if np.any(~np.isfinite(raw_concentrations)) or np.any(raw_concentrations < 0):
+        raise ValueError("Invalid observed concentration values")
     measured = observations.loc[observations["CP"] > 0].groupby("ID").size()
     raw_counts = events["ISMEASUREMENT"].to_numpy(dtype=float)
     if np.any(~np.isfinite(raw_counts)) or np.any(raw_counts < 0) or np.any(raw_counts != np.floor(raw_counts)):
