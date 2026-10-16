@@ -127,6 +127,8 @@ def main():
     print(f"Evaluable held-out patients: {len(eligible_test)}/{len(test)} (need >{N_FIT} concentrations)")
     if not eligible_test:
         raise ValueError("No held-out patients have at least four measured concentrations")
+    if not args.full and len(eligible_test) != args.test_patients:
+        raise ValueError(f"Requested {args.test_patients} evaluable held-out patients, found {len(eligible_test)}")
     test = eligible_test
     selected_ids = [ids[i] for i in list(train) + list(test)]
     arrays = load_data(selected_ids=selected_ids, tables=tables)
