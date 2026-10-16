@@ -72,11 +72,13 @@ jobs:
           print("Validated downloaded published-equation artifact provenance and reference records.")
           PY
       - name: Download upstream data
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
         run: |
           set -o pipefail
           python -u Examples/PropofolCovariates/download_data.py 2>&1 | tee propofol-download.log
       - name: Check patient universe and measurements
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
         run: |
           set -o pipefail
@@ -98,23 +100,28 @@ jobs:
           set -o pipefail
           python -u Examples/PropofolCovariates/compare_published.py --full --train-steps 2000 --test-steps 500 --output-csv propofol-published-full.csv 2>&1 | tee propofol-published-run.log
       - name: Score supplied Eleveld parameters on development test patients
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
         run: |
           set -o pipefail
           python -u Examples/PropofolCovariates/eleveld_reference.py --development --output-csv propofol-dev-eleveld.csv 2>&1 | tee propofol-eleveld-run.log
       - name: Independently score Eleveld with SciPy
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
         run: |
           set -o pipefail
           python -u Examples/PropofolCovariates/scipy_reference.py --output-csv propofol-dev-scipy.csv 2>&1 | tee propofol-scipy-reference.log
       - name: Check SciPy and JAX reference agreement
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         run: python Examples/PropofolCovariates/compare_references.py propofol-dev-eleveld.csv propofol-dev-scipy.csv
       - name: Run minimal end-to-end SVI smoke test
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
         run: |
           set -o pipefail
           python -u Examples/PropofolCovariates/compare_covariates.py --train-patients 10 --test-patients 5 --train-steps 20 --test-steps 10 --output-csv propofol-smoke-scores.csv 2>&1 | tee propofol-smoke-run.log
       - name: Summarize smoke-test paired held-out errors
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         run: python Examples/PropofolCovariates/summarize_scores.py propofol-smoke-scores.csv
       - name: Run development comparison (100 train, up to 25 test)
         if: ${{ github.event_name == 'workflow_dispatch' && !inputs.smoke_only && !inputs.full_cohort }}
