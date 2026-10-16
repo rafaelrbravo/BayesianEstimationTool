@@ -47,3 +47,5 @@ Additional local validation reproduced the loader's NumPy/pandas event-expansion
 The downloader has three offline regression tests covering successful downloads and skipped existing files, empty responses, and interrupted transfers; run `python -m pytest -q Examples/PropofolCovariates/test_download_data.py`. These checks do not require the original CSVs or NumPyro.
 
 Before fitting, `inspect_data.py` now checks each included patient's positive-concentration row count against the summed `IsMeasurement` event counts and prints the validated total. Offline tests: `python -m pytest -q Examples/PropofolCovariates/test_inspect_data.py`.
+
+For the planned **831-training/200-test** experiment, run `python Examples/PropofolCovariates/compare_covariates.py --full`. The default remains the 100/25 development run. Optional `--train-steps` and `--test-steps` control SVI iteration counts (defaults 1000 and 300); the full run may be computationally expensive and has not yet been executed. The current covariate model remains an exploratory linear effect model, not the published symbolic-regression equations.
