@@ -38,6 +38,19 @@ def test_padded_events_and_covariates():
     np.testing.assert_allclose(data["covariates"], [[40., 80., 20., -0.5, 0.5], [60., 90., 90. / 1.8 ** 2, 0.5, -0.5]], rtol=1e-6)
 
 
+def test_rejects_mismatched_measurements():
+    observations = pd.DataFrame({"ID": [10], "CP": [1.5], "AGE": [40], "WGT": [80], "HT": [200], "M1F2": [1], "A1V2": [2]})
+    events = pd.DataFrame({"ID": [10, 10], "TIME": [0., 30.], "INFUSIONRATE": [10., 0.], "BOLUS": [100., 0.], "ISMEASUREMENT": [1, 1]})
+    with patch("load_data.read_tables", return_value={"observations": observations, "events": events}), patch("load_data.patient_ids", return_value=[10]):
+        try:
+            load_data()
+        except ValueError as error:
+            assert "Measurement count mismatch" in str(error)
+        else:
+            raise AssertionError("Expected measurement-count mismatch to fail")
+
+
 if __name__ == "__main__":
     test_padded_events_and_covariates()
+    test_rejects_mismatched_measurements()
     print("Synthetic loader checks passed")
