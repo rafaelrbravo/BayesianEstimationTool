@@ -20,6 +20,7 @@ def predict_patient(parameters, events):
     amount = np.zeros(3)
     predictions = []
     rows = events[["TIME", "INFUSIONRATE", "BOLUS", "ISMEASUREMENT"]].to_numpy(dtype=float)
+    rows[:, 1] /= 60.  # Upstream infusion is ug/min; solver uses ug/s
     if not np.isfinite(rows).all() or np.any(rows[:, 1:3] < 0) or np.any(rows[:, 3] < 0) or np.any(rows[:, 3] != np.floor(rows[:, 3])):
         raise ValueError("Invalid dosing or measurement counts")
     for i, (time, rate, bolus, measured) in enumerate(rows):
