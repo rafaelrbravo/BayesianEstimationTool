@@ -63,5 +63,6 @@ def test_repeated_measurements_at_one_event():
 
 if __name__ == "__main__":
     test_padded_events_and_covariates()
-    test_rejects_mismatched_measurements()\n    test_repeated_measurements_at_one_event()
+    test_rejects_mismatched_measurements()
+    test_repeated_measurements_at_one_event()
     print("Synthetic loader checks passed")
