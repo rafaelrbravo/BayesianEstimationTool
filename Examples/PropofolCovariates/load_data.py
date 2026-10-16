@@ -28,11 +28,11 @@ def load_data(directory=None):
         times = e.TIME.to_numpy(dtype=np.float64)
         rate = e.INFUSIONRATE.to_numpy(dtype=np.float64)
         bolus = e.BOLUS.to_numpy(dtype=np.float64)
-        mask = e.ISMEASUREMENT.to_numpy(dtype=np.int32)
+        counts = e.ISMEASUREMENT.to_numpy(dtype=np.int32)\n        if np.any(counts < 0):\n            raise ValueError(f"Negative measurement count for ID {patient_id}")\n        # The upstream Julia get_indmeas repeats an event index when its\n        # IsMeasurement count exceeds one. Expand the event into same-time\n        # rows so every observation has a separate likelihood contribution.\n        repeats = np.maximum(counts, 1)\n        first = np.repeat(np.cumsum(repeats) - repeats, repeats)\n        times = np.repeat(times, repeats)\n        rate = np.repeat(rate, repeats)\n        bolus = np.repeat(bolus, repeats)\n        mask = np.repeat(counts > 0, repeats).astype(np.int32)\n        bolus[np.arange(len(bolus)) != np.repeat(first, repeats)] = 0.
         concentration = o.CP.to_numpy(dtype=np.float64)
         if len(times) == 0 or np.any(np.diff(times) < 0):
             raise ValueError(f"Unsorted or missing event times for ID {patient_id}")
-        if len(concentration) != int(mask.sum()):
+        if len(concentration) != int(counts.sum()):
             raise ValueError(f"Measurement count mismatch for ID {patient_id}: {len(concentration)} vs {mask.sum()}")
         if np.any(~np.isfinite(times)) or np.any(rate < 0) or np.any(bolus < 0):
             raise ValueError(f"Invalid dosing for ID {patient_id}")
