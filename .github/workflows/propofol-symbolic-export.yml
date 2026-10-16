@@ -11,6 +11,8 @@ on:
     paths:
       - ".github/workflows/propofol-symbolic-export.yml"
       - "Examples/PropofolCovariates/export_symbolic_equations.jl"
+      - "Examples/PropofolCovariates/published_equations.py"
+      - "Examples/PropofolCovariates/pk_model.py"
 
 jobs:
   export-and-validate:
