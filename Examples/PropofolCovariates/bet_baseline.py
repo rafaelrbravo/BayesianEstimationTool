@@ -67,7 +67,13 @@ def main():
     tables = read_tables()
     ids = patient_ids(tables)
     train, test = make_split(len(ids))
-    selected_ids = [ids[i] for i in list(train[:100]) + list(test[:25])]
+    train, test = train[:100], test[:25]
+    counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
+    eligible_test = [i for i in test if counts.get(ids[i], 0) > N_FIT]
+    print(f"Evaluable held-out patients: {len(eligible_test)}/{len(test)} (need >{N_FIT} concentrations)")
+    if not eligible_test:
+        raise ValueError("No held-out patients have enough measurements for future scoring")
+    selected_ids = [ids[i] for i in list(train) + eligible_test]
     arrays = load_data(selected_ids=selected_ids, tables=tables)
     positions = {patient_id: i for i, patient_id in enumerate(arrays["patient_ids"])}
     selected = [positions[patient_id] for patient_id in selected_ids]
@@ -80,7 +86,7 @@ def main():
     # A future-only score is undefined for patients with <= N_FIT measurements.
     n_observed = jnp.sum(data["observed"][test], axis=1)
     if bool(jnp.any(n_observed <= N_FIT)):
-        raise ValueError("Development test patients must have at least four measured concentrations")
+        raise ValueError("Event counts and loaded concentrations disagree for held-out patients")
     est = bet.Estimator(data=data, ModelFn=ModelFn, localZNames=list(PARAMETERS),
                         GlobalPriorFn=GlobalPriorFn, rngSeed=0)
     est.Train(trainDataIdxs=train, TrainLikelihoodFn=TrainLikelihoodFn,
