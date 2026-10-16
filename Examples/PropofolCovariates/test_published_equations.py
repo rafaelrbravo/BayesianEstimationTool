@@ -150,3 +150,15 @@ def test_reference_validator_rejects_corrupt_predictions(tmp_path):
     artifact["reference_predictions"][0]["rates"][0] = float("nan")
     with pytest.raises(ValueError, match="Nonfinite"):
         validate_reference_predictions(equations, artifact)
+    artifact["reference_predictions"][0]["rates"][0] = 0.002
+    artifact["source_model_git_blob_sha"] = "different-model"
+    with pytest.raises(ValueError, match="BSON"):
+        validate_reference_predictions(equations, artifact)
+    artifact["source_model_git_blob_sha"] = "aec9732b21a2beaec315eaefebb37699546f9dfa"
+    artifact["output_units"]["V1"] = "L"
+    with pytest.raises(ValueError, match="units"):
+        validate_reference_predictions(equations, artifact)
+    artifact["output_units"]["V1"] = "mL"
+    artifact["reference_predictions"][1] = artifact["reference_predictions"][0]
+    with pytest.raises(ValueError, match="Duplicate"):
+        validate_reference_predictions(equations, artifact)
