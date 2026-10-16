@@ -53,7 +53,7 @@ def validate_scores(patient_ids, scores):
             raise ValueError(f"Missing unconditioned/conditioned scores for {model}")
         for setting, values in enumerate(scores[model]):
             values = np.asarray(values)
-            if values.shape != (len(patient_ids),) or not np.isfinite(values).all():
+            if values.shape != (len(patient_ids),) or not np.isfinite(values).all() or (values < 0).any():
                 raise ValueError(f"Invalid patient scores for {model}, setting {setting}")
 
 
