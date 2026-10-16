@@ -77,3 +77,21 @@ def test_reject_negative_absolute_log_errors():
     }
     with pytest.raises(ValueError, match="Invalid patient scores"):
         validate_scores([10, 20], scores)
+
+
+def test_reject_duplicate_held_out_patient_ids():
+    scores = {
+        "no covariates": (np.array([1., 2.]), np.array([2., 3.])),
+        "covariates": (np.array([1., 2.]), np.array([2., 3.])),
+    }
+    with pytest.raises(ValueError, match="nonempty and unique"):
+        validate_scores([10, 10], scores)
+
+
+def test_reject_empty_held_out_cohort():
+    scores = {
+        "no covariates": (np.array([]), np.array([])),
+        "covariates": (np.array([]), np.array([])),
+    }
+    with pytest.raises(ValueError, match="nonempty and unique"):
+        validate_scores([], scores)
