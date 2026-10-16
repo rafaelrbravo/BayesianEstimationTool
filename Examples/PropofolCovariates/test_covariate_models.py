@@ -105,3 +105,19 @@ def test_standardization_does_not_use_held_out_patients():
     changed_test = covariates.copy()
     changed_test[2] = [-1000., -9000.]
     np.testing.assert_allclose(standardize_covariates(changed_test, [0, 1])[:2], transformed[:2])
+
+
+def test_standardization_rejects_nonfinite_covariates():
+    for bad in (np.nan, np.inf, -np.inf):
+        with pytest.raises(ValueError, match="finite two-dimensional"):
+            standardize_covariates(np.array([[1., 2.], [bad, 3.]]), [0])
+
+
+def test_standardization_rejects_empty_training_cohort():
+    with pytest.raises(ValueError, match="At least one training patient"):
+        standardize_covariates(np.array([[1., 2.]]), [])
+
+
+def test_standardization_rejects_nonmatrix_input():
+    with pytest.raises(ValueError, match="finite two-dimensional"):
+        standardize_covariates(np.array([1., 2.]), [0])
