@@ -93,8 +93,8 @@ def load_equations(path=None):
     return compiled
 
 
-def published_parameters(equations, covariates):
-    """Return [V1,V2,V3,CL,Q2,Q3] from raw [AGE,WGT,BMI,GDR,AV].
+def published_rates(equations, covariates):
+    """Return original [k10,k12,k13,k21,k31,V1] from raw [AGE,WGT,BMI,GDR,AV].
 
     GDR must be -0.5 for male and +0.5 for female. All five inputs
     are raw/unstandardized, unlike the exploratory regression baseline.
@@ -115,4 +115,9 @@ def published_parameters(equations, covariates):
         else:
             value = _evaluate(equations["common"][name], variables)
         values.append(value)
-    return published_rates_to_parameters(jnp.stack(values))
+    return jnp.stack(values)
+
+
+def published_parameters(equations, covariates):
+    """Return solver [V1,V2,V3,CL,Q2,Q3] from raw patient covariates."""
+    return published_rates_to_parameters(published_rates(equations, covariates))
