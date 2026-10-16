@@ -41,3 +41,10 @@ def test_nonfinite_error_fails(tmp_path):
     scipy = write(tmp_path / "scipy.csv", [10], [0.2])
     with pytest.raises(ValueError, match="Nonfinite"):
         compare(jax, scipy)
+
+
+def test_negative_absolute_log_error_fails(tmp_path):
+    jax = write(tmp_path / "jax.csv", [10], [-0.2])
+    scipy = write(tmp_path / "scipy.csv", [10], [-0.2])
+    with pytest.raises(ValueError, match="nonnegative"):
+        compare(jax, scipy)
