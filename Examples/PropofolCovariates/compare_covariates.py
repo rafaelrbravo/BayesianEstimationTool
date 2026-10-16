@@ -46,6 +46,15 @@ def make_prior(use_covariates):
 
 
 
+def standardize_covariates(covariates, train_positions):
+    """Center and scale every patient using training patients only."""
+    training = covariates[train_positions]
+    mean = training.mean(axis=0)
+    scale = training.std(axis=0)
+    scale = np.where(scale > 0, scale, 1.)
+    return (covariates - mean) / scale
+
+
 def validate_scores(patient_ids, scores):
     """Reject invalid IDs or prediction errors before reporting paired effects."""
     if not patient_ids or len(set(patient_ids)) != len(patient_ids):
@@ -106,12 +115,7 @@ def main():
     if (n_observed <= N_FIT).any():
         raise ValueError("Event counts and loaded concentrations disagree for held-out patients")
     # Fit centering/scaling on TRAINING patients, never held-out patients.
-    cov = arrays["covariates"]
-    train_positions = selected[:len(train)]
-    mean = cov[train_positions].mean(axis=0)
-    scale = cov[train_positions].std(axis=0)
-    scale = jnp.where(scale > 0, scale, 1.)
-    arrays["covariates"] = (cov - mean) / scale
+    arrays["covariates"] = standardize_covariates(arrays["covariates"], selected[:len(train)])
     # Reorder selected patients as training followed by held-out testing.
     n_train = len(train)
     train = jnp.arange(n_train)
