@@ -53,8 +53,7 @@ def TestLikelihoodFn(globalParams, localZs, data, modelOut):
 
 
 def ScoreFn(modelOut, data):
-    # Scores are averaged over actual measurements, not padded events.
-    mask = data["observed"].astype(bool)
+    # Evaluate only concentrations AFTER the first N_FIT measured values.\n    # This ensures conditional inference is never scored on data it used.\n    measured_index = jnp.cumsum(data["observed"])\n    mask = data["observed"].astype(bool) & (measured_index > N_FIT)
     error = jnp.abs(jnp.log(jnp.maximum(modelOut["concentration"], 1e-6)) -
                     jnp.log(jnp.maximum(data["concentration"], 1e-6)))
     return jnp.sum(jnp.where(mask, error, 0.)) / jnp.maximum(mask.sum(), 1)
@@ -68,8 +67,14 @@ def main():
                         GlobalPriorFn=GlobalPriorFn, rngSeed=0)
     est.Train(trainDataIdxs=jnp.asarray(train[:100]), TrainLikelihoodFn=TrainLikelihoodFn,
               Method=bet.Svi(numSteps=1000), printSummary=True)
-    est.Test(testDataIdxs=jnp.asarray(test[:25]), nLocalZSamples=50)
-    print("Mean held-out absolute log error:", jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn)))
+    test_indices = jnp.asarray(test[:25])
+    est.Test(testDataIdxs=test_indices, nLocalZSamples=50)
+    print("Unconditional future log error:", jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn)))
+    # Updating held-out patient effects from the first N_FIT observations
+    # is deliberately a separate, more expensive inference run.
+    est.Test(testDataIdxs=test_indices, TestLikelihoodFn=TestLikelihoodFn,
+             Method=bet.Svi(numSteps=300, numSamples=50, progressBar=False))
+    print("Conditional future log error:", jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn)))
 
 
 if __name__ == "__main__":
