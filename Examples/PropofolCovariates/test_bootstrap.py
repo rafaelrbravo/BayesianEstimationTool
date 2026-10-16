@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from compare_covariates import paired_bootstrap_interval
+from paired_stats import paired_bootstrap_interval
 
 
 def test_reproducible_interval():
@@ -22,3 +22,8 @@ def test_single_patient():
 def test_invalid_differences(delta):
     with pytest.raises(ValueError):
         paired_bootstrap_interval(delta)
+
+
+def test_invalid_bootstrap_count():
+    with pytest.raises(ValueError):
+        paired_bootstrap_interval([1., 2.], n_boot=0)
