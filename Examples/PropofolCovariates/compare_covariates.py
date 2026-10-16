@@ -55,11 +55,11 @@ def main():
     arrays["covariates"] = (cov - mean) / scale
     # Keep only development patients in the JAX arrays; remap split indices.
     # This avoids allocating inference tensors for all 1,031 patients.
-    selected = jnp.asarray(list(train) + list(test))
+    selected = list(train) + list(test)
     n_train = len(train)
     train = jnp.arange(n_train)
     test = jnp.arange(n_train, len(selected))
-    data = {key: jnp.asarray(value)[selected] for key, value in arrays.items() if key != "patient_ids"}
+    data = {key: jnp.asarray(value[selected]) for key, value in arrays.items() if key != "patient_ids"}
     scores = {}
     for use_covariates in (False, True):
         label = "covariates" if use_covariates else "no covariates"
