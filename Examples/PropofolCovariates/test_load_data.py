@@ -146,6 +146,18 @@ def test_rejects_nonfinite_bolus():
         else:
             raise AssertionError("Infinite bolus must fail")
 
+
+def test_rejects_inconsistent_covariates_across_measurements():
+    observations = pd.DataFrame({"ID": [10, 10], "CP": [1.5, 1.6], "AGE": [40, 41], "WGT": [80, 80], "HT": [200, 200], "M1F2": [1, 1], "A1V2": [2, 2]})
+    events = pd.DataFrame({"ID": [10, 10], "TIME": [0., 30.], "INFUSIONRATE": [10., 0.], "BOLUS": [100., 0.], "ISMEASUREMENT": [1, 1]})
+    with patch("load_data.patient_ids", return_value=[10]):
+        try:
+            load_data(tables={"observations": observations, "events": events})
+        except ValueError as error:
+            assert "Inconsistent patient covariates" in str(error)
+        else:
+            raise AssertionError("Conflicting age for one patient must fail")
+
 if __name__ == "__main__":
     test_padded_events_and_covariates()
     test_rejects_mismatched_measurements()
@@ -158,4 +170,5 @@ if __name__ == "__main__":
     test_multiple_repeated_measurement_events()
     test_rejects_unknown_patient_selection()
     test_rejects_nonfinite_bolus()
+    test_rejects_inconsistent_covariates_across_measurements()
     print("Synthetic loader checks passed")
