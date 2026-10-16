@@ -203,3 +203,14 @@ def test_rejects_duplicate_selected_patient_ids():
             assert "contain duplicates" in str(error)
         else:
             raise AssertionError("Duplicate selected IDs must not be silently deduplicated")
+
+
+def test_upstream_infusion_rate_matches_administered_dose():
+    """Patient 1 upstream: 39.398 mg over 10.02 s, at about 3939 ug/s."""
+    observations = pd.DataFrame({"ID": [1], "CP": [6.932], "AGE": [59], "WGT": [64], "HT": [166], "M1F2": [2], "A1V2": [1]})
+    events = pd.DataFrame({"ID": [1, 1], "TIME": [0., 10.02],
+                           "INFUSIONRATE": [3939., 0.], "BOLUS": [0., 0.], "ISMEASUREMENT": [0, 1]})
+    with patch("load_data.patient_ids", return_value=[1]):
+        data = load_data(tables={"observations": observations, "events": events})
+    delivered_micrograms = (data["time"][0, 1] - data["time"][0, 0]) * data["rate"][0, 0]
+    np.testing.assert_allclose(delivered_micrograms, 39398., rtol=0.002)
