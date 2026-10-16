@@ -55,3 +55,13 @@ def test_fractional_event_counts_cannot_cancel_in_aggregate():
     }
     with pytest.raises(ValueError, match="Invalid individual event measurement counts"):
         validate_measurement_counts(tables, [10])
+
+
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), -1.])
+def test_invalid_observed_concentration_rejected(invalid):
+    tables = {
+        "observations": pd.DataFrame({"ID": [10, 10], "CP": [1., invalid]}),
+        "events": pd.DataFrame({"ID": [10], "ISMEASUREMENT": [1]}),
+    }
+    with pytest.raises(ValueError, match="Invalid observed concentration values"):
+        validate_measurement_counts(tables, [10])
