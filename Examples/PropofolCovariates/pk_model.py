@@ -11,6 +11,16 @@ import jax.numpy as jnp
 from jax.scipy.linalg import expm
 
 
+
+def rates_to_parameters(rates):
+    """Map [k10,k12,k13,k21,k31,V1] (1/s, L) to [V1,V2,V3,CL,Q2,Q3] (L, L/min).
+
+    The mapping assumes positive rate constants and reversible peripheral compartments.
+    """
+    k10, k12, k13, k21, k31, v1 = rates
+    return jnp.stack((v1, v1 * k12 / k21, v1 * k13 / k31,
+                      60. * v1 * k10, 60. * v1 * k12, 60. * v1 * k13))
+
 def concentrations(parameters, time, rate, bolus):
     """parameters = [V1, V2, V3, CL, Q2, Q3] in L and L/min."""
     v1, v2, v3, cl, q2, q3 = parameters
