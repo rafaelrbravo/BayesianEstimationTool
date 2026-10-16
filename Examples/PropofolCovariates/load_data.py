@@ -51,7 +51,7 @@ def load_data(directory=None, selected_ids=None, tables=None):
         rate = np.repeat(rate, repeats)
         bolus = np.repeat(bolus, repeats)
         mask = np.repeat(counts > 0, repeats).astype(np.int32)
-        bolus[np.arange(len(bolus)) != np.repeat(first, repeats)] = 0.
+        bolus[np.arange(len(bolus)) != first] = 0.
         concentration = o.CP.to_numpy(dtype=np.float64)
         if len(times) == 0 or np.any(np.diff(times) < 0):
             raise ValueError(f"Unsorted or missing event times for ID {patient_id}")
