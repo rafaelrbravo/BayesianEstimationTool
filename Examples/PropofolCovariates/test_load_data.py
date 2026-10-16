@@ -35,7 +35,7 @@ def test_padded_events_and_covariates():
     np.testing.assert_allclose(data["concentration"], [[1.5, 0., 0.8], [2., 0., 0.]])
     np.testing.assert_allclose(data["rate"], [[10., 0., 0.], [20., 0., 0.]])
     np.testing.assert_allclose(data["time"][1], [0., 0., 0.])
-    np.testing.assert_allclose(data["valid"][1], [1, 1, 0])
+    np.testing.assert_allclose(data["valid"][1], [1, 0, 0])
     np.testing.assert_allclose(data["covariates"], [[40., 80., 20., -0.5, 0.5], [60., 90., 90. / 1.8 ** 2, 0.5, -0.5]], rtol=1e-6)
 
 
