@@ -5,6 +5,15 @@ on:
   push:
     paths:
       - ".github/workflows/propofol-data-validation.yml"
+      - "Examples/PropofolCovariates/download_data.py"
+      - "Examples/PropofolCovariates/inspect_data.py"
+      - "Examples/PropofolCovariates/load_data.py"
+  pull_request:
+    paths:
+      - ".github/workflows/propofol-data-validation.yml"
+      - "Examples/PropofolCovariates/download_data.py"
+      - "Examples/PropofolCovariates/inspect_data.py"
+      - "Examples/PropofolCovariates/load_data.py"
 
 jobs:
   validate-upstream-data:
