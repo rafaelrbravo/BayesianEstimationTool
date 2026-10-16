@@ -35,5 +35,8 @@ jobs:
           assert np.isfinite(data["bolus"]).all()
           assert np.isfinite(data["covariates"]).all()
           assert np.all(data["rate"] >= 0)
+          assert np.all(data["bolus"] >= 0)
+          assert np.all(data["concentration"][data["observed"].astype(bool)] > 0)
+          assert np.all(np.diff(data["time"], axis=1) >= 0)
           print("Validated", len(data["patient_ids"]), "patients and", int(data["observed"].sum()), "concentrations")
           PY
