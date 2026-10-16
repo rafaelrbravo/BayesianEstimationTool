@@ -90,7 +90,6 @@ def test_unused_sex_branch_singularity_does_not_poison_gradient(tmp_path):
     assert np.any(np.abs(np.asarray(gradient[:, 0])) > 0)
 
 
-@pytest.mark.xfail(reason="JAX vmap lowers lax.cond to select; inactive singular branch may poison gradients", strict=True)
 def test_batched_unused_sex_branch_singularity_does_not_poison_gradients(tmp_path):
     """Document the vmap-specific risk: inactive singular equations can yield NaN gradients."""
     lines = ['output_order = ["k10", "k12", "k13", "k21", "k31", "V1"]',
