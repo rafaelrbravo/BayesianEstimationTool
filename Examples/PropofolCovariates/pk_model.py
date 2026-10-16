@@ -39,7 +39,7 @@ def concentrations(parameters, time, rate, bolus):
     # Augmented linear system integrates constant infusion exactly, including
     # the singular zero eigenvalue of the infusion source.
     aug = jnp.zeros((4, 4)).at[:3, :3].set(a).at[0, 3].set(1.0)
-    dt = jnp.maximum(jnp.diff(time, append=time[-1]), 0.0)
+    dt = jnp.diff(time, append=time[-1])
 
     def step(amount, event):
         duration, infusion, dose = event
@@ -49,7 +49,9 @@ def concentrations(parameters, time, rate, bolus):
             transition = expm(aug * duration)
             return (transition @ jnp.concatenate((amount, jnp.array([infusion]))))[:3]
 
-        # Padded and repeated-measurement rows have dt=0. Avoid a costly
+        # Input histories must have nondecreasing times; negative durations are
+    # deliberately not clamped so invalid event histories are not hidden.
+    # Padded and repeated-measurement rows have dt=0. Avoid a costly
         # matrix exponential for these rows during every inference iteration.
         next_amount = jax.lax.cond(duration > 0, propagate, lambda _: amount, operand=None)
         return next_amount, concentration
