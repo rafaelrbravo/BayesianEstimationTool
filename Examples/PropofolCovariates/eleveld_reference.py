@@ -16,7 +16,7 @@ from bet_baseline import N_FIT, ScoreFn
 from inspect_data import patient_ids, read_tables
 from load_data import load_data
 from pk_model import concentrations
-from split import make_split
+from split import make_split, eligible_test_indices
 
 
 def reference_parameters(parameters, patient_ids):
@@ -38,11 +38,11 @@ def evaluate(development=False, output_csv=None):
     tables = read_tables()
     ids = patient_ids(tables)
     _, test = make_split(len(ids))
-    test_ids = [ids[i] for i in test]
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
-    test_ids = [patient_id for patient_id in test_ids if counts.get(patient_id, 0) > N_FIT]
-    if development:
-        test_ids = test_ids[:25]
+    eligible = eligible_test_indices(test, ids, counts, n_fit=N_FIT, limit=25 if development else None)
+    test_ids = [ids[i] for i in eligible]
+    if not test_ids:
+        raise ValueError("No held-out patients have enough measurements for Eleveld scoring")
     data = load_data(selected_ids=test_ids, tables=tables)
     params = reference_parameters(tables["parameters"], data["patient_ids"])
     scores = []
