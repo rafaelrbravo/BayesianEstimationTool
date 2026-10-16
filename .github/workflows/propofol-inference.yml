@@ -105,7 +105,10 @@ jobs:
           python -u Examples/PropofolCovariates/scipy_reference.py --test-patients "$reference_patients" --output-csv propofol-dev-scipy.csv 2>&1 | tee propofol-scipy-reference.log
       - name: Check SciPy and JAX reference agreement
         if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: python Examples/PropofolCovariates/compare_references.py propofol-dev-eleveld.csv propofol-dev-scipy.csv
+        run: |
+          reference_patients=25
+          if [ "${{ inputs.smoke_only }}" = "true" ]; then reference_patients=5; fi
+          python Examples/PropofolCovariates/compare_references.py propofol-dev-eleveld.csv propofol-dev-scipy.csv --expected-patients "$reference_patients"
       - name: Run minimal end-to-end SVI smoke test
         if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
