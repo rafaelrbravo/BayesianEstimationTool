@@ -33,3 +33,13 @@ def test_cleanup_on_interrupted_download(tmp_path):
         with pytest.raises(OSError, match="Interrupted"):
             download_data(tmp_path)
     assert not list(tmp_path.iterdir())
+
+
+def test_reject_empty_cached_file(tmp_path):
+    cached = tmp_path / FILES[0]
+    cached.touch()
+    with patch("download_data.urlopen") as fetch:
+        with pytest.raises(ValueError, match="Existing upstream file is empty"):
+            download_data(tmp_path)
+    fetch.assert_not_called()
+    assert cached.stat().st_size == 0
