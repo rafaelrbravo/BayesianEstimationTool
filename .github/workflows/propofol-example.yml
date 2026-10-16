@@ -35,6 +35,6 @@ jobs:
       - name: Test differentiable PK solver
         run: python Examples/PropofolCovariates/test_pk_model.py
       - name: Test covariate model behavior
-        run: python Examples/PropofolCovariates/test_covariate_models.py
+        run: python -m pytest -q Examples/PropofolCovariates/test_covariate_models.py
       - name: Test paired bootstrap intervals
         run: python -m pytest -q Examples/PropofolCovariates/test_bootstrap.py
