@@ -46,7 +46,7 @@ def test_published_model_local_effect_changes_initial_concentration(tmp_path):
              "[equations.male]", 'k13 = "0.001"', 'k31 = "0.0003"',
              "[equations.female]", 'k13 = "0.002"', 'k31 = "0.0006"']
     path = tmp_path / "equations.toml"
-    path.write_text("\\n".join(lines))
+    path.write_text("\n".join(lines))
     model = make_published_model(load_equations(path))
     data = {"covariates": jnp.array([40., 70., 25., -0.5, -0.5]),
             "time": jnp.array([0., 60.]), "rate": jnp.zeros(2),
