@@ -27,4 +27,4 @@ def make_split(n_patients=N_PATIENTS, n_test=N_TEST, seed=SEED):
 if __name__ == "__main__":
     train, test = make_split()
     print(f"Full split: {len(train)} train, {len(test)} test")
-    print(f"Development subset: {len(train[:100])} train, {len(test[:25])} test")
+    print(f"Development candidates: {len(train[:100])} train, {len(test)} held-out; select first 25 eligible held-out patients after checking measurement counts")
