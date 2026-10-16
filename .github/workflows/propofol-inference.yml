@@ -24,6 +24,8 @@ jobs:
         run: python Examples/PropofolCovariates/download_data.py
       - name: Check patient universe and measurements
         run: python Examples/PropofolCovariates/inspect_data.py
+      - name: Score supplied Eleveld parameters on development test patients
+        run: python -u Examples/PropofolCovariates/eleveld_reference.py --development --output-csv propofol-dev-eleveld.csv
       - name: Run development comparison (100 train, up to 25 test)
         shell: bash
         run: |
@@ -36,5 +38,6 @@ jobs:
           name: propofol-development-paired-scores
           path: |
             propofol-dev-scores.csv
+            propofol-dev-eleveld.csv
             propofol-dev-run.log
           if-no-files-found: ignore
