@@ -7,8 +7,6 @@ forms must be verified before calling it a reproduction of the paper.
 """
 import argparse
 
-import numpy as np
-
 import jax.numpy as jnp
 import numpyro.distributions as dist
 
@@ -17,6 +15,7 @@ from bet_baseline import PARAMETERS, REFERENCE, ScoreFn, TrainLikelihoodFn, Test
 from load_data import load_data
 from inspect_data import read_tables, patient_ids
 from pk_model import concentrations
+from paired_stats import paired_bootstrap_interval
 from split import make_split
 
 COVARIATE_NAMES = ("AGE", "WGT", "BMI", "GDR", "AV")
@@ -42,18 +41,6 @@ def make_prior(use_covariates):
             priors["covariateEffects"] = dist.Normal(0., 0.2).expand((6, len(COVARIATE_NAMES))).to_event(2)
         return priors
     return GlobalPriorFn
-
-
-def paired_bootstrap_interval(delta, seed=0, n_boot=2000):
-    """Patient-level bootstrap CI for the mean paired error difference."""
-    delta = np.asarray(delta, dtype=np.float64)
-    if delta.ndim != 1 or not len(delta) or not np.all(np.isfinite(delta)):
-        raise ValueError("Expected nonempty finite patient-level differences")
-    rng = np.random.default_rng(seed)
-    means = np.empty(n_boot)
-    for i in range(n_boot):
-        means[i] = delta[rng.integers(len(delta), size=len(delta))].mean()
-    return np.quantile(means, [0.025, 0.975])
 
 
 def main():
