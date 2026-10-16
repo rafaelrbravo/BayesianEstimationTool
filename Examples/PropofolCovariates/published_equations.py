@@ -7,6 +7,7 @@ import ast
 import tomllib
 from pathlib import Path
 
+import jax
 import jax.numpy as jnp
 
 from pk_model import published_rates_to_parameters
@@ -103,9 +104,14 @@ def published_parameters(equations, covariates):
     values = []
     for name in NAMES:
         if name in ("k13", "k31"):
-            male = _evaluate(equations["male"][name], variables)
-            female = _evaluate(equations["female"][name], variables)
-            value = jnp.where(gender < 0, male, female)
+            # Only evaluate the selected branch. jnp.where evaluates both,
+            # allowing a singular unused equation to poison gradients.
+            value = jax.lax.cond(
+                gender < 0,
+                lambda _: _evaluate(equations["male"][name], variables),
+                lambda _: _evaluate(equations["female"][name], variables),
+                operand=None,
+            )
         else:
             value = _evaluate(equations["common"][name], variables)
         values.append(value)
