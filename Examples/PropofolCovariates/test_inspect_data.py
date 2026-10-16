@@ -35,7 +35,7 @@ def test_nonfinite_count_rejected():
         "observations": pd.DataFrame({"ID": [10], "CP": [1.]}),
         "events": pd.DataFrame({"ID": [10], "ISMEASUREMENT": [float("inf")]}),
     }
-    with pytest.raises(ValueError, match="Measurement counts disagree"):
+    with pytest.raises(ValueError, match="Invalid individual event measurement counts"):
         validate_measurement_counts(tables, [10])
 
 
