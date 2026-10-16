@@ -1,20 +1,13 @@
 name: Propofol symbolic equation export
 
-# Preserve a pending export while subsequent commits arrive; repeated cancellation
-# prevented any Julia validation artifact from completing.
+# Export is intentionally manual: the pinned upstream network is unchanged
+# across BET commits, and each export installs Julia and validates a large model.
 concurrency:
   group: propofol-symbolic-export-${{ github.ref }}
   cancel-in-progress: false
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/propofol-symbolic-export.yml"
-      # Inference downloads an export artifact from the exact BET commit.
-      # Re-export whenever any propofol example file changes so the
-      # artifact SHA can match the inference workflow SHA.
-      - "Examples/PropofolCovariates/**"
 
 jobs:
   export-and-validate:
