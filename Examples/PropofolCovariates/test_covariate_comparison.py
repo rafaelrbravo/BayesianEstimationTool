@@ -52,3 +52,10 @@ def test_duplicate_ids_and_mismatched_scores_rejected():
     scores["covariates"] = ([5.], [7., 8.])
     with pytest.raises(ValueError, match="Invalid patient scores"):
         validate_scores([10, 11], scores)
+
+
+def test_duplicate_or_invalid_training_positions_rejected():
+    values = np.ones((3, 2))
+    for positions in ([0, 0], [-1, 1], [0, 3], [0.5, 1.5], [[0, 1]]):
+        with pytest.raises(ValueError, match="Training positions"):
+            standardize_covariates(values, positions)
