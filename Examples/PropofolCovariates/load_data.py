@@ -20,6 +20,8 @@ def load_data(directory=None, selected_ids=None, tables=None):
         if not selected_ids.issubset(ids):
             raise ValueError("Selected patient IDs include unknown or excluded patients")
         ids = [patient_id for patient_id in ids if patient_id in selected_ids]
+    if not ids:
+        raise ValueError("No patients selected")
     required = {"TIME", "INFUSIONRATE", "BOLUS", "ISMEASUREMENT"}
     if not required.issubset(events.columns):
         raise ValueError(f"Missing event columns: {sorted(required - set(events.columns))}")
@@ -37,6 +39,8 @@ def load_data(directory=None, selected_ids=None, tables=None):
         raw_counts = e.ISMEASUREMENT.to_numpy(dtype=np.float64)
         if np.any(~np.isfinite(raw_counts)) or np.any(raw_counts < 0) or np.any(raw_counts != np.floor(raw_counts)):
             raise ValueError(f"Invalid measurement counts for ID {patient_id}")
+        if np.any(raw_counts > np.iinfo(np.int32).max):
+            raise ValueError(f"Measurement count overflow for ID {patient_id}")
         counts = raw_counts.astype(np.int32)
         # The upstream Julia get_indmeas repeats an event index when its
         # IsMeasurement count exceeds one. Expand the event into same-time
@@ -53,7 +57,9 @@ def load_data(directory=None, selected_ids=None, tables=None):
             raise ValueError(f"Unsorted or missing event times for ID {patient_id}")
         if len(concentration) != int(counts.sum()):
             raise ValueError(f"Measurement count mismatch for ID {patient_id}: {len(concentration)} vs {mask.sum()}")
-        if np.any(~np.isfinite(times)) or np.any(rate < 0) or np.any(bolus < 0):
+        if np.any(~np.isfinite(concentration)) or np.any(concentration <= 0):
+            raise ValueError(f"Invalid measured concentration for ID {patient_id}")
+        if np.any(~np.isfinite(times)) or np.any(~np.isfinite(rate)) or np.any(~np.isfinite(bolus)) or np.any(rate < 0) or np.any(bolus < 0):
             raise ValueError(f"Invalid dosing for ID {patient_id}")
         patient_cov = obs.loc[obs.ID == patient_id, covariates].iloc[0].to_numpy(dtype=np.float64)
         if not np.all(np.isfinite(patient_cov)):
