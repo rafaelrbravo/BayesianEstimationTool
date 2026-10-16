@@ -10,6 +10,10 @@ on:
   push:
     paths:
       - ".github/workflows/propofol-inference.yml"
+      - "Examples/PropofolCovariates/**"
+      - "BayesianEstimationTool/**"
+      - "pyproject.toml"
+      - "setup.py"
 
 jobs:
   development-comparison:
