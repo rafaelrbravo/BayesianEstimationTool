@@ -56,7 +56,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          run_id=$(gh run list --workflow propofol-symbolic-export.yml --status success --limit 20 --json databaseId,headSha --jq '[.[] | select(.headSha == env.GITHUB_SHA)][0].databaseId // empty')
+          # Search by commit SHA server-side; a busy repository can have more
+          # than 20 newer exports before the matching run is requested.
+          run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/propofol-symbolic-export.yml/runs?head_sha=$GITHUB_SHA&status=success&per_page=100" --jq '.workflow_runs[0].id // empty')
           if [ -z "$run_id" ]; then
             echo "No successful symbolic-equation export for this exact BET commit ($GITHUB_SHA)." >&2
             echo "Run propofol-symbolic-export.yml on this commit before dispatching inference." >&2
