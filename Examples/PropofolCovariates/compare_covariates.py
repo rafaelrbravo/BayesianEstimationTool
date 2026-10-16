@@ -11,6 +11,7 @@ import numpyro.distributions as dist
 import BayesianEstimationTool as bet
 from bet_baseline import PARAMETERS, REFERENCE, ScoreFn, TrainLikelihoodFn, TestLikelihoodFn
 from load_data import load_data
+from inspect_data import read_tables, patient_ids
 from pk_model import concentrations
 from split import make_split
 
@@ -40,22 +41,27 @@ def make_prior(use_covariates):
 
 
 def main():
-    arrays = load_data()
-    train, test = make_split(len(arrays["patient_ids"]))
+    tables = read_tables()
+    ids = patient_ids(tables)
+    train, test = make_split(len(ids))
     # Use the identical development patients and future-only evaluation.
     train, test = train[:100], test[:25]
-    n_observed = arrays["observed"][test].sum(axis=1)
+    selected_ids = [ids[i] for i in list(train) + list(test)]
+    arrays = load_data(selected_ids=selected_ids, tables=tables)
+    positions = {patient_id: i for i, patient_id in enumerate(arrays["patient_ids"])}
+    selected = [positions[patient_id] for patient_id in selected_ids]
+    n_observed = arrays["observed"][selected[len(train):]].sum(axis=1)
     if (n_observed <= 3).any():
         raise ValueError("All held-out development patients need at least four measurements")
     # Fit centering/scaling on TRAINING patients, never held-out patients.
     cov = arrays["covariates"]
-    mean = cov[train].mean(axis=0)
-    scale = cov[train].std(axis=0)
+    train_positions = selected[:len(train)]
+    mean = cov[train_positions].mean(axis=0)
+    scale = cov[train_positions].std(axis=0)
     scale = jnp.where(scale > 0, scale, 1.)
     arrays["covariates"] = (cov - mean) / scale
     # Keep only development patients in the JAX arrays; remap split indices.
     # This avoids allocating inference tensors for all 1,031 patients.
-    selected = list(train) + list(test)
     n_train = len(train)
     train = jnp.arange(n_train)
     test = jnp.arange(n_train, len(selected))
