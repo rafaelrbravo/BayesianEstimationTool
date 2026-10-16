@@ -37,3 +37,23 @@ def test_repeated_measurement_counts_match_expanded_jax_events():
     actual = np.asarray(concentrations(jnp.asarray(parameters), jnp.asarray(time),
                                            jnp.asarray(rate), jnp.asarray(bolus)))
     np.testing.assert_allclose(actual[[0, 1, 3, 4, 5]], expected, rtol=2e-4, atol=2e-6)
+
+
+def test_loader_expansion_matches_production_scipy_reference(monkeypatch):
+    import load_data as loader
+
+    monkeypatch.setattr(loader, "patient_ids", lambda tables: [1])
+    parameters = np.array([10., 20., 30., 1., 2., 3.])
+    events = pd.DataFrame({"ID": [1] * 4, "TIME": [0., 60., 60., 120.],
+                           "INFUSIONRATE": [100., 100., 0., 0.],
+                           "BOLUS": [1000., 0., 2000., 0.],
+                           "ISMEASUREMENT": [2, 0, 1, 2]})
+    observations = pd.DataFrame({"ID": [1] * 5, "CP": [1.] * 5,
+                                 "AGE": [40.] * 5, "WGT": [70.] * 5,
+                                 "HT": [170.] * 5, "M1F2": [1] * 5,
+                                 "A1V2": [1] * 5})
+    data = loader.load_data(tables={"events": events, "observations": observations})
+    actual = np.asarray(concentrations(jnp.asarray(parameters), jnp.asarray(data["time"][0]),
+                                           jnp.asarray(data["rate"][0]), jnp.asarray(data["bolus"][0])))
+    expected = predict_patient(parameters, events)
+    np.testing.assert_allclose(actual[data["observed"][0].astype(bool)], expected, rtol=2e-4, atol=2e-6)
