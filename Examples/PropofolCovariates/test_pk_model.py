@@ -68,7 +68,7 @@ def test_rate_constant_parameter_conversion():
 
 
 def test_published_rates_against_independent_rate_matrix():
-    """Verify published rate ordering, mL conversion, and infusion dynamics."""
+    """Verify published rate ordering, mL conversion, and solver rate convention."""
     rates = np.array([0.0025, 0.003, 0.0015, 0.002, 0.0003, 10000.])
     k10, k12, k13, k21, k31, v1_ml = rates
     # Independent mammillary amount matrix, without volume/clearance conversion.
@@ -79,7 +79,7 @@ def test_published_rates_against_independent_rate_matrix():
     augmented[:3, :3] = a
     augmented[0, 3] = 1.
     times = np.array([0., 30., 90., 180.])
-    infusion = np.array([2., 4., 0., 0.])  # ug/s, already converted from source
+    infusion = np.array([2., 4., 0., 0.])  # Solver convention: raw source rates interpreted as ug/s
     bolus = np.array([5000., 0., 1000., 0.])
     amount = np.zeros(3)
     expected = []
