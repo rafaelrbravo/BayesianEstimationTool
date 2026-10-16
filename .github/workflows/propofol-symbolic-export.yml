@@ -25,6 +25,12 @@ jobs:
           repository: wahlquisty/learning-pharmacometric-covariate-structures
           ref: 939d30699fa6157c14c601712882c51106b82a24
           path: upstream-covariate-structures
+      - name: Verify original trained model bytes
+        shell: bash
+        run: |
+          actual=$(git -C upstream-covariate-structures hash-object symbreg/bson/bson_ALE/nn_thread1loss_ALE.bson)
+          test "$actual" = "aec9732b21a2beaec315eaefebb37699546f9dfa"
+          echo "Verified original trained BSON model bytes: $actual"
       - name: Install Python for artifact validation
         uses: actions/setup-python@v5
         with:
