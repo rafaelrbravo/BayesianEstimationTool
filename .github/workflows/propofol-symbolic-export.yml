@@ -1,0 +1,50 @@
+name: Propofol symbolic equation export
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/propofol-symbolic-export.yml"
+      - "Examples/PropofolCovariates/export_symbolic_equations.jl"
+
+jobs:
+  export-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out BET
+        uses: actions/checkout@v4
+      - name: Check out original covariate-structure repository
+        uses: actions/checkout@v4
+        with:
+          repository: wahlquisty/learning-pharmacometric-covariate-structures
+          path: upstream-covariate-structures
+      - name: Install Julia
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.8"
+      - name: Cache Julia packages
+        uses: julia-actions/cache@v2
+      - name: Export and numerically validate published equations
+        run: julia --color=yes Examples/PropofolCovariates/export_symbolic_equations.jl "$GITHUB_WORKSPACE/upstream-covariate-structures"
+      - name: Verify exported TOML structure
+        shell: python
+        run: |
+          import pathlib
+          import tomllib
+
+          path = pathlib.Path("Examples/PropofolCovariates/symbolic_equations.toml")
+          data = tomllib.loads(path.read_text())
+          expected = ["k10", "k12", "k13", "k21", "k31", "V1"]
+          equations = data["equations"]
+          assert data["output_order"] == expected
+          assert all(isinstance(equations["common"][name], str) and equations["common"][name] for name in expected)
+          assert set(equations["male"]) == {"k13", "k31"}
+          assert set(equations["female"]) == {"k13", "k31"}
+          print(f"Validated TOML structure: {len(expected)} common equations and four sex-specific equations.")
+      - name: Upload validated equation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: propofol-symbolic-equations
+          path: Examples/PropofolCovariates/symbolic_equations.toml
+          if-no-files-found: error
