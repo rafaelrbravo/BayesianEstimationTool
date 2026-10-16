@@ -102,10 +102,11 @@ def published_parameters(equations, covariates):
     variables = dict(zip(VARIABLES, (age, weight, bmi, gender, av)))
     values = []
     for name in NAMES:
-        common = _evaluate(equations["common"][name], variables)
         if name in ("k13", "k31"):
             male = _evaluate(equations["male"][name], variables)
             female = _evaluate(equations["female"][name], variables)
-            common = jnp.where(gender < 0, male, female)
-        values.append(common)
+            value = jnp.where(gender < 0, male, female)
+        else:
+            value = _evaluate(equations["common"][name], variables)
+        values.append(value)
     return published_rates_to_parameters(jnp.stack(values))
