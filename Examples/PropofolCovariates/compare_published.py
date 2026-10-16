@@ -61,6 +61,12 @@ def main():
     artifact_path = Path(args.equations) if args.equations else Path(__file__).with_name("symbolic_equations.toml")
     with artifact_path.open("rb") as source:
         artifact = tomllib.load(source)
+    if artifact.get("source_commit") != "939d30699fa6157c14c601712882c51106b82a24":
+        raise ValueError("Unexpected upstream source commit in published equations")
+    if artifact.get("source_model_git_blob_sha") != "aec9732b21a2beaec315eaefebb37699546f9dfa":
+        raise ValueError("Unexpected trained BSON model in published equations")
+    if artifact.get("output_units") != {"k10": "1/s", "k12": "1/s", "k13": "1/s", "k21": "1/s", "k31": "1/s", "V1": "mL"}:
+        raise ValueError("Unexpected published equation output units")
     references = artifact.get("reference_predictions", [])
     if len(references) != 5:
         raise ValueError("Published equations require five Julia-network reference predictions")
