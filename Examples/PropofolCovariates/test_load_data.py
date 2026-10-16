@@ -160,19 +160,20 @@ def test_rejects_inconsistent_covariates_across_measurements():
             raise AssertionError("Conflicting age for one patient must fail")
 
 
-def test_upstream_infusion_rate_is_micrograms_per_second():
-    """The upstream rate is effectively ug/s: 60 ug/s for 60s delivers 3600 ug."""
+def test_upstream_infusion_rate_is_preserved_without_conversion():
+    """Preserve raw source rate; unit interpretation awaits reference validation."""
     observations = pd.DataFrame({"ID": [10], "CP": [1.], "AGE": [40], "WGT": [80], "HT": [200], "M1F2": [1], "A1V2": [2]})
     events = pd.DataFrame({"ID": [10, 10], "TIME": [0., 60.], "INFUSIONRATE": [60., 0.], "BOLUS": [0., 0.], "ISMEASUREMENT": [0, 1]})
     with patch("load_data.patient_ids", return_value=[10]):
         data = load_data(tables={"observations": observations, "events": events})
     np.testing.assert_allclose(data["rate"][0], [60., 0.])
-    np.testing.assert_allclose(np.diff(data["time"][0])[0] * data["rate"][0, 0], 3600.)
+    # The loader must not silently apply a unit conversion. This does not
+    # establish the physical unit; compare predictions with the original model.
 
 
 if __name__ == "__main__":
     test_padded_events_and_covariates()
-    test_upstream_infusion_rate_is_micrograms_per_second()
+    test_upstream_infusion_rate_is_preserved_without_conversion()
     test_rejects_mismatched_measurements()
     test_repeated_measurements_at_one_event()
     test_rejects_fractional_measurement_counts()
@@ -205,15 +206,14 @@ def test_rejects_duplicate_selected_patient_ids():
             raise AssertionError("Duplicate selected IDs must not be silently deduplicated")
 
 
-def test_upstream_infusion_rate_matches_administered_dose():
-    """Patient 1 raw rate 3939 ug/s over 10.02s delivers about 39.47 mg."""
+def test_upstream_infusion_rate_is_preserved_for_patient_history():
+    """Keep the raw patient rate; physical units are not resolved here."""
     observations = pd.DataFrame({"ID": [1], "CP": [6.932], "AGE": [59], "WGT": [64], "HT": [166], "M1F2": [2], "A1V2": [1]})
     events = pd.DataFrame({"ID": [1, 1], "TIME": [0., 10.02],
                            "INFUSIONRATE": [3939., 0.], "BOLUS": [0., 0.], "ISMEASUREMENT": [0, 1]})
     with patch("load_data.patient_ids", return_value=[1]):
         data = load_data(tables={"observations": observations, "events": events})
-    delivered_micrograms = (data["time"][0, 1] - data["time"][0, 0]) * data["rate"][0, 0]
-    np.testing.assert_allclose(delivered_micrograms, 3939. * 10.02, rtol=0.002)
+    np.testing.assert_allclose(data["rate"][0, 0], 3939.)
 
 
 def test_events_after_final_measurement_are_omitted():
