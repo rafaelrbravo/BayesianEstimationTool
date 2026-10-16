@@ -12,7 +12,7 @@ import BayesianEstimationTool as bet
 from load_data import load_data
 from inspect_data import read_tables, patient_ids
 from pk_model import concentrations
-from split import make_split
+from split import make_split, eligible_test_indices
 
 PARAMETERS = ("V1", "V2", "V3", "CL", "Q2", "Q3")
 # Positive PK parameters, in liters and liters/minute respectively.
@@ -69,7 +69,7 @@ def main():
     train, test = make_split(len(ids))
     train = train[:100]
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
-    eligible_test = [i for i in test if counts.get(ids[i], 0) > N_FIT][:25]
+    eligible_test = eligible_test_indices(test, ids, counts, n_fit=N_FIT, limit=25)
     print(f"Evaluable held-out patients selected: {len(eligible_test)}/{len(test)} (need >{N_FIT} concentrations)")
     if not eligible_test:
         raise ValueError("No held-out patients have enough measurements for future scoring")
