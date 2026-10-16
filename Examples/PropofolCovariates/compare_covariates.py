@@ -54,6 +54,7 @@ def main():
     scale = jnp.where(scale > 0, scale, 1.)
     arrays["covariates"] = (cov - mean) / scale
     data = {key: jnp.asarray(value) for key, value in arrays.items() if key != "patient_ids"}
+    scores = {}
     for use_covariates in (False, True):
         label = "covariates" if use_covariates else "no covariates"
         est = bet.Estimator(data=data, ModelFn=make_model(use_covariates), localZNames=list(PARAMETERS),
@@ -61,11 +62,15 @@ def main():
         est.Train(trainDataIdxs=jnp.asarray(train), TrainLikelihoodFn=TrainLikelihoodFn,
                   Method=bet.Svi(numSteps=1000, numSamples=50, progressBar=False))
         est.Test(testDataIdxs=jnp.asarray(test), nLocalZSamples=50)
-        unconditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn))
+        unconditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn), axis=(0, 1))
         est.Test(testDataIdxs=jnp.asarray(test), TestLikelihoodFn=TestLikelihoodFn,
                  Method=bet.Svi(numSteps=300, numSamples=50, progressBar=False))
-        conditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn))
-        print(f"{label}: unconditioned future log error={float(unconditioned):.4f}; conditioned={float(conditioned):.4f}")
+        conditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn), axis=(0, 1))
+        scores[label] = (unconditioned, conditioned)
+        print(f"{label}: unconditioned future log error={float(jnp.mean(unconditioned)):.4f}; conditioned={float(jnp.mean(conditioned)):.4f}")
+    for i, setting in enumerate(("unconditioned", "conditioned")):
+        delta = scores["covariates"][i] - scores["no covariates"][i]
+        print(f"Paired {setting} covariate minus baseline log error: mean={float(jnp.mean(delta)):.4f}, median={float(jnp.median(delta)):.4f}, improved patients={int(jnp.sum(delta < 0))}/{len(test)}")
 
 
 if __name__ == "__main__":
