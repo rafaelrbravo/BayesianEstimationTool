@@ -19,6 +19,10 @@ on:
       - "pyproject.toml"
       - "setup.py"
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   development-comparison:
     runs-on: ubuntu-latest
