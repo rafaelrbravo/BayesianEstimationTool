@@ -65,16 +65,22 @@ def ScoreFn(modelOut, data):
 def main():
     arrays = load_data()
     train, test = make_split(len(arrays["patient_ids"]))
-    data = {key: jnp.asarray(value) for key, value in arrays.items() if key != "patient_ids"}
+    # Keep only development patients in the JAX arrays; remap split indices.
+    # This avoids allocating inference tensors for all 1,031 patients.
+    selected = jnp.asarray(list(train[:100]) + list(test[:25]))
+    n_train = 100
+    train = jnp.arange(n_train)
+    test = jnp.arange(n_train, len(selected))
+    data = {key: jnp.asarray(value)[selected] for key, value in arrays.items() if key != "patient_ids"}
     # A future-only score is undefined for patients with <= N_FIT measurements.
-    n_observed = jnp.sum(data["observed"][test[:25]], axis=1)
+    n_observed = jnp.sum(data["observed"][test], axis=1)
     if bool(jnp.any(n_observed <= N_FIT)):
         raise ValueError("Development test patients must have at least four measured concentrations")
     est = bet.Estimator(data=data, ModelFn=ModelFn, localZNames=list(PARAMETERS),
                         GlobalPriorFn=GlobalPriorFn, rngSeed=0)
-    est.Train(trainDataIdxs=jnp.asarray(train[:100]), TrainLikelihoodFn=TrainLikelihoodFn,
+    est.Train(trainDataIdxs=train, TrainLikelihoodFn=TrainLikelihoodFn,
               Method=bet.Svi(numSteps=1000), printSummary=True)
-    test_indices = jnp.asarray(test[:25])
+    test_indices = test
     est.Test(testDataIdxs=test_indices, nLocalZSamples=50)
     print("Unconditional future log error:", jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn)))
     # Updating held-out patient effects from the first N_FIT observations
