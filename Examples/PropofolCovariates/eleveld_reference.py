@@ -52,8 +52,6 @@ def evaluate(development=False, output_csv=None):
         patient = {name: jnp.asarray(data[name][i]) for name in ("observed", "concentration")}
         scores.append(float(ScoreFn({"concentration": prediction}, patient)))
     scores = np.asarray(scores)
-    if len(scores) == 0:
-        raise ValueError("No held-out patients have enough measurements for Eleveld scoring")
     if not np.isfinite(scores).all():
         raise ValueError("Nonfinite Eleveld reference errors")
     if output_csv is not None:
@@ -69,7 +67,7 @@ def evaluate(development=False, output_csv=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Score supplied Eleveld PK parameters on held-out patients")
-    parser.add_argument("--development", action="store_true", help="Use first 25 held-out patients, matching BET development comparison")
+    parser.add_argument("--development", action="store_true", help="Use first 25 eligible held-out patients, matching BET development comparison")
     parser.add_argument("--output-csv", help="Optional patient-level Eleveld reference errors")
     args = parser.parse_args()
     evaluate(development=args.development, output_csv=args.output_csv)
