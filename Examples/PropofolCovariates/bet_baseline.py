@@ -63,7 +63,7 @@ def main():
     arrays = load_data()
     train, test = make_split(len(arrays["patient_ids"]))
     data = {key: jnp.asarray(value) for key, value in arrays.items() if key != "patient_ids"}
-    est = bet.Estimator(data=data, ModelFn=ModelFn, localZNames=list(PARAMETERS),
+    # A future-only score is undefined for patients with <= N_FIT measurements.\n    n_observed = jnp.sum(data["observed"][test[:25]], axis=1)\n    if bool(jnp.any(n_observed <= N_FIT)):\n        raise ValueError("Development test patients must have at least four measured concentrations")\n    est = bet.Estimator(data=data, ModelFn=ModelFn, localZNames=list(PARAMETERS),
                         GlobalPriorFn=GlobalPriorFn, rngSeed=0)
     est.Train(trainDataIdxs=jnp.asarray(train[:100]), TrainLikelihoodFn=TrainLikelihoodFn,
               Method=bet.Svi(numSteps=1000), printSummary=True)
