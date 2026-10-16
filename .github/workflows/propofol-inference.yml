@@ -47,6 +47,30 @@ jobs:
             echo "global_samples must be a positive integer." >&2
             exit 1
           fi
+      - name: Record reproducible experiment configuration
+        env:
+          RUN_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          SMOKE_ONLY: ${{ inputs.smoke_only }}
+          FULL_COHORT: ${{ inputs.full_cohort }}
+          RUN_PUBLISHED: ${{ inputs.run_published }}
+          GLOBAL_SAMPLES: ${{ inputs.global_samples }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          record = {key.lower(): os.environ[key] for key in
+                    ("RUN_SHA", "RUN_ID", "RUN_ATTEMPT", "SMOKE_ONLY", "FULL_COHORT",
+                     "RUN_PUBLISHED", "GLOBAL_SAMPLES")}
+          record["upstream_commit"] = "939d30699fa6157c14c601712882c51106b82a24"
+          record["split_seed"] = 20261015
+          record["conditioning_measurements"] = 3
+          Path("propofol-run-manifest.json").write_text(json.dumps(record, indent=2) + "\\n")
+          print(json.dumps(record, indent=2))
+          PY
       - name: Install BET and numerical dependencies
         run: python -m pip install -e . numpy pandas scipy "jax[cpu]" numpyro pytest
       - name: Run synthetic regression tests before inference
@@ -159,6 +183,7 @@ jobs:
         with:
           name: propofol-development-paired-scores
           path: |
+            propofol-run-manifest.json
             propofol-dev-scores.csv
             propofol-published-smoke.csv
             propofol-published-dev.csv
