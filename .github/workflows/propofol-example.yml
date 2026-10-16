@@ -24,6 +24,8 @@ jobs:
         run: python -m compileall -q Examples/PropofolCovariates
       - name: Test offline downloader
         run: python -m pytest -q Examples/PropofolCovariates/test_download_data.py
+      - name: Test patient split invariants
+        run: python -m pytest -q Examples/PropofolCovariates/test_split.py
       - name: Test dataset consistency checks
         run: python -m pytest -q Examples/PropofolCovariates/test_inspect_data.py
       - name: Test event loader
