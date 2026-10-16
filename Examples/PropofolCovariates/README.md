@@ -45,3 +45,5 @@ The synthetic checks include the loader, PK solver, and future-only scoring test
 Additional local validation reproduced the loader's NumPy/pandas event-expansion logic and passed three focused checks (multiple repeated-measurement events, a single-measurement event, and measurement-count mismatch). This was not a direct execution of the repository loader test module. The full loader test suite and original-data validation are still outstanding.
 
 The downloader has three offline regression tests covering successful downloads and skipped existing files, empty responses, and interrupted transfers; run `python -m pytest -q Examples/PropofolCovariates/test_download_data.py`. These checks do not require the original CSVs or NumPyro.
+
+Before fitting, `inspect_data.py` now checks each included patient's positive-concentration row count against the summed `IsMeasurement` event counts and prints the validated total. Offline tests: `python -m pytest -q Examples/PropofolCovariates/test_inspect_data.py`.
