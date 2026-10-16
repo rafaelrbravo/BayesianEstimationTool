@@ -10,8 +10,9 @@ import numpy as np
 from inspect_data import patient_ids, read_tables
 
 
-def load_data(directory=None, selected_ids=None):
-    tables = read_tables() if directory is None else read_tables(directory)
+def load_data(directory=None, selected_ids=None, tables=None):
+    if tables is None:
+        tables = read_tables() if directory is None else read_tables(directory)
     obs, events = tables["observations"], tables["events"]
     ids = patient_ids(tables)
     if selected_ids is not None:
