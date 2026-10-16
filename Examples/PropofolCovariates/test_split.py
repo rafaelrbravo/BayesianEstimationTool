@@ -49,3 +49,9 @@ def test_eligibility_precedes_development_limit():
 def test_boolean_patient_counts_rejected(n_patients, n_test):
     with pytest.raises(ValueError, match="integers"):
         make_split(n_patients=n_patients, n_test=n_test)
+
+
+@pytest.mark.parametrize("seed", [True, np.bool_(False), -1, 1.5, "20261015"])
+def test_invalid_split_seed_rejected(seed):
+    with pytest.raises(ValueError, match="seed"):
+        make_split(n_patients=20, n_test=5, seed=seed)
