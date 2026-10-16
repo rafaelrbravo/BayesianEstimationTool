@@ -84,7 +84,7 @@ def main():
     est = bet.Estimator(data=data, ModelFn=ModelFn, localZNames=list(PARAMETERS),
                         GlobalPriorFn=GlobalPriorFn, rngSeed=0)
     est.Train(trainDataIdxs=train, TrainLikelihoodFn=TrainLikelihoodFn,
-              Method=bet.Svi(numSteps=1000), printSummary=True)
+              Method=bet.Svi(numSteps=1000, numSamples=50, progressBar=False), printSummary=True)
     test_indices = test
     est.Test(testDataIdxs=test_indices, nLocalZSamples=50)
     print("Unconditional future log error:", jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn)))
