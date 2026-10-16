@@ -52,9 +52,29 @@ def patient_ids(tables):
     return ids
 
 
+
+def validate_measurement_counts(tables, ids):
+    """Check every included patient's event count against positive CP rows."""
+    observations = tables["observations"]
+    events = tables["events"]
+    measured = observations.loc[observations["CP"] > 0].groupby("ID").size()
+    counts = events.groupby("ID")["ISMEASUREMENT"].sum()
+    bad = []
+    for patient_id in ids:
+        expected = int(measured.get(patient_id, 0))
+        actual = counts.get(patient_id, 0)
+        if not pd.notna(actual) or actual < 0 or actual != int(actual) or int(actual) != expected:
+            bad.append((patient_id, expected, actual))
+    if bad:
+        raise ValueError(f"Measurement counts disagree for {len(bad)} patients; first five: {bad[:5]}")
+    return int(measured.reindex(ids, fill_value=0).sum())
+
+
 def main():
     tables = read_tables()
     ids = patient_ids(tables)
+    n_measurements = validate_measurement_counts(tables, ids)
+    print(f"Validated {n_measurements} measured concentrations against event counts")
     for name, table in tables.items():
         print(f"{name}: {len(table)} rows, {table.ID.nunique()} patients")
         print("  columns:", ", ".join(table.columns))
