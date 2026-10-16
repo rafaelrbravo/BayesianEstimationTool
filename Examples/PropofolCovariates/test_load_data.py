@@ -91,6 +91,28 @@ def test_selected_ids_preserve_sorted_order():
         data = load_data(selected_ids=[20, 10], tables=tables)
     np.testing.assert_array_equal(data["patient_ids"], [10, 20])
 
+
+def test_rejects_nonfinite_infusion():
+    observations = pd.DataFrame({"ID": [10], "CP": [1.5], "AGE": [40], "WGT": [80], "HT": [200], "M1F2": [1], "A1V2": [2]})
+    events = pd.DataFrame({"ID": [10], "TIME": [0.], "INFUSIONRATE": [np.nan], "BOLUS": [100.], "ISMEASUREMENT": [1]})
+    with patch("load_data.patient_ids", return_value=[10]):
+        try:
+            load_data(tables={"observations": observations, "events": events})
+        except ValueError as error:
+            assert "Invalid dosing" in str(error)
+        else:
+            raise AssertionError("Nonfinite infusion rate must fail")
+
+
+def test_rejects_empty_selection():
+    with patch("load_data.patient_ids", return_value=[10]):
+        try:
+            load_data(selected_ids=[], tables={"observations": pd.DataFrame(), "events": pd.DataFrame()})
+        except ValueError as error:
+            assert "No patients selected" in str(error)
+        else:
+            raise AssertionError("Empty selection must fail")
+
 if __name__ == "__main__":
     test_padded_events_and_covariates()
     test_rejects_mismatched_measurements()
@@ -98,4 +120,6 @@ if __name__ == "__main__":
     test_rejects_fractional_measurement_counts()
     test_select_patient_before_padding()
     test_selected_ids_preserve_sorted_order()
+    test_rejects_nonfinite_infusion()
+    test_rejects_empty_selection()
     print("Synthetic loader checks passed")
