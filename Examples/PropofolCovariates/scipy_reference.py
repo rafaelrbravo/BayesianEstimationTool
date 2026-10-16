@@ -36,12 +36,12 @@ def predict_patient(parameters, events):
     return np.asarray(predictions)
 
 
-def evaluate(development=True, n_fit=3, output_csv=None):
+def evaluate(development=True, n_fit=3, output_csv=None, test_patients=None):
     tables = read_tables()
     ids = patient_ids(tables)
     _, test = make_split(len(ids))
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
-    selected = eligible_test_indices(test, ids, counts, n_fit=n_fit, limit=25 if development else None)
+    selected = eligible_test_indices(test, ids, counts, n_fit=n_fit, limit=test_patients if test_patients is not None else (25 if development else None))
     if not selected:
         raise ValueError("No held-out patients have future observations")
     if tables["parameters"]["ID"].duplicated().any():
@@ -78,6 +78,9 @@ def evaluate(development=True, n_fit=3, output_csv=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--full", action="store_true")
+    parser.add_argument("--test-patients", type=int, help="Limit eligible held-out patients (use 5 for smoke)")
     parser.add_argument("--output-csv", help="Optional patient-level scores for cross-checking JAX reference")
     args = parser.parse_args()
-    evaluate(development=not args.full, output_csv=args.output_csv)
+    if args.test_patients is not None and args.test_patients < 1:
+        parser.error('--test-patients must be positive')
+    evaluate(development=not args.full, output_csv=args.output_csv, test_patients=args.test_patients)
