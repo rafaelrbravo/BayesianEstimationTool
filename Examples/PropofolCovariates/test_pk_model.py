@@ -99,3 +99,18 @@ if __name__ == "__main__":
     test_rate_constant_parameter_conversion()
     test_published_rates_against_independent_rate_matrix()
     print("Independent PK prediction and gradient checks passed")
+
+
+def test_zero_duration_rows_preserve_state_and_gradients():
+    params = jnp.array([10., 20., 30., 1., 2., 3.])
+    time = jnp.array([0., 0., 0., 60., 60., 120.])
+    rate = jnp.array([100., 100., 100., 50., 50., 0.])
+    bolus = jnp.array([10000., 0., 0., 2000., 0., 0.])
+    actual = concentrations(params, time, rate, bolus)
+    reference = concentrations(params, jnp.array([0., 60., 120.]),
+                               jnp.array([100., 50., 0.]),
+                               jnp.array([10000., 2000., 0.]))
+    np.testing.assert_allclose(actual[[0, 3, 5]], reference, rtol=1e-5, atol=1e-7)
+    np.testing.assert_allclose(actual[:3], jnp.full(3, actual[0]), rtol=1e-6)
+    gradient = jax.grad(lambda p: jnp.sum(concentrations(p, time, rate, bolus)))(params)
+    assert np.all(np.isfinite(gradient))
