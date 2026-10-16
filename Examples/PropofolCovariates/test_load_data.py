@@ -73,9 +73,19 @@ def test_rejects_fractional_measurement_counts():
         else:
             raise AssertionError("Fractional measurement counts must fail")
 
+
+def test_select_patient_before_padding():
+    observations = pd.DataFrame({"ID": [10, 20], "CP": [1., 2.], "AGE": [40, 60], "WGT": [80, 90], "HT": [200, 180], "M1F2": [1, 2], "A1V2": [2, 1]})
+    events = pd.DataFrame({"ID": [10, 10, 10, 20], "TIME": [0., 30., 60., 0.], "INFUSIONRATE": [10., 0., 0., 20.], "BOLUS": [100., 0., 0., 0.], "ISMEASUREMENT": [1, 0, 0, 1]})
+    with patch("load_data.read_tables", return_value={"observations": observations, "events": events}), patch("load_data.patient_ids", return_value=[10, 20]):
+        data = load_data(selected_ids=[20])
+    np.testing.assert_array_equal(data["patient_ids"], [20])
+    assert data["time"].shape == (1, 1)
+
 if __name__ == "__main__":
     test_padded_events_and_covariates()
     test_rejects_mismatched_measurements()
     test_repeated_measurements_at_one_event()
     test_rejects_fractional_measurement_counts()
+    test_select_patient_before_padding()
     print("Synthetic loader checks passed")
