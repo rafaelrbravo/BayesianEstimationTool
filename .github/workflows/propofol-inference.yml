@@ -53,18 +53,22 @@ jobs:
         run: |
           set -o pipefail
           python -u Examples/PropofolCovariates/inspect_data.py 2>&1 | tee propofol-data-check.log
-      - name: Score supplied Eleveld parameters on development test patients
+      - name: Score supplied Eleveld parameters on matching held-out patients
         if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
         run: |
           set -o pipefail
-          python -u Examples/PropofolCovariates/eleveld_reference.py --development --output-csv propofol-dev-eleveld.csv 2>&1 | tee propofol-eleveld-run.log
+          reference_patients=25
+          if [ "${{ inputs.smoke_only }}" = "true" ]; then reference_patients=5; fi
+          python -u Examples/PropofolCovariates/eleveld_reference.py --test-patients "$reference_patients" --output-csv propofol-dev-eleveld.csv 2>&1 | tee propofol-eleveld-run.log
       - name: Independently score Eleveld with SciPy
         if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
         run: |
           set -o pipefail
-          python -u Examples/PropofolCovariates/scipy_reference.py --output-csv propofol-dev-scipy.csv 2>&1 | tee propofol-scipy-reference.log
+          reference_patients=25
+          if [ "${{ inputs.smoke_only }}" = "true" ]; then reference_patients=5; fi
+          python -u Examples/PropofolCovariates/scipy_reference.py --test-patients "$reference_patients" --output-csv propofol-dev-scipy.csv 2>&1 | tee propofol-scipy-reference.log
       - name: Check SciPy and JAX reference agreement
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: python Examples/PropofolCovariates/compare_references.py propofol-dev-eleveld.csv propofol-dev-scipy.csv
