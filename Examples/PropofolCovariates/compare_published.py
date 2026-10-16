@@ -44,10 +44,13 @@ def main():
     parser.add_argument("--full", action="store_true", help="Use all 831 training patients and all eligible patients in the fixed 200-patient test partition")
     parser.add_argument("--train-patients", type=int, default=100, help="Development training cohort size")
     parser.add_argument("--test-patients", type=int, default=25, help="Development held-out cohort size")
+    parser.add_argument("--global-samples", type=int, default=1, help="Population posterior draws for held-out scoring (conditional SVI repeats per draw)")
     parser.add_argument("--train-steps", type=int, default=1000)
     parser.add_argument("--test-steps", type=int, default=300)
     parser.add_argument("--output-csv", help="Optional per-patient held-out errors for auditing")
     args = parser.parse_args()
+    if args.global_samples < 1:
+        parser.error("--global-samples must be positive")
     if args.train_steps < 1 or args.test_steps < 1:
         parser.error("SVI steps must be positive")
     if args.train_patients < 1 or args.test_patients < 1:
@@ -108,10 +111,10 @@ def main():
         est.Train(trainDataIdxs=jnp.asarray(train), TrainLikelihoodFn=TrainLikelihoodFn,
                   Method=bet.Svi(numSteps=args.train_steps, numSamples=50, progressBar=False))
         print(f"Scoring {label} model without conditioning", flush=True)
-        est.Test(testDataIdxs=jnp.asarray(test), nLocalZSamples=50)
+        est.Test(testDataIdxs=jnp.asarray(test), nGlobalSamples=args.global_samples, nLocalZSamples=50)
         unconditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn), axis=(0, 1))
         print(f"Conditioning {label} model on first {N_FIT} concentrations", flush=True)
-        est.Test(testDataIdxs=jnp.asarray(test), TestLikelihoodFn=TestLikelihoodFn,
+        est.Test(testDataIdxs=jnp.asarray(test), nGlobalSamples=args.global_samples, TestLikelihoodFn=TestLikelihoodFn,
                  Method=bet.Svi(numSteps=args.test_steps, numSamples=50, progressBar=False))
         conditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn), axis=(0, 1))
         scores[label] = (unconditioned, conditioned)
