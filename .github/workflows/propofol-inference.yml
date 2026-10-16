@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       smoke_only:
-        description: "Run 10-patient SVI smoke test without the 100-patient development fit"
+        description: "Run only the 10-patient SVI smoke test (skip development fit)"
         type: boolean
         default: false
   push:
@@ -42,13 +42,13 @@ jobs:
       - name: Summarize smoke-test paired held-out errors
         run: python Examples/PropofolCovariates/summarize_scores.py propofol-smoke-scores.csv
       - name: Run development comparison (100 train, up to 25 test)
-        if: ${{ !inputs.smoke_only }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.smoke_only }}
         shell: bash
         run: |
           set -o pipefail
           python -u Examples/PropofolCovariates/compare_covariates.py --train-steps 1000 --test-steps 300 --output-csv propofol-dev-scores.csv 2>&1 | tee propofol-dev-run.log
       - name: Summarize exported paired held-out errors
-        if: ${{ success() && !inputs.smoke_only }}
+        if: ${{ success() && github.event_name == 'workflow_dispatch' && !inputs.smoke_only }}
         run: python Examples/PropofolCovariates/summarize_scores.py propofol-dev-scores.csv
       - name: Upload paired held-out errors
         if: always()
