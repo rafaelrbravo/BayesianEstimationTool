@@ -20,6 +20,8 @@ jobs:
           python-version: "3.11"
       - name: Install numerical test dependencies
         run: python -m pip install -e . pandas scipy "jax[cpu]" pytest
+      - name: Verify installed BET import
+        run: python -c "import BayesianEstimationTool as bet; assert hasattr(bet, 'Estimator')"
       - name: Validate syntax
         run: python -m compileall -q Examples/PropofolCovariates
       - name: Test offline downloader
