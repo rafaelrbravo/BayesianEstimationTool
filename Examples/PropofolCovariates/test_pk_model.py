@@ -79,7 +79,7 @@ def test_published_rates_against_independent_rate_matrix():
     augmented[:3, :3] = a
     augmented[0, 3] = 1.
     times = np.array([0., 30., 90., 180.])
-    infusion = np.array([2., 4., 0., 0.])  # Solver convention: raw source rates interpreted as ug/s
+    infusion = np.array([2., 4., 0., 0.])  # Raw input values; source unit remains under validation
     bolus = np.array([5000., 0., 1000., 0.])
     amount = np.zeros(3)
     expected = []
