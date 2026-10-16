@@ -19,9 +19,11 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install numerical test dependencies
-        run: python -m pip install numpy pandas scipy "jax[cpu]" numpyro
+        run: python -m pip install numpy pandas scipy "jax[cpu]" numpyro pytest
       - name: Validate syntax
         run: python -m compileall -q Examples/PropofolCovariates
+      - name: Test offline downloader
+        run: python -m pytest -q Examples/PropofolCovariates/test_download_data.py
       - name: Test event loader
         run: python Examples/PropofolCovariates/test_load_data.py
       - name: Test future-only scoring
