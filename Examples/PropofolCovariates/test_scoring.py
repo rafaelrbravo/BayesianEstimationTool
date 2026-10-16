@@ -19,6 +19,19 @@ def test_future_only_score():
     np.testing.assert_array_equal(np.asarray(likelihood._mask), [True, False, True, True, False, False, False])
 
 
+
+def test_repeated_measurements_count_toward_conditioning():
+    """Repeated same-time measurements each consume a conditioning slot."""
+    data = {"observed": jnp.array([1, 1, 0, 1, 1, 0, 1]),
+            "concentration": jnp.array([2., 2.1, 0., 3., 4., 0., 5.])}
+    model = {"concentration": jnp.array([20., 21., 1., 30., 8., 1., 10.])}
+    likelihood = TestLikelihoodFn({"sigma": jnp.array(0.2)}, {}, data, model)["concentration"][1]
+    np.testing.assert_array_equal(np.asarray(likelihood._mask),
+                                  [True, True, False, True, False, False, False])
+    np.testing.assert_allclose(ScoreFn(model, data), np.log(2.), rtol=1e-6)
+
+
 if __name__ == "__main__":
     test_future_only_score()
+    test_repeated_measurements_count_toward_conditioning()
     print("Future-only scoring checks passed")
