@@ -10,9 +10,10 @@ on:
   push:
     paths:
       - ".github/workflows/propofol-symbolic-export.yml"
-      - "Examples/PropofolCovariates/export_symbolic_equations.jl"
-      - "Examples/PropofolCovariates/published_equations.py"
-      - "Examples/PropofolCovariates/pk_model.py"
+      # Inference downloads an export artifact from the exact BET commit.
+      # Re-export whenever any propofol example file changes so the
+      # artifact SHA can match the inference workflow SHA.
+      - "Examples/PropofolCovariates/**"
 
 jobs:
   export-and-validate:
