@@ -45,8 +45,13 @@ def concentrations(parameters, time, rate, bolus):
         duration, infusion, dose = event
         amount = amount.at[0].add(dose)
         concentration = amount[0] / (v1 * 1000.0)
-        transition = expm(aug * duration)
-        next_amount = (transition @ jnp.concatenate((amount, jnp.array([infusion]))))[:3]
+        def propagate(_):
+            transition = expm(aug * duration)
+            return (transition @ jnp.concatenate((amount, jnp.array([infusion]))))[:3]
+
+        # Padded and repeated-measurement rows have dt=0. Avoid a costly
+        # matrix exponential for these rows during every inference iteration.
+        next_amount = jax.lax.cond(duration > 0, propagate, lambda _: amount, operand=None)
         return next_amount, concentration
 
     _, result = jax.lax.scan(step, jnp.zeros(3), (dt, rate, bolus))
