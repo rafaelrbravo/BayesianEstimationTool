@@ -132,6 +132,8 @@ def main():
     arrays = load_data(selected_ids=selected_ids, tables=tables)
     positions = {patient_id: i for i, patient_id in enumerate(arrays["patient_ids"])}
     selected = [positions[patient_id] for patient_id in selected_ids]
+    if len(set(selected)) != len(selected):
+        raise ValueError("Training and held-out patients must be disjoint and unique")
     n_observed = arrays["observed"][selected[len(train):]].sum(axis=1)
     if (n_observed <= N_FIT).any():
         raise ValueError("Event counts and loaded concentrations disagree for held-out patients")
