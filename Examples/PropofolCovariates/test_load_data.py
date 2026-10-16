@@ -289,11 +289,11 @@ def test_rejects_nonpositive_age():
             load_data(tables={"observations": observations, "events": events})
 
 
-def test_rejects_expanded_event_count_overflow_before_allocation():
+def test_rejects_huge_measurement_counts_before_allocation():
     observations = pd.DataFrame({"ID": [10], "CP": [1.5], "AGE": [40], "WGT": [80], "HT": [200], "M1F2": [1], "A1V2": [2]})
     events = pd.DataFrame({"ID": [10, 10], "TIME": [0., 60.],
                            "INFUSIONRATE": [0., 0.], "BOLUS": [100., 0.],
                            "ISMEASUREMENT": [2**30, 2**30]})
     with patch("load_data.patient_ids", return_value=[10]):
-        with np.testing.assert_raises_regex(ValueError, "Expanded event count overflow"):
+        with np.testing.assert_raises_regex(ValueError, "Measurement count mismatch"):
             load_data(tables={"observations": observations, "events": events})
