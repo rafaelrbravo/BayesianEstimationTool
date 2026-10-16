@@ -15,7 +15,8 @@ SEED = 20261015
 
 
 def make_split(n_patients=N_PATIENTS, n_test=N_TEST, seed=SEED):
-    if not isinstance(n_patients, (int, np.integer)) or not isinstance(n_test, (int, np.integer)):
+    if (isinstance(n_patients, (bool, np.bool_)) or isinstance(n_test, (bool, np.bool_)) or
+            not isinstance(n_patients, (int, np.integer)) or not isinstance(n_test, (int, np.integer))):
         raise ValueError("Patient and test counts must be integers")
     if not 0 < n_test < n_patients:
         raise ValueError("n_test must be between 1 and n_patients - 1")
