@@ -48,6 +48,9 @@ jobs:
           data = tomllib.loads(path.read_text())
           expected = ["k10", "k12", "k13", "k21", "k31", "V1"]
           equations = data["equations"]
+          assert data["source_commit"] == "939d30699fa6157c14c601712882c51106b82a24"
+          assert data["julia_version"] == "1.8.4"
+          assert data["validation"]["covariate_combinations"] == 5
           assert data["output_order"] == expected
           assert all(isinstance(equations["common"][name], str) and equations["common"][name] for name in expected)
           assert set(equations["male"]) == {"k13", "k31"}
