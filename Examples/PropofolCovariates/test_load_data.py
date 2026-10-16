@@ -34,7 +34,7 @@ def test_padded_events_and_covariates():
     np.testing.assert_array_equal(data["observed"], [[1, 0, 1], [1, 0, 0]])
     np.testing.assert_allclose(data["concentration"], [[1.5, 0., 0.8], [2., 0., 0.]])
     np.testing.assert_allclose(data["rate"], [[10., 0., 0.], [20., 0., 0.]])
-    np.testing.assert_allclose(data["time"][1], [0., 60., 60.])
+    np.testing.assert_allclose(data["time"][1], [0., 0., 0.])
     np.testing.assert_allclose(data["valid"][1], [1, 1, 0])
     np.testing.assert_allclose(data["covariates"], [[40., 80., 20., -0.5, 0.5], [60., 90., 90. / 1.8 ** 2, 0.5, -0.5]], rtol=1e-6)
 
@@ -56,10 +56,10 @@ def test_repeated_measurements_at_one_event():
     events = pd.DataFrame({"ID": [10, 10], "TIME": [0., 30.], "INFUSIONRATE": [10., 0.], "BOLUS": [100., 0.], "ISMEASUREMENT": [2, 0]})
     with patch("load_data.read_tables", return_value={"observations": observations, "events": events}), patch("load_data.patient_ids", return_value=[10]):
         data = load_data()
-    np.testing.assert_array_equal(data["observed"][0], [1, 1, 0])
-    np.testing.assert_allclose(data["time"][0], [0., 0., 30.])
-    np.testing.assert_allclose(data["bolus"][0], [100., 0., 0.])
-    np.testing.assert_allclose(data["concentration"][0], [1.5, 1.6, 0.])
+    np.testing.assert_array_equal(data["observed"][0], [1, 1])
+    np.testing.assert_allclose(data["time"][0], [0., 0.])
+    np.testing.assert_allclose(data["bolus"][0], [100., 0.])
+    np.testing.assert_allclose(data["concentration"][0], [1.5, 1.6])
 
 
 
