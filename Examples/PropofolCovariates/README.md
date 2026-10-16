@@ -14,7 +14,7 @@ Implementation, data provenance, and reproducible commands will be added as the 
 
 ## Data preparation (implemented)
 
-Install `numpy` and `pandas`. Download the three original CSVs from the upstream [symbreg/data directory](https://github.com/wahlquisty/learning-pharmacometric-covariate-structures/tree/main/symbreg/data) into `Examples/PropofolCovariates/data/`:
+Install `numpy` and `pandas`. Run `python Examples/PropofolCovariates/download_data.py` to fetch the original CSVs (existing files are not overwritten), or download them manually from the upstream [symbreg/data directory](https://github.com/wahlquisty/learning-pharmacometric-covariate-structures/tree/main/symbreg/data) into `Examples/PropofolCovariates/data/`:
 
 - `dataframe.csv` (concentrations and covariates)
 - `eleveld_infusiondata.csv` (infusions, boluses, measurement event times)
