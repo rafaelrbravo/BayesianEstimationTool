@@ -9,6 +9,8 @@ from split import make_split, eligible_test_indices
 
 def predict_patient(parameters, events):
     v1, v2, v3, cl, q2, q3 = map(float, parameters)
+    if not np.isfinite([v1, v2, v3, cl, q2, q3]).all() or min(v1, v2, v3) <= 0 or min(cl, q2, q3) < 0:
+        raise ValueError("PK volumes must be positive and all parameters finite and nonnegative")
     cl, q2, q3 = cl / 60., q2 / 60., q3 / 60.
     a = np.array([[-(cl + q2 + q3) / v1, q2 / v2, q3 / v3],
                   [q2 / v1, -q2 / v2, 0.], [q3 / v1, 0., -q3 / v3]])
@@ -18,6 +20,8 @@ def predict_patient(parameters, events):
     amount = np.zeros(3)
     predictions = []
     rows = events[["TIME", "INFUSIONRATE", "BOLUS", "ISMEASUREMENT"]].to_numpy(dtype=float)
+    if not np.isfinite(rows).all() or np.any(rows[:, 1:3] < 0) or np.any(rows[:, 3] < 0) or np.any(rows[:, 3] != np.floor(rows[:, 3])):
+        raise ValueError("Invalid dosing or measurement counts")
     for i, (time, rate, bolus, measured) in enumerate(rows):
         amount[0] += bolus
         predictions.extend([amount[0] / (v1 * 1000.)] * int(measured))
