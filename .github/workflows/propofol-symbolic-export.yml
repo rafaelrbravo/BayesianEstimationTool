@@ -64,6 +64,34 @@ jobs:
           assert set(equations["female"]) == {"k13", "k31"}
           print(f"Validated TOML structure: {len(expected)} common equations and four sex-specific equations.")
           PY
+      - name: Verify exported equations run in the Python JAX consumer
+        shell: bash
+        run: |
+          python -m pip install --quiet "jax[cpu]" scipy numpy
+          PYTHONPATH=Examples/PropofolCovariates python - <<'PY'
+          import numpy as np
+          import jax
+          import jax.numpy as jnp
+          from published_equations import load_equations, published_parameters
+
+          equations = load_equations()
+          patients = [
+              [24., 55., 18., -0.5, -0.5],
+              [42., 78., 25., 0.5, 0.5],
+              [63., 105., 31., -0.5, 0.5],
+              [76., 135., 39., 0.5, -0.5],
+              [35., 92., 29., 0.5, 0.5],
+          ]
+          for patient in patients:
+              covariates = jnp.array(patient)
+              params = published_parameters(equations, covariates)
+              jacobian = jax.jacrev(lambda x: published_parameters(equations, x))(covariates)
+              if not bool(jnp.all(jnp.isfinite(params) & (params > 0))):
+                  raise ValueError(f"Nonphysical exported PK parameters for {patient}: {params}")
+              if not bool(jnp.all(jnp.isfinite(jacobian))):
+                  raise ValueError(f"Nonfinite exported PK Jacobian for {patient}")
+          print("Verified exported equations in JAX for five patient profiles and their Jacobians.")
+          PY
       - name: Upload validated equation artifact
         uses: actions/upload-artifact@v4
         with:
