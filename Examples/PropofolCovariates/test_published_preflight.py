@@ -1,4 +1,6 @@
 """Regression tests for raw-covariate and physical-output preflight."""
+import ast
+
 import numpy as np
 import pytest
 
@@ -39,6 +41,19 @@ def test_reject_invalid_covariates(equations, row):
 
 
 def test_reject_nonphysical_symbolic_output(equations):
-    equations["common"]["V1"] = __import__("ast").parse("-10000", mode="eval")
+    equations["common"]["V1"] = ast.parse("-10000", mode="eval")
     with pytest.raises(ValueError, match="nonfinite or nonpositive"):
         validate_published_patients(equations, np.array([[40., 70., 25., -0.5, -0.5]]))
+
+
+def test_reject_nonfinite_symbolic_output(equations):
+    # A syntactically valid symbolic expression can be singular for real patients.
+    equations["common"]["V1"] = ast.parse("1 / (x_age - x_age)", mode="eval")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        with pytest.raises(ValueError, match="nonfinite or nonpositive"):
+            validate_published_patients(equations, np.array([[40., 70., 25., -0.5, -0.5]]))
+
+
+def test_reject_wrong_covariate_shape(equations):
+    with pytest.raises(ValueError, match="two-dimensional"):
+        validate_published_patients(equations, np.array([40., 70., 25., -0.5, -0.5]))
