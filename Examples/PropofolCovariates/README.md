@@ -2,6 +2,10 @@
 
 This directory implements an exploratory BET example using a three-compartment propofol pharmacokinetic model, inspired by [Learning pharmacometric covariate model structures with symbolic regression networks](https://github.com/wahlquisty/learning-pharmacometric-covariate-structures).
 
+## GitHub Actions inference
+
+Run **Propofol covariate inference** with **Run workflow**. The default `run_published=false` runs the Eleveld/SciPy reference checks, 10-train/5-test exploratory SVI smoke test, and 100-train/up-to-25-test exploratory covariate comparison without requiring a Julia export. Set `smoke_only=true` to skip the development fit, or `full_cohort=true` for the resource-intensive full cohort. Set `run_published=true` to additionally run the fixed published-equation comparison; that option requires a successful **Propofol symbolic equation export** artifact for the exact BET commit. The published model is descriptive because its original coefficients were trained on overlapping patients. On push, the workflow runs checks and exploratory smoke only.
+
 ## Comparison design
 
 - Compare the same hierarchical three-compartment model **without covariates** against (1) exploratory linear log-parameter covariate effects and (2) the fixed published symbolic covariate equations once the Julia export has been validated. The fixed published coefficients were trained on an overlapping cohort, so this second comparison is descriptive, not leakage-free generalization.
