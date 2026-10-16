@@ -29,3 +29,11 @@ def test_fractional_count_rejected():
     }
     with pytest.raises(ValueError, match="Measurement counts disagree"):
         validate_measurement_counts(tables, [10])
+
+def test_nonfinite_count_rejected():
+    tables = {
+        "observations": pd.DataFrame({"ID": [10], "CP": [1.]}),
+        "events": pd.DataFrame({"ID": [10], "ISMEASUREMENT": [float("inf")]}),
+    }
+    with pytest.raises(ValueError, match="Measurement counts disagree"):
+        validate_measurement_counts(tables, [10])
