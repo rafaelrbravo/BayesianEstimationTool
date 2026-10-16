@@ -43,34 +43,6 @@ jobs:
         run: python -m pip install -e . numpy pandas scipy "jax[cpu]" numpyro pytest
       - name: Run synthetic regression tests before inference
         run: python -m pytest -q Examples/PropofolCovariates/test_*.py
-      - name: Download validated published symbolic equations
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_published }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Search by commit SHA server-side; a busy repository can have more
-          # than 20 newer exports before the matching run is requested.
-          run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/propofol-symbolic-export.yml/runs?head_sha=$GITHUB_SHA&status=success&per_page=100" --jq '.workflow_runs[0].id // empty')
-          if [ -z "$run_id" ]; then
-            echo "No successful symbolic-equation export for this exact BET commit ($GITHUB_SHA)." >&2
-            echo "Run propofol-symbolic-export.yml on this commit before dispatching inference." >&2
-            exit 1
-          fi
-          gh run download "$run_id" --name propofol-symbolic-equations --dir Examples/PropofolCovariates
-          test -s Examples/PropofolCovariates/symbolic_equations.toml
-          python - <<'PY'
-          import pathlib
-          import tomllib
-
-          artifact = tomllib.loads(pathlib.Path("Examples/PropofolCovariates/symbolic_equations.toml").read_text())
-          assert artifact["source_commit"] == "939d30699fa6157c14c601712882c51106b82a24", "Unexpected upstream source commit"
-          assert artifact["source_model_git_blob_sha"] == "aec9732b21a2beaec315eaefebb37699546f9dfa", "Unexpected original BSON"
-          assert artifact["output_order"] == ["k10", "k12", "k13", "k21", "k31", "V1"], "Unexpected equation order"
-          assert len(artifact["reference_predictions"]) == 5, "Missing original-network parity references"
-          print("Validated downloaded published-equation artifact provenance and reference records.")
-          PY
       - name: Download upstream data
         if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
@@ -107,6 +79,34 @@ jobs:
       - name: Summarize smoke-test paired held-out errors
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: python Examples/PropofolCovariates/summarize_scores.py propofol-smoke-scores.csv
+      - name: Download validated published symbolic equations
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_published }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Search by commit SHA server-side; a busy repository can have more
+          # than 20 newer exports before the matching run is requested.
+          run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/propofol-symbolic-export.yml/runs?head_sha=$GITHUB_SHA&status=success&per_page=100" --jq '.workflow_runs[0].id // empty')
+          if [ -z "$run_id" ]; then
+            echo "No successful symbolic-equation export for this exact BET commit ($GITHUB_SHA)." >&2
+            echo "Run propofol-symbolic-export.yml on this commit before dispatching inference." >&2
+            exit 1
+          fi
+          gh run download "$run_id" --name propofol-symbolic-equations --dir Examples/PropofolCovariates
+          test -s Examples/PropofolCovariates/symbolic_equations.toml
+          python - <<'PY'
+          import pathlib
+          import tomllib
+
+          artifact = tomllib.loads(pathlib.Path("Examples/PropofolCovariates/symbolic_equations.toml").read_text())
+          assert artifact["source_commit"] == "939d30699fa6157c14c601712882c51106b82a24", "Unexpected upstream source commit"
+          assert artifact["source_model_git_blob_sha"] == "aec9732b21a2beaec315eaefebb37699546f9dfa", "Unexpected original BSON"
+          assert artifact["output_order"] == ["k10", "k12", "k13", "k21", "k31", "V1"], "Unexpected equation order"
+          assert len(artifact["reference_predictions"]) == 5, "Missing original-network parity references"
+          print("Validated downloaded published-equation artifact provenance and reference records.")
+          PY
       - name: Run published equations versus no-covariate baseline
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_published && !inputs.full_cohort }}
         shell: bash
