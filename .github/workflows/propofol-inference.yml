@@ -25,11 +25,16 @@ jobs:
       - name: Check patient universe and measurements
         run: python Examples/PropofolCovariates/inspect_data.py
       - name: Run development comparison (100 train, up to 25 test)
-        run: python Examples/PropofolCovariates/compare_covariates.py --train-steps 1000 --test-steps 300 --output-csv propofol-dev-scores.csv
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u Examples/PropofolCovariates/compare_covariates.py --train-steps 1000 --test-steps 300 --output-csv propofol-dev-scores.csv 2>&1 | tee propofol-dev-run.log
       - name: Upload paired held-out errors
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: propofol-development-paired-scores
-          path: propofol-dev-scores.csv
+          path: |
+            propofol-dev-scores.csv
+            propofol-dev-run.log
           if-no-files-found: ignore
