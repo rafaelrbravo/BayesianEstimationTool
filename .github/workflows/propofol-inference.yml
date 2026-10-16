@@ -1,10 +1,14 @@
-name: Propofol development inference
+name: Propofol covariate inference
 
 on:
   workflow_dispatch:
     inputs:
       smoke_only:
         description: "Run only the 10-patient SVI smoke test (skip development fit)"
+        type: boolean
+        default: false
+      full_cohort:
+        description: "After smoke, fit all 831 training patients and score eligible held-out patients (resource-intensive)"
         type: boolean
         default: false
   push:
@@ -18,7 +22,7 @@ on:
 jobs:
   development-comparison:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 360
     env:
       JAX_PLATFORMS: cpu
       XLA_PYTHON_CLIENT_PREALLOCATE: "false"
@@ -61,7 +65,7 @@ jobs:
       - name: Summarize smoke-test paired held-out errors
         run: python Examples/PropofolCovariates/summarize_scores.py propofol-smoke-scores.csv
       - name: Run development comparison (100 train, up to 25 test)
-        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.smoke_only }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.smoke_only && !inputs.full_cohort }}
         shell: bash
         run: |
           set -o pipefail
@@ -69,6 +73,15 @@ jobs:
       - name: Summarize exported paired held-out errors
         if: ${{ success() && github.event_name == 'workflow_dispatch' && !inputs.smoke_only }}
         run: python Examples/PropofolCovariates/summarize_scores.py propofol-dev-scores.csv
+      - name: Run full-cohort comparison (831 train, up to 200 test)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_cohort && !inputs.smoke_only }}
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u Examples/PropofolCovariates/compare_covariates.py --full --train-steps 2000 --test-steps 500 --output-csv propofol-full-scores.csv 2>&1 | tee propofol-full-run.log
+      - name: Summarize full-cohort paired errors
+        if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.full_cohort && !inputs.smoke_only }}
+        run: python Examples/PropofolCovariates/summarize_scores.py propofol-full-scores.csv
       - name: Upload paired held-out errors
         if: always()
         uses: actions/upload-artifact@v4
@@ -76,6 +89,8 @@ jobs:
           name: propofol-development-paired-scores
           path: |
             propofol-dev-scores.csv
+            propofol-full-scores.csv
+            propofol-full-run.log
             propofol-smoke-scores.csv
             propofol-smoke-run.log
             propofol-dev-eleveld.csv
