@@ -2,6 +2,9 @@ name: Propofol development inference
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/propofol-inference.yml"
 
 jobs:
   development-comparison:
