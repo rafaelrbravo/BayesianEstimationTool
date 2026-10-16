@@ -1,5 +1,10 @@
 name: Propofol symbolic equation export
 
+# Keep only the newest queued export attempt for this branch.
+concurrency:
+  group: propofol-symbolic-export-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
