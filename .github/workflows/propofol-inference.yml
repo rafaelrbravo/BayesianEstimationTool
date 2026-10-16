@@ -56,9 +56,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          run_id=$(gh run list --workflow propofol-symbolic-export.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          run_id=$(gh run list --workflow propofol-symbolic-export.yml --status success --limit 20 --json databaseId,headSha --jq '[.[] | select(.headSha == env.GITHUB_SHA)][0].databaseId // empty')
           if [ -z "$run_id" ]; then
-            echo "No successful Julia symbolic-equation export run. Run propofol-symbolic-export.yml first." >&2
+            echo "No successful symbolic-equation export for this exact BET commit ($GITHUB_SHA)." >&2
+            echo "Run propofol-symbolic-export.yml on this commit before dispatching inference." >&2
             exit 1
           fi
           gh run download "$run_id" --name propofol-symbolic-equations --dir Examples/PropofolCovariates
