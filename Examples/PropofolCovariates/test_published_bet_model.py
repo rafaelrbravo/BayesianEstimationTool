@@ -58,3 +58,28 @@ def test_published_model_local_effect_changes_initial_concentration(tmp_path):
     shifted = model(global_params, increased, data)["concentration"][0]
     np.testing.assert_allclose(base, 1., rtol=1e-5)
     np.testing.assert_allclose(shifted / base, np.exp(-0.2), rtol=1e-5)
+
+
+def test_published_model_gradient_with_singular_unused_sex_branch(tmp_path):
+    """Full PK predictions remain differentiable when the other sex branch is singular."""
+    lines = ['output_order = ["k10", "k12", "k13", "k21", "k31", "V1"]',
+             "[equations.common]", 'k10 = "0.002"', 'k12 = "0.003"',
+             'k13 = "0.001"', 'k21 = "0.002"', 'k31 = "0.0003"',
+             'V1 = "10000"', "[equations.male]",
+             'k13 = "0.001 * x_age / 40"', 'k31 = "0.0003"',
+             "[equations.female]",
+             'k13 = "1 / (x_age - x_age)"', 'k31 = "0.0006"']
+    path = tmp_path / "equations.toml"
+    path.write_text("\n".join(lines))
+    model = make_published_model(load_equations(path))
+    data = {"covariates": jnp.array([40., 70., 25., -0.5, -0.5]),
+            "time": jnp.array([0., 60., 120.]),
+            "rate": jnp.array([100., 100., 0.]),
+            "bolus": jnp.array([10000., 0., 0.])}
+    z = {name: jnp.array(0.) for name in PARAMETERS}
+    global_params = {"spread": jnp.ones(6) * 0.2, "sigma": jnp.array(0.1)}
+    def prediction(age):
+        covariates = data["covariates"].at[0].set(age)
+        return model(global_params, z, {**data, "covariates": covariates})["concentration"][-1]
+    assert np.isfinite(prediction(40.))
+    assert np.isfinite(jax.grad(prediction)(40.))
