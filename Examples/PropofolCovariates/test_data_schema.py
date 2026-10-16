@@ -43,3 +43,18 @@ def test_read_tables_accepts_matching_duplicate_height_columns(tmp_path):
 
     assert list(loaded.columns).count("HT") == 1
     assert "HGT" not in loaded.columns
+
+
+def test_read_tables_accepts_equal_heights_with_different_numeric_dtypes(tmp_path):
+    observations = pd.DataFrame({
+        "ID": [1],
+        "CP": [1.],
+        "HT": pd.Series([170], dtype="int64"),
+        "HGT": pd.Series([170.0], dtype="float64"),
+    })
+    write_tables(tmp_path, observations)
+
+    loaded = read_tables(tmp_path)["observations"]
+
+    assert loaded.loc[0, "HT"] == 170
+    assert "HGT" not in loaded.columns
