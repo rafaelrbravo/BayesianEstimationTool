@@ -124,8 +124,10 @@ def main():
                  Method=bet.Svi(numSteps=args.test_steps, numSamples=50, progressBar=False))
         conditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn), axis=(0, 1))
         scores[label] = (unconditioned, conditioned)
-        print(f"{label}: unconditioned future log error={float(jnp.mean(unconditioned)):.4f}; conditioned={float(jnp.mean(conditioned)):.4f}")
     validate_scores(selected_ids[n_train:], scores)
+    for label in ("no covariates", "covariates"):
+        unconditioned, conditioned = scores[label]
+        print(f"{label}: unconditioned future log error={float(jnp.mean(unconditioned)):.4f}; conditioned={float(jnp.mean(conditioned)):.4f}")
     if args.output_csv:
         write_patient_scores(args.output_csv, selected_ids[n_train:], scores)
         print(f"Wrote held-out patient errors: {args.output_csv}")
