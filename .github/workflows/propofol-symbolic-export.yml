@@ -73,11 +73,10 @@ jobs:
           import numpy as np
           import jax
           import jax.numpy as jnp
-          from published_equations import load_equations, published_parameters
+          from published_equations import load_equations, published_parameters, published_rates
 
           import tomllib
           from pathlib import Path
-          from pk_model import published_rates_to_parameters
 
           artifact = tomllib.loads(Path("Examples/PropofolCovariates/symbolic_equations.toml").read_text())
           equations = load_equations()
@@ -85,9 +84,9 @@ jobs:
               patient = reference["covariates"]
               covariates = jnp.array(patient)
               params = published_parameters(equations, covariates)
-              expected = published_rates_to_parameters(jnp.array(reference["rates"]))
-              np.testing.assert_allclose(np.asarray(params), np.asarray(expected), rtol=1e-5, atol=1e-6,
-                                         err_msg=f"Julia network / JAX mismatch for {patient}")
+              rates = published_rates(equations, covariates)
+              np.testing.assert_allclose(np.asarray(rates), np.asarray(reference["rates"]), rtol=1e-5, atol=1e-7,
+                                         err_msg=f"Julia network / JAX rate mismatch for {patient}")
               jacobian = jax.jacrev(lambda x: published_parameters(equations, x))(covariates)
               if not bool(jnp.all(jnp.isfinite(params) & (params > 0))):
                   raise ValueError(f"Nonphysical exported PK parameters for {patient}: {params}")
