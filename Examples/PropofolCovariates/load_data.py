@@ -1,6 +1,6 @@
 """Build padded patient arrays for the published propofol PK experiment.
 
-All event times are seconds, upstream infusion rates are micrograms/minute, boluses
+All event times are seconds, upstream infusion rates are micrograms/second, boluses
 are micrograms, and plasma concentrations are micrograms/mL. Event i records
 a bolus and concentration at its time, then applies its infusion rate until
 event i+1. Padding repeats the last time and has zero dosing and no mask.
@@ -39,7 +39,7 @@ def load_data(directory=None, selected_ids=None, tables=None):
         if not (obs.ID == patient_id).any():
             raise ValueError(f"Missing covariate rows for ID {patient_id}")
         times = e.TIME.to_numpy(dtype=np.float64)
-        rate = e.INFUSIONRATE.to_numpy(dtype=np.float64) / 60.  # upstream ug/min; solver ug/s
+        rate = e.INFUSIONRATE.to_numpy(dtype=np.float64)  # source is effectively ug/s (see FastPKSim implementation)
         bolus = e.BOLUS.to_numpy(dtype=np.float64)
         raw_counts = e.ISMEASUREMENT.to_numpy(dtype=np.float64)
         if np.any(~np.isfinite(raw_counts)) or np.any(raw_counts < 0) or np.any(raw_counts != np.floor(raw_counts)):
