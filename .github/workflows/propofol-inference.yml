@@ -63,6 +63,17 @@ jobs:
           fi
           gh run download "$run_id" --name propofol-symbolic-equations --dir Examples/PropofolCovariates
           test -s Examples/PropofolCovariates/symbolic_equations.toml
+          python - <<'PY'
+          import pathlib
+          import tomllib
+
+          artifact = tomllib.loads(pathlib.Path("Examples/PropofolCovariates/symbolic_equations.toml").read_text())
+          assert artifact["source_commit"] == "939d30699fa6157c14c601712882c51106b82a24", "Unexpected upstream source commit"
+          assert artifact["source_model_git_blob_sha"] == "aec9732b21a2beaec315eaefebb37699546f9dfa", "Unexpected original BSON"
+          assert artifact["output_order"] == ["k10", "k12", "k13", "k21", "k31", "V1"], "Unexpected equation order"
+          assert len(artifact["reference_predictions"]) == 5, "Missing original-network parity references"
+          print("Validated downloaded published-equation artifact provenance and reference records.")
+          PY
       - name: Run published equations versus no-covariate baseline
         if: ${{ github.event_name == 'workflow_dispatch' && !inputs.full_cohort }}
         shell: bash
