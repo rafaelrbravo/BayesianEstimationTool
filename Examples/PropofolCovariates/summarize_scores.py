@@ -39,6 +39,11 @@ def summarize(ids, scores):
         print(f"  baseline mean={baseline.mean():.4f}, median={np.median(baseline):.4f}")
         print(f"  covariate mean={covariates.mean():.4f}, median={np.median(covariates):.4f}")
         print(f"  covariate minus baseline mean={delta.mean():.4f}, median={np.median(delta):.4f}, 95% patient-bootstrap CI=[{low:.4f}, {high:.4f}]")
+        if baseline.mean() > 0:
+            reduction = 100 * (baseline.mean() - covariates.mean()) / baseline.mean()
+            print(f"  relative mean-error reduction={reduction:.1f}% (negative means covariates worse)")
+        else:
+            print("  relative mean-error reduction=undefined (baseline mean error is zero)")
         print(f"  improved patients={np.sum(delta < 0)}/{len(ids)}")
         if low > 0:
             print("  Direction: covariates worse (bootstrap interval above zero)")
