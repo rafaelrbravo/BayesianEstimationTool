@@ -28,9 +28,10 @@ def load_data(directory=None):
         times = e.TIME.to_numpy(dtype=np.float64)
         rate = e.INFUSIONRATE.to_numpy(dtype=np.float64)
         bolus = e.BOLUS.to_numpy(dtype=np.float64)
-        counts = e.ISMEASUREMENT.to_numpy(dtype=np.int32)
-        if np.any(counts < 0):
-            raise ValueError(f"Negative measurement count for ID {patient_id}")
+        raw_counts = e.ISMEASUREMENT.to_numpy(dtype=np.float64)
+        if np.any(~np.isfinite(raw_counts)) or np.any(raw_counts < 0) or np.any(raw_counts != np.floor(raw_counts)):
+            raise ValueError(f"Invalid measurement counts for ID {patient_id}")
+        counts = raw_counts.astype(np.int32)
         # The upstream Julia get_indmeas repeats an event index when its
         # IsMeasurement count exceeds one. Expand the event into same-time
         # rows so every observation has a separate likelihood contribution.
