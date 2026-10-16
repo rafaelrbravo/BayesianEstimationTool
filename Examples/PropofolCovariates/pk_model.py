@@ -29,8 +29,9 @@ def published_rates_to_parameters(rates):
 def concentrations(parameters, time, rate, bolus):
     """parameters = [V1, V2, V3, CL, Q2, Q3] in L and L/min."""
     v1, v2, v3, cl, q2, q3 = parameters
-    # Seconds are the time unit; rates are interpreted as micrograms per second
-    # to match the published simulator dynamics (despite its data-file comment).
+    # Time is in seconds. Input rate values are passed through unchanged to
+    # mirror the published simulator. The upstream reader labels them ug/min,
+    # so the effective unit must be confirmed by reference-prediction agreement.
     cl, q2, q3 = cl / 60, q2 / 60, q3 / 60
     a = jnp.array([
         [-(cl + q2 + q3) / v1, q2 / v2, q3 / v3],
