@@ -71,10 +71,25 @@ def main():
     if len(references) != 5:
         raise ValueError("Published equations require five Julia-network reference predictions")
     from published_equations import published_rates
+    seen_profiles = set()
     for reference in references:
-        actual = np.asarray(published_rates(equations, jnp.asarray(reference["covariates"])))
-        np.testing.assert_allclose(actual, reference["rates"], rtol=1e-5, atol=1e-7,
-                                   err_msg=f"Published equation parity failed for {reference['covariates']}")
+        covariates = np.asarray(reference["covariates"], dtype=float)
+        expected = np.asarray(reference["rates"], dtype=float)
+        if covariates.shape != (5,) or expected.shape != (6,):
+            raise ValueError("Invalid Julia reference covariate or rate vector shape")
+        if not np.isfinite(covariates).all() or not np.isfinite(expected).all() or np.any(expected <= 0):
+            raise ValueError("Nonfinite or nonpositive Julia reference data")
+        if covariates[3] not in (-0.5, 0.5) or covariates[4] not in (-0.5, 0.5):
+            raise ValueError("Invalid sex or arterial/venous encoding in Julia reference")
+        profile = tuple(covariates)
+        if profile in seen_profiles:
+            raise ValueError("Duplicate Julia reference covariate profile")
+        seen_profiles.add(profile)
+        actual = np.asarray(published_rates(equations, jnp.asarray(covariates)))
+        if not np.isfinite(actual).all() or np.any(actual <= 0):
+            raise ValueError(f"Nonphysical JAX published rates for {profile}")
+        np.testing.assert_allclose(actual, expected, rtol=1e-5, atol=1e-7,
+                                   err_msg=f"Published equation parity failed for {profile}")
     print("WARNING: Published coefficients were trained on overlapping Eleveld patients; this is NOT an independent held-out generalization test.", flush=True)
     tables = read_tables()
     ids = patient_ids(tables)
