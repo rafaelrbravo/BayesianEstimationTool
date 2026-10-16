@@ -67,10 +67,10 @@ def main():
     tables = read_tables()
     ids = patient_ids(tables)
     train, test = make_split(len(ids))
-    train, test = train[:100], test[:25]
+    train = train[:100]
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
-    eligible_test = [i for i in test if counts.get(ids[i], 0) > N_FIT]
-    print(f"Evaluable held-out patients: {len(eligible_test)}/{len(test)} (need >{N_FIT} concentrations)")
+    eligible_test = [i for i in test if counts.get(ids[i], 0) > N_FIT][:25]
+    print(f"Evaluable held-out patients selected: {len(eligible_test)}/{len(test)} (need >{N_FIT} concentrations)")
     if not eligible_test:
         raise ValueError("No held-out patients have enough measurements for future scoring")
     selected_ids = [ids[i] for i in list(train) + eligible_test]
