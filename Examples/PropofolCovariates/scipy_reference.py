@@ -40,6 +40,8 @@ def evaluate(development=True, n_fit=3, output_csv=None):
     _, test = make_split(len(ids))
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
     selected = eligible_test_indices(test, ids, counts, n_fit=n_fit, limit=25 if development else None)
+    if tables["parameters"]["ID"].duplicated().any():
+        raise ValueError("Duplicate Eleveld parameter rows for a patient ID")
     parameters = tables["parameters"].set_index("ID")
     errors = []
     for index in selected:
@@ -47,8 +49,10 @@ def evaluate(development=True, n_fit=3, output_csv=None):
         events = tables["events"].loc[tables["events"].ID == patient_id]
         observed = tables["observations"].loc[(tables["observations"].ID == patient_id) &
                                                (tables["observations"].CP > 0), "CP"].to_numpy(dtype=float)
+        if patient_id not in parameters.index:
+            raise ValueError(f"Missing Eleveld parameters for patient {patient_id}")
         prediction = predict_patient(parameters.loc[patient_id, ["V1", "V2", "V3", "CL", "Q2", "Q3"]], events)
-        if len(prediction) != len(observed) or not np.isfinite(prediction).all():
+        if len(prediction) != len(observed) or not np.isfinite(prediction).all() or not np.isfinite(observed).all() or np.any(observed <= 0):
             raise ValueError(f"Invalid reference prediction for patient {patient_id}")
         errors.append(np.mean(np.abs(np.log(np.maximum(prediction[n_fit:], 1e-6)) -
                                      np.log(observed[n_fit:]))))
