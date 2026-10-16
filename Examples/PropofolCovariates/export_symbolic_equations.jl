@@ -64,6 +64,8 @@ female = equations_for_sex(network, normalization, 0.5)
 # functions before writing the artifact. Inputs to the original network are
 # normalized; the exported equations accept raw age, weight, and BMI.
 reference_functions = get_fctsfrommodel(network)
+# Compare against the trained Flux network itself, not just a second
+# expression produced by the same layer2string reconstruction.
 test_inputs = [
     (24.0, 55.0, 18.0, -0.5, -0.5),
     (42.0, 78.0, 25.0, 0.5, 0.5),
@@ -80,8 +82,12 @@ female_functions = Dict(name => equation_function(female[name]) for name in ["k1
 
 for (age, weight, bmi, gdr, av) in test_inputs
     normalized = (age / 88, weight / 160, bmi / 52.84713965, gdr, av)
+    network_rates = normalization .* get_modeloutput(network, reshape(collect(normalized), 5, 1))
     for i in 1:6
-        expected = normalization[i] * reference_functions[i](normalized...)
+        expected = network_rates[i]
+        reconstructed = normalization[i] * reference_functions[i](normalized...)
+        isapprox(reconstructed, expected; rtol=1e-8, atol=1e-10) ||
+            error("Original network and eqreader disagree at $(normalized) for output $i")
         actual = common_functions[i](age, weight, bmi, gdr, av)
         isapprox(actual, expected; rtol=1e-8, atol=1e-10) ||
             error("Equation export mismatch for $(["k10","k12","k13","k21","k31","V1"][i]) at input $(normalized): $(actual) vs $(expected)")
@@ -89,9 +95,10 @@ for (age, weight, bmi, gdr, av) in test_inputs
     for (sex, functions) in ((-0.5, male_functions), (0.5, female_functions))
         sex_input = (age, weight, bmi, sex, av)
         normalized_sex = (age / 88, weight / 160, bmi / 52.84713965, sex, av)
+        sex_network_rates = normalization .* get_modeloutput(network, reshape(collect(normalized_sex), 5, 1))
         for name in ["k13", "k31"]
             i = name == "k13" ? 3 : 5
-            expected = normalization[i] * reference_functions[i](normalized_sex...)
+            expected = sex_network_rates[i]
             actual = functions[name](sex_input...)
             isapprox(actual, expected; rtol=1e-8, atol=1e-10) ||
                 error("Sex-specific equation export mismatch for $name at input $normalized_sex: $actual vs $expected")
@@ -106,7 +113,7 @@ result = Dict(
     "julia_version" => "1.8.4",
     "source_model" => "symbreg/bson/bson_ALE/nn_thread1loss_ALE.bson",
     "source_model_git_blob_sha" => "aec9732b21a2beaec315eaefebb37699546f9dfa",
-    "validation" => Dict("method" => "compare reconstructed equations against get_fctsfrommodel", "covariate_combinations" => length(test_inputs), "relative_tolerance" => 1e-8, "absolute_tolerance" => 1e-10),
+    "validation" => Dict("method" => "compare reconstructed equations and eqreader against original trained Flux network", "covariate_combinations" => length(test_inputs), "relative_tolerance" => 1e-8, "absolute_tolerance" => 1e-10),
     "input_normalization" => Dict("AGE" => 88.0, "WGT" => 160.0, "BMI" => 52.84713965),
     "input_variables" => ["AGE", "WGT", "BMI", "GDR", "AV"],
     "output_order" => ["k10", "k12", "k13", "k21", "k31", "V1"],
@@ -116,9 +123,9 @@ result = Dict(
     "reference_predictions" => [
         Dict(
             "covariates" => collect(input),
-            "rates" => [normalization[i] * reference_functions[i](
+            "rates" => collect(normalization .* get_modeloutput(network, reshape([
                 input[1] / 88, input[2] / 160, input[3] / 52.84713965, input[4], input[5]
-            ) for i in 1:6],
+            ], 5, 1))),
         ) for input in test_inputs
     ],
     "equations" => Dict(
