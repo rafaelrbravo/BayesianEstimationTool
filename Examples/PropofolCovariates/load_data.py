@@ -10,10 +10,15 @@ import numpy as np
 from inspect_data import patient_ids, read_tables
 
 
-def load_data(directory=None):
+def load_data(directory=None, selected_ids=None):
     tables = read_tables() if directory is None else read_tables(directory)
     obs, events = tables["observations"], tables["events"]
     ids = patient_ids(tables)
+    if selected_ids is not None:
+        selected_ids = set(selected_ids)
+        if not selected_ids.issubset(ids):
+            raise ValueError("Selected patient IDs include unknown or excluded patients")
+        ids = [patient_id for patient_id in ids if patient_id in selected_ids]
     required = {"TIME", "INFUSIONRATE", "BOLUS", "ISMEASUREMENT"}
     if not required.issubset(events.columns):
         raise ValueError(f"Missing event columns: {sorted(required - set(events.columns))}")
