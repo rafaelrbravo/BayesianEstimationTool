@@ -36,6 +36,8 @@ def load_data(directory=None, selected_ids=None, tables=None):
     for patient_id in ids:
         e = events.loc[events.ID == patient_id]
         o = obs.loc[(obs.ID == patient_id) & (obs.CP > 0)]
+        if not (obs.ID == patient_id).any():
+            raise ValueError(f"Missing covariate rows for ID {patient_id}")
         times = e.TIME.to_numpy(dtype=np.float64)
         rate = e.INFUSIONRATE.to_numpy(dtype=np.float64)  # upstream and solver both use ug/s
         bolus = e.BOLUS.to_numpy(dtype=np.float64)
