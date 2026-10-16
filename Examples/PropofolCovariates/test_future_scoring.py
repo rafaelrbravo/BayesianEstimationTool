@@ -49,8 +49,8 @@ def test_future_score_matches_numpy_reference_across_event_patterns():
     rng = np.random.default_rng(20261016)
     for _ in range(30):
         observed = rng.integers(0, 2, size=24)
-        if observed.sum() < N_FIT + 1:
-            continue
+        # Guarantee at least four measured concentrations in every trial.
+        observed[:N_FIT + 1] = 1
         truth = np.exp(rng.normal(size=24))
         prediction = truth * np.exp(rng.normal(scale=0.5, size=24))
         measured_positions = np.flatnonzero(observed)
