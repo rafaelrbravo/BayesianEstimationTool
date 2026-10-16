@@ -43,3 +43,19 @@ def test_future_score_uses_exactly_one_postconditioning_measurement():
     prediction = jnp.array([100., 100., 200., 100., 300., 100., 8.])
     data = {"observed": observed, "concentration": concentration}
     np.testing.assert_allclose(ScoreFn({"concentration": prediction}, data), np.log(2.), rtol=1e-6)
+
+
+def test_future_score_matches_numpy_reference_across_event_patterns():
+    rng = np.random.default_rng(20261016)
+    for _ in range(30):
+        observed = rng.integers(0, 2, size=24)
+        if observed.sum() < N_FIT + 1:
+            continue
+        truth = np.exp(rng.normal(size=24))
+        prediction = truth * np.exp(rng.normal(scale=0.5, size=24))
+        measured_positions = np.flatnonzero(observed)
+        future_positions = measured_positions[N_FIT:]
+        expected = np.mean(np.abs(np.log(prediction[future_positions]) - np.log(truth[future_positions])))
+        data = {"observed": jnp.asarray(observed), "concentration": jnp.asarray(truth)}
+        actual = ScoreFn({"concentration": jnp.asarray(prediction)}, data)
+        np.testing.assert_allclose(actual, expected, rtol=2e-5, atol=2e-6)
