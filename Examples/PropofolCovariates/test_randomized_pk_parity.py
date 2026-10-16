@@ -82,3 +82,20 @@ def test_padding_and_unmeasured_events_do_not_change_measured_predictions(monkey
         np.testing.assert_allclose(actual[data["observed"][i].astype(bool)], expected,
                                    rtol=2e-4, atol=2e-6)
     assert np.any(data["valid"][0] == 0)
+
+
+def test_measurement_mask_excludes_unmeasured_events(monkeypatch):
+    import load_data as loader
+
+    monkeypatch.setattr(loader, "patient_ids", lambda tables: [1])
+    events = pd.DataFrame({"ID": [1] * 5, "TIME": [0., 10., 20., 30., 40.],
+                           "INFUSIONRATE": [10., 20., 30., 40., 0.],
+                           "BOLUS": [0.] * 5, "ISMEASUREMENT": [1, 0, 1, 0, 1]})
+    observations = pd.DataFrame({"ID": [1] * 3, "CP": [1., 2., 3.],
+                                 "AGE": [40.] * 3, "WGT": [70.] * 3,
+                                 "HT": [170.] * 3, "M1F2": [1] * 3,
+                                 "A1V2": [1] * 3})
+    data = loader.load_data(tables={"events": events, "observations": observations})
+    np.testing.assert_array_equal(data["observed"][0], [1, 0, 1, 0, 1])
+    np.testing.assert_array_equal(data["concentration"][0], [1., 0., 2., 0., 3.])
+    np.testing.assert_array_equal(np.cumsum(data["observed"][0]), [1, 1, 2, 2, 3])
