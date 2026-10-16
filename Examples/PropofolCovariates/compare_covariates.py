@@ -114,6 +114,8 @@ def main():
     train, test = make_split(len(ids))
     # Use the identical development patients and future-only evaluation.
     if not args.full:
+        if args.train_patients > len(train):
+            parser.error(f"Requested {args.train_patients} training patients, but only {len(train)} are available")
         train = train[:args.train_patients]
     # Keep the prespecified test partition, excluding only patients without
     # a future concentration after the three conditioning measurements.
