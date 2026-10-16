@@ -32,7 +32,6 @@ jobs:
       - name: Check patient universe and measurements
         run: python Examples/PropofolCovariates/inspect_data.py
       - name: Score supplied Eleveld parameters on development test patients
-        continue-on-error: true
         run: python -u Examples/PropofolCovariates/eleveld_reference.py --development --output-csv propofol-dev-eleveld.csv
       - name: Run minimal end-to-end SVI smoke test
         shell: bash
