@@ -53,6 +53,11 @@ def load_data(directory=None, selected_ids=None, tables=None):
         if np.any(raw_counts > np.iinfo(np.int32).max):
             raise ValueError(f"Measurement count overflow for ID {patient_id}")
         counts = raw_counts.astype(np.int32)
+        # Reject inconsistent counts before expanding repeated measurements:
+        # even a single int32-valid count could otherwise allocate billions of rows.
+        n_measurements = int(counts.astype(np.int64).sum())
+        if n_measurements != len(o):
+            raise ValueError(f"Measurement count mismatch for ID {patient_id}: {len(o)} vs {n_measurements}")
         if not np.any(counts > 0):
             raise ValueError(f"No measured concentrations for ID {patient_id}")
         # Events after the last measured concentration cannot affect any
