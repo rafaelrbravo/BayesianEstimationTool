@@ -62,7 +62,9 @@ def load_data(directory=None, selected_ids=None, tables=None):
         # The upstream Julia get_indmeas repeats an event index when its
         # IsMeasurement count exceeds one. Expand the event into same-time
         # rows so every observation has a separate likelihood contribution.
-        repeats = np.maximum(counts, 1)
+        repeats = np.maximum(counts.astype(np.int64), 1)
+        if repeats.sum() > np.iinfo(np.int32).max:
+            raise ValueError(f"Expanded event count overflow for ID {patient_id}")
         first = np.repeat(np.cumsum(repeats) - repeats, repeats)
         times = np.repeat(times, repeats)
         rate = np.repeat(rate, repeats)
