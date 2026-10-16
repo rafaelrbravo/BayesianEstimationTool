@@ -4,6 +4,7 @@ CAUTION: The published symbolic model was trained on overlapping Eleveld
 patients. Its scores are descriptive, NOT independent held-out validation.
 """
 import argparse
+import numpy as np
 import jax.numpy as jnp
 
 import BayesianEstimationTool as bet
@@ -54,6 +55,17 @@ def main():
     # Validate covariate layout while retaining original raw values.
     if arrays["covariates"].shape[1] != len(COVARIATE_NAMES):
         raise ValueError(f"Expected {len(COVARIATE_NAMES)} covariates ({COVARIATE_NAMES})")
+    # Reject malformed raw inputs before JAX tracing. In particular, never
+    # silently assign a sex-specific equation to an unexpected gender code.
+    covariates = np.asarray(arrays["covariates"])[selected]
+    if not np.isfinite(covariates).all():
+        raise ValueError("Published equations require finite raw covariates")
+    if np.any(covariates[:, 0] <= 0) or np.any(covariates[:, 1:3] <= 0):
+        raise ValueError("Published equations require positive age, weight, and BMI")
+    if not np.isin(covariates[:, 3], [-0.5, 0.5]).all():
+        raise ValueError("Published equations require GDR encoded as -0.5 or +0.5")
+    if not np.isin(covariates[:, 4], [-0.5, 0.5]).all():
+        raise ValueError("Published equations require AV encoded as -0.5 or +0.5")
     # Published equations require raw covariates; do not standardize.
     # Reorder selected patients as training followed by held-out testing.
     n_train = len(train)
