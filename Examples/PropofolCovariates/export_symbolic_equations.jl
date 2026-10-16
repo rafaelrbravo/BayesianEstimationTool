@@ -60,6 +60,46 @@ common = equations_for_sex(network, normalization, "x_gdr")
 male = equations_for_sex(network, normalization, -0.5)
 female = equations_for_sex(network, normalization, 0.5)
 
+# Validate the rendered expressions against the original network-generated
+# functions before writing the artifact. Inputs to the original network are
+# normalized; the exported equations accept raw age, weight, and BMI.
+reference_functions = get_fctsfrommodel(network)
+test_inputs = [
+    (24.0, 55.0, 18.0, -0.5, -0.5),
+    (42.0, 78.0, 25.0, 0.5, 0.5),
+    (63.0, 105.0, 31.0, -0.5, 0.5),
+    (76.0, 135.0, 39.0, 0.5, -0.5),
+    (35.0, 92.0, 29.0, 0.5, 0.5),
+]
+function equation_function(expression)
+    return eval(Meta.parse("(x_age,x_wgt,x_bmi,x_gdr,x_AV) -> " * expression))
+end
+common_functions = [equation_function(common[name]) for name in ["k10", "k12", "k13", "k21", "k31", "V1"]]
+male_functions = Dict(name => equation_function(male[name]) for name in ["k13", "k31"])
+female_functions = Dict(name => equation_function(female[name]) for name in ["k13", "k31"])
+
+for (age, weight, bmi, gdr, av) in test_inputs
+    normalized = (age / 88, weight / 160, bmi / 52.84713965, gdr, av)
+    for i in 1:6
+        expected = normalization[i] * reference_functions[i](normalized...)
+        actual = common_functions[i](age, weight, bmi, gdr, av)
+        isapprox(actual, expected; rtol=1e-8, atol=1e-10) ||
+            error("Equation export mismatch for $(["k10","k12","k13","k21","k31","V1"][i]) at input $(normalized): $(actual) vs $(expected)")
+    end
+    for (sex, functions) in ((-0.5, male_functions), (0.5, female_functions))
+        sex_input = (age, weight, bmi, sex, av)
+        normalized_sex = (age / 88, weight / 160, bmi / 52.84713965, sex, av)
+        for name in ["k13", "k31"]
+            i = name == "k13" ? 3 : 5
+            expected = normalization[i] * reference_functions[i](normalized_sex...)
+            actual = functions[name](sex_input...)
+            isapprox(actual, expected; rtol=1e-8, atol=1e-10) ||
+                error("Sex-specific equation export mismatch for $name at input $normalized_sex: $actual vs $expected")
+        end
+    end
+end
+println("Validated all six equations and male/female substitutions on $(length(test_inputs)) representative covariate combinations.")
+
 result = Dict(
     "source_repository" => "wahlquisty/learning-pharmacometric-covariate-structures",
     "source_model" => "symbreg/bson/bson_ALE/nn_thread1loss_ALE.bson",
