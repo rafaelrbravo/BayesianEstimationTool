@@ -5,13 +5,14 @@ patients. Its scores are descriptive, NOT independent held-out validation.
 """
 import argparse
 import numpy as np
+import jax
 import jax.numpy as jnp
 
 import BayesianEstimationTool as bet
 from bet_baseline import PARAMETERS, N_FIT, ScoreFn, TrainLikelihoodFn, TestLikelihoodFn
 from compare_covariates import COVARIATE_NAMES, make_model, make_prior, validate_scores, write_patient_scores
 from published_bet_model import make_published_model, GlobalPriorFn as PublishedPrior
-from published_equations import load_equations
+from published_equations import load_equations, published_parameters
 from load_data import load_data
 from inspect_data import read_tables, patient_ids
 from paired_stats import paired_bootstrap_interval
@@ -69,6 +70,10 @@ def main():
         raise ValueError("Published equations require GDR encoded as -0.5 or +0.5")
     if not np.isin(covariates[:, 4], [-0.5, 0.5]).all():
         raise ValueError("Published equations require AV encoded as -0.5 or +0.5")
+    # Catch nonphysical outputs (including singular expressions) before costly SVI.
+    typical = np.asarray(jax.vmap(lambda row: published_parameters(equations, row))(jnp.asarray(covariates)))
+    if not np.isfinite(typical).all() or np.any(typical <= 0):
+        raise ValueError("Published equations yielded nonfinite or nonpositive PK parameters for selected patients")
     # Published equations require raw covariates; do not standardize.
     # Reorder selected patients as training followed by held-out testing.
     n_train = len(train)
