@@ -99,3 +99,22 @@ def test_measurement_mask_excludes_unmeasured_events(monkeypatch):
     np.testing.assert_array_equal(data["observed"][0], [1, 0, 1, 0, 1])
     np.testing.assert_array_equal(data["concentration"][0], [1., 0., 2., 0., 3.])
     np.testing.assert_array_equal(np.cumsum(data["observed"][0]), [1, 1, 2, 2, 3])
+
+
+def test_pk_likelihood_gradient_is_finite():
+    import jax
+
+    parameters = jnp.asarray([10., 20., 30., 1., 2., 3.])
+    time = jnp.asarray([0., 10., 60., 120.])
+    rate = jnp.asarray([100., 100., 50., 0.])
+    bolus = jnp.asarray([1000., 0., 0., 0.])
+    observed = jnp.asarray([0.1, 0.11, 0.13, 0.12])
+
+    def objective(log_parameters):
+        prediction = concentrations(jnp.exp(log_parameters), time, rate, bolus)
+        return jnp.sum((jnp.log(jnp.maximum(prediction, 1e-6)) - jnp.log(observed)) ** 2)
+
+    gradient = np.asarray(jax.grad(objective)(jnp.log(parameters)))
+    assert gradient.shape == (6,)
+    assert np.isfinite(gradient).all()
+    assert np.linalg.norm(gradient) > 0
