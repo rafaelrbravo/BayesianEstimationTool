@@ -16,6 +16,9 @@ def load_data(directory=None, selected_ids=None, tables=None):
     obs, events = tables["observations"], tables["events"]
     ids = patient_ids(tables)
     if selected_ids is not None:
+        selected_ids = list(selected_ids)
+        if len(selected_ids) != len(set(selected_ids)):
+            raise ValueError("Selected patient IDs contain duplicates")
         selected_ids = set(selected_ids)
         if not selected_ids.issubset(ids):
             raise ValueError("Selected patient IDs include unknown or excluded patients")
