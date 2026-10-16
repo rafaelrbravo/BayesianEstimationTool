@@ -1,0 +1,60 @@
+"""Differentiable three-compartment propofol PK simulator.
+
+The state is drug amount in micrograms in each compartment. A constant
+infusion is propagated exactly over each event interval using a 4x4 matrix
+exponential, avoiding adaptive ODE solver iterations. Output is central
+concentration in micrograms/mL at every event, *after* its bolus and
+*before* the following infusion interval.
+"""
+import jax
+import jax.numpy as jnp
+from jax.scipy.linalg import expm
+
+
+def concentrations(parameters, time, rate, bolus):
+    """parameters = [V1, V2, V3, CL, Q2, Q3] in L and L/min."""
+    v1, v2, v3, cl, q2, q3 = parameters
+    # Seconds are the time unit; rates are micrograms per second.
+    cl, q2, q3 = cl / 60, q2 / 60, q3 / 60
+    a = jnp.array([
+        [-(cl + q2 + q3) / v1, q2 / v2, q3 / v3],
+        [q2 / v1, -q2 / v2, 0.0],
+        [q3 / v1, 0.0, -q3 / v3],
+    ])
+    # Augmented linear system integrates constant infusion exactly, including
+    # the singular zero eigenvalue of the infusion source.
+    aug = jnp.zeros((4, 4)).at[:3, :3].set(a).at[0, 3].set(1.0)
+    dt = jnp.maximum(jnp.diff(time, append=time[-1]), 0.0)
+
+    def step(amount, event):
+        duration, infusion, dose = event
+        amount = amount.at[0].add(dose)
+        concentration = amount[0] / (v1 * 1000.0)
+        transition = expm(aug * duration)
+        next_amount = (transition @ jnp.concatenate((amount, jnp.array([infusion]))))[:3]
+        return next_amount, concentration
+
+    _, result = jax.lax.scan(step, jnp.zeros(3), (dt, rate, bolus))
+    return result
+
+
+if __name__ == "__main__":
+    import numpy as np
+
+    p = jnp.array([10., 20., 30., 1., 2., 3.])
+    t = jnp.array([0., 60., 120., 180.])
+    zeros = jnp.zeros(4)
+    # No dosing produces no concentration.
+    np.testing.assert_allclose(concentrations(p, t, zeros, zeros), 0, atol=1e-7)
+    # A bolus at t=0 produces the exact immediate concentration.
+    dose = jnp.array([10000., 0., 0., 0.])
+    prediction = concentrations(p, t, zeros, dose)
+    np.testing.assert_allclose(float(prediction[0]), 1.0, rtol=1e-6)
+    assert np.all(np.isfinite(prediction)) and np.all(np.asarray(prediction) >= 0)
+    assert float(prediction[-1]) < float(prediction[0])
+    # A constant infusion starts at zero concentration and increases.
+    infusion = jnp.array([100., 100., 100., 0.])
+    prediction = concentrations(p, t, infusion, zeros)
+    assert float(prediction[0]) == 0
+    assert float(prediction[1]) > 0
+    print("PK solver smoke tests passed")
