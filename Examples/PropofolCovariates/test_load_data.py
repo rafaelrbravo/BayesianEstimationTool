@@ -239,8 +239,8 @@ def test_no_measurement_event_fails_clearly():
             load_data(tables={"observations": observations, "events": events})
 
 
-def test_loader_and_independent_scipy_reference_use_same_infusion_units():
-    """A 100 ug/s source infusion for 10 seconds is 1000 ug in the solver."""
+def test_loader_preserves_raw_rate_and_matches_solver_convention():
+    """Check raw-rate preservation and the solver's numeric convention, not source units."""
     from scipy_reference import predict_patient
     observations = pd.DataFrame({"ID": [10, 10], "CP": [1., 1.], "AGE": [40, 40],
                                  "WGT": [80, 80], "HT": [200, 200],
@@ -254,6 +254,8 @@ def test_loader_and_independent_scipy_reference_use_same_infusion_units():
     np.testing.assert_allclose(data["time"][0], [0., 10.])
     predicted = predict_patient([10., 20., 30., 0., 0., 0.], events)
     np.testing.assert_allclose(predicted, [0., 0.1], atol=1e-12)
+    # This checks the solver's current raw-rate-as-per-second numerical
+    # convention only; it does not establish the source file's physical unit.
     np.testing.assert_allclose(predicted[-1], data["rate"][0, 0] * 10. / (10. * 1000.), atol=1e-12)
 
 
