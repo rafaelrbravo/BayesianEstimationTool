@@ -57,3 +57,28 @@ def test_loader_expansion_matches_production_scipy_reference(monkeypatch):
                                            jnp.asarray(data["rate"][0]), jnp.asarray(data["bolus"][0])))
     expected = predict_patient(parameters, events)
     np.testing.assert_allclose(actual[data["observed"][0].astype(bool)], expected, rtol=2e-4, atol=2e-6)
+
+
+def test_padding_and_unmeasured_events_do_not_change_measured_predictions(monkeypatch):
+    import load_data as loader
+
+    monkeypatch.setattr(loader, "patient_ids", lambda tables: [1, 2])
+    events = pd.DataFrame({"ID": [1, 1, 1, 2, 2, 2, 2, 2],
+                           "TIME": [0., 60., 120., 0., 30., 60., 90., 120.],
+                           "INFUSIONRATE": [100., 50., 0., 100., 80., 50., 20., 0.],
+                           "BOLUS": [1000., 0., 0., 1000., 0., 0., 0., 0.],
+                           "ISMEASUREMENT": [1, 0, 1, 1, 0, 0, 0, 1]})
+    observations = pd.DataFrame({"ID": [1, 1, 2, 2], "CP": [1.] * 4,
+                                 "AGE": [40.] * 4, "WGT": [70.] * 4,
+                                 "HT": [170.] * 4, "M1F2": [1] * 4,
+                                 "A1V2": [1] * 4})
+    data = loader.load_data(tables={"events": events, "observations": observations})
+    parameters = jnp.asarray([10., 20., 30., 1., 2., 3.])
+    for i, patient_id in enumerate(data["patient_ids"]):
+        actual = np.asarray(concentrations(parameters, jnp.asarray(data["time"][i]),
+                                           jnp.asarray(data["rate"][i]), jnp.asarray(data["bolus"][i])))
+        reference_events = events.loc[events.ID == patient_id]
+        expected = predict_patient(np.asarray(parameters), reference_events)
+        np.testing.assert_allclose(actual[data["observed"][i].astype(bool)], expected,
+                                   rtol=2e-4, atol=2e-6)
+    assert np.any(data["valid"][0] == 0)
