@@ -35,7 +35,17 @@ def read_tables(directory=DATA_DIR):
             # The upstream README calls height HGT, while its Julia loader
             # indexes HT. Accept either spelling and normalize internally.
             if "HT" in table and "HGT" in table:
-                if not table["HT"].equals(table["HGT"]):
+                try:
+                    same_height = np.allclose(
+                        table["HT"].to_numpy(dtype=float),
+                        table["HGT"].to_numpy(dtype=float),
+                        rtol=0,
+                        atol=0,
+                        equal_nan=True,
+                    )
+                except (TypeError, ValueError):
+                    same_height = False
+                if not same_height:
                     raise ValueError("dataframe.csv has conflicting HT and HGT height columns")
                 table = table.drop(columns="HGT")
             elif "HGT" in table:
