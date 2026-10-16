@@ -52,6 +52,8 @@ def evaluate(development=False, output_csv=None):
         patient = {name: jnp.asarray(data[name][i]) for name in ("observed", "concentration")}
         scores.append(float(ScoreFn({"concentration": prediction}, patient)))
     scores = np.asarray(scores)
+    if len(scores) == 0:
+        raise ValueError("No held-out patients have enough measurements for Eleveld scoring")
     if not np.isfinite(scores).all():
         raise ValueError("Nonfinite Eleveld reference errors")
     if output_csv is not None:
