@@ -1,9 +1,10 @@
 name: Propofol symbolic equation export
 
-# Keep only the newest queued export attempt for this branch.
+# Preserve a pending export while subsequent commits arrive; repeated cancellation
+# prevented any Julia validation artifact from completing.
 concurrency:
   group: propofol-symbolic-export-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:
