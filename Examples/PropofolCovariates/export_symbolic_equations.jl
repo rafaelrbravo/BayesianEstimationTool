@@ -25,6 +25,8 @@ using BSON: @load
 using Flux
 using SymbolicUtils
 
+@syms x_age x_wgt x_bmi x_gdr x_AV
+
 # Register the custom Julia/Flux model types before deserializing BSON.
 cd(symbreg)
 include(joinpath("fcts", "fcts_nn.jl"))
