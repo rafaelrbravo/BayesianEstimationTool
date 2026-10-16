@@ -8,6 +8,7 @@ forms must be verified before calling it a reproduction of the paper.
 import argparse
 import csv
 
+import numpy as np
 import jax.numpy as jnp
 import numpyro.distributions as dist
 
@@ -45,8 +46,20 @@ def make_prior(use_covariates):
 
 
 
+def validate_scores(patient_ids, scores):
+    """Reject missing or nonfinite predictions before reporting paired effects."""
+    for model in ("no covariates", "covariates"):
+        if model not in scores or len(scores[model]) != 2:
+            raise ValueError(f"Missing unconditioned/conditioned scores for {model}")
+        for setting, values in enumerate(scores[model]):
+            values = np.asarray(values)
+            if values.shape != (len(patient_ids),) or not np.isfinite(values).all():
+                raise ValueError(f"Invalid patient scores for {model}, setting {setting}")
+
+
 def write_patient_scores(path, patient_ids, scores):
     """Export the exact patient-aligned values used in paired comparisons."""
+    validate_scores(patient_ids, scores)
     with open(path, "w", newline="", encoding="utf-8") as output:
         writer = csv.writer(output)
         writer.writerow(["patient_id", "baseline_unconditioned", "covariates_unconditioned",
@@ -112,6 +125,7 @@ def main():
         conditioned = jnp.mean(est.ScoreTestSamples(ScoreFn=ScoreFn), axis=(0, 1))
         scores[label] = (unconditioned, conditioned)
         print(f"{label}: unconditioned future log error={float(jnp.mean(unconditioned)):.4f}; conditioned={float(jnp.mean(conditioned)):.4f}")
+    validate_scores(selected_ids[n_train:], scores)
     if args.output_csv:
         write_patient_scores(args.output_csv, selected_ids[n_train:], scores)
         print(f"Wrote held-out patient errors: {args.output_csv}")
