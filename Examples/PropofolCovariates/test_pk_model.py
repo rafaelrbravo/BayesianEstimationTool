@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 from scipy.linalg import expm
 
-from pk_model import concentrations
+from pk_model import concentrations, rates_to_parameters
 
 
 def test_against_scipy():
@@ -51,7 +51,21 @@ def test_duplicate_event_time_does_not_repeat_bolus():
     reference = concentrations(params, jnp.array([0., 60.]), jnp.array([100., 0.]), jnp.array([10000., 0.]))
     np.testing.assert_allclose(prediction[2], reference[1], rtol=1e-6)
 
+def test_rate_constant_parameter_conversion():
+    params = jnp.array([10., 20., 100., 1.5, 2., 1.])
+    v1, v2, v3, cl, q2, q3 = params
+    rates = jnp.array([cl / (60. * v1), q2 / (60. * v1), q3 / (60. * v1),
+                       q2 / (60. * v2), q3 / (60. * v3), v1])
+    np.testing.assert_allclose(rates_to_parameters(rates), params, rtol=1e-6)
+    time = jnp.array([0., 60., 120.])
+    infusion = jnp.array([100., 50., 0.])
+    bolus = jnp.array([10000., 0., 0.])
+    np.testing.assert_allclose(concentrations(rates_to_parameters(rates), time, infusion, bolus),
+                               concentrations(params, time, infusion, bolus), rtol=1e-6)
+
+
 if __name__ == "__main__":
     test_against_scipy()
     test_duplicate_event_time_does_not_repeat_bolus()
+    test_rate_constant_parameter_conversion()
     print("Independent PK prediction and gradient checks passed")
