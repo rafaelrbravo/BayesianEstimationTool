@@ -23,6 +23,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: wahlquisty/learning-pharmacometric-covariate-structures
+          ref: 939d30699fa6157c14c601712882c51106b82a24
           path: upstream-covariate-structures
       - name: Install Python for artifact validation
         uses: actions/setup-python@v5
