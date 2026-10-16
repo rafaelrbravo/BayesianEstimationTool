@@ -76,7 +76,7 @@ def test_unused_sex_branch_singularity_does_not_poison_gradient(tmp_path):
              "[equations.female]",
              'k13 = "1 / (x_age - x_age)"', 'k31 = "0.0006"']
     path = tmp_path / "equations.toml"
-    path.write_text("\\n".join(lines))
+    path.write_text("\n".join(lines))
     equations = load_equations(path)
     covariates = jnp.array([40., 70., 25., -0.5, -0.5])
     result = published_parameters(equations, covariates)
