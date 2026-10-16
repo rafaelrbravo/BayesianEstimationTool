@@ -43,3 +43,9 @@ def test_reference_rejects_duplicate_patient_id():
     table = pd.concat([example_table(), example_table().iloc[[0]]], ignore_index=True)
     with pytest.raises(ValueError, match="Duplicate Eleveld parameter rows"):
         reference_parameters(table, [20])
+
+
+def test_reference_rejects_missing_parameter_column():
+    table = example_table().drop(columns=["Q3"])
+    with pytest.raises(ValueError, match="Missing Eleveld parameter columns"):
+        reference_parameters(table, [10, 20])
