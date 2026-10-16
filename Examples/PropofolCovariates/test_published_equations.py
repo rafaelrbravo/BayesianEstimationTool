@@ -4,7 +4,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from published_equations import load_equations, published_parameters, _evaluate
+from published_equations import load_equations, published_parameters, published_rates, _evaluate
 import ast
 
 
@@ -18,8 +18,12 @@ def test_load_and_evaluate_synthetic_equations(tmp_path):
     path = tmp_path / "symbolic_equations.toml"
     path.write_text("\n".join(lines))
     equations = load_equations(path)
-    male = published_parameters(equations, jnp.array([40., 70., 25., -0.5, -0.5]))
-    female = published_parameters(equations, jnp.array([40., 70., 25., 0.5, -0.5]))
+    male_cov = jnp.array([40., 70., 25., -0.5, -0.5])
+    female_cov = jnp.array([40., 70., 25., 0.5, -0.5])
+    male = published_parameters(equations, male_cov)
+    female = published_parameters(equations, female_cov)
+    np.testing.assert_allclose(published_rates(equations, male_cov), [0.002, 0.003, 0.001, 0.002, 0.0003, 10000.], rtol=1e-6)
+    np.testing.assert_allclose(published_rates(equations, female_cov), [0.002, 0.003, 0.002, 0.002, 0.0006, 10000.], rtol=1e-6)
     np.testing.assert_allclose(male, [10., 15., 100./3., 1.2, 1.8, 0.6], rtol=1e-5)
     np.testing.assert_allclose(female, [10., 15., 100./3., 1.2, 1.8, 1.2], rtol=1e-5)
     assert np.isfinite(jax.jacrev(lambda x: published_parameters(equations, x))(jnp.array([40., 70., 25., -0.5, -0.5]))).all()
