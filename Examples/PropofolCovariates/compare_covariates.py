@@ -18,7 +18,7 @@ from load_data import load_data
 from inspect_data import read_tables, patient_ids
 from pk_model import concentrations
 from paired_stats import paired_bootstrap_interval
-from split import make_split
+from split import make_split, eligible_test_indices
 
 COVARIATE_NAMES = ("AGE", "WGT", "BMI", "GDR", "AV")
 
@@ -91,9 +91,7 @@ def main():
     # Keep the prespecified test partition, excluding only patients without
     # a future concentration after the three conditioning measurements.
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
-    eligible_test = [i for i in test if counts.get(ids[i], 0) > 3]
-    if not args.full:
-        eligible_test = eligible_test[:args.test_patients]
+    eligible_test = eligible_test_indices(test, ids, counts, limit=None if args.full else args.test_patients)
     print(f"Evaluable held-out patients: {len(eligible_test)}/{len(test)} (need >=4 concentrations)")
     if not eligible_test:
         raise ValueError("No held-out patients have at least four measured concentrations")
