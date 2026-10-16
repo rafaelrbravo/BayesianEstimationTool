@@ -23,6 +23,8 @@ def predict_patient(parameters, events):
     rows[:, 1] /= 60.  # Upstream infusion is ug/min; solver uses ug/s
     if not np.isfinite(rows).all() or np.any(rows[:, 1:3] < 0) or np.any(rows[:, 3] < 0) or np.any(rows[:, 3] != np.floor(rows[:, 3])):
         raise ValueError("Invalid dosing or measurement counts")
+    if len(rows) == 0 or np.any(np.diff(rows[:, 0]) < 0):
+        raise ValueError("Unsorted or missing event times")
     for i, (time, rate, bolus, measured) in enumerate(rows):
         amount[0] += bolus
         predictions.extend([amount[0] / (v1 * 1000.)] * int(measured))
@@ -41,6 +43,8 @@ def evaluate(development=True, n_fit=3, output_csv=None):
     _, test = make_split(len(ids))
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
     selected = eligible_test_indices(test, ids, counts, n_fit=n_fit, limit=25 if development else None)
+    if not selected:
+        raise ValueError("No held-out patients have future observations")
     if tables["parameters"]["ID"].duplicated().any():
         raise ValueError("Duplicate Eleveld parameter rows for a patient ID")
     parameters = tables["parameters"].set_index("ID")
