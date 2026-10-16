@@ -24,6 +24,8 @@ def test_read_and_summarize(tmp_path, capsys):
     output = capsys.readouterr().out
     assert "improved patients=2/2" in output
     assert "covariates better" in output
+    assert "median=-0.7500" in output
+    assert "median=-1.5000" in output
 
 
 def test_duplicate_patient_ids_rejected(tmp_path):
