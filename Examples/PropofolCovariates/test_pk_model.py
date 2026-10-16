@@ -39,6 +39,19 @@ def test_against_scipy():
     assert np.any(np.abs(gradient) > 0)
 
 
+
+def test_duplicate_event_time_does_not_repeat_bolus():
+    params = jnp.array([10., 20., 30., 1., 2., 3.])
+    # Two measurements at t=0 must see the same bolus exactly once.
+    times = jnp.array([0., 0., 60.])
+    rate = jnp.array([100., 100., 0.])
+    bolus = jnp.array([10000., 0., 0.])
+    prediction = concentrations(params, times, rate, bolus)
+    np.testing.assert_allclose(prediction[:2], [1., 1.], rtol=1e-6)
+    reference = concentrations(params, jnp.array([0., 60.]), jnp.array([100., 0.]), jnp.array([10000., 0.]))
+    np.testing.assert_allclose(prediction[2], reference[1], rtol=1e-6)
+
 if __name__ == "__main__":
     test_against_scipy()
+    test_duplicate_event_time_does_not_repeat_bolus()
     print("Independent PK prediction and gradient checks passed")
