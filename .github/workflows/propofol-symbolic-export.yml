@@ -32,7 +32,7 @@ jobs:
       - name: Install Julia
         uses: julia-actions/setup-julia@v2
         with:
-          version: "1.8"
+          version: "1.8.4"
       - name: Cache Julia packages
         uses: julia-actions/cache@v2
       - name: Export and numerically validate published equations
