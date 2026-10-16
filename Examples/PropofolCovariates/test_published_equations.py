@@ -64,3 +64,23 @@ def test_sex_specific_expressions_override_unused_common_equations(tmp_path):
     path.write_text("\n".join(lines))
     params = published_parameters(load_equations(path), jnp.array([40., 70., 25., -0.5, -0.5]))
     assert np.isfinite(params).all()
+
+
+def test_unused_sex_branch_singularity_does_not_poison_gradient(tmp_path):
+    """A singular unused female branch must not affect male derivatives."""
+    lines = ['output_order = ["k10", "k12", "k13", "k21", "k31", "V1"]',
+             "[equations.common]", 'k10 = "0.002"', 'k12 = "0.003"',
+             'k13 = "0.001"', 'k21 = "0.002"', 'k31 = "0.0003"',
+             'V1 = "10000"', "[equations.male]",
+             'k13 = "0.001 * x_age / 40"', 'k31 = "0.0003"',
+             "[equations.female]",
+             'k13 = "1 / (x_age - x_age)"', 'k31 = "0.0006"']
+    path = tmp_path / "equations.toml"
+    path.write_text("\\n".join(lines))
+    equations = load_equations(path)
+    covariates = jnp.array([40., 70., 25., -0.5, -0.5])
+    result = published_parameters(equations, covariates)
+    gradient = jax.jacrev(lambda x: published_parameters(equations, x))(covariates)
+    assert np.isfinite(result).all()
+    assert np.isfinite(gradient).all()
+    assert np.any(np.abs(np.asarray(gradient[:, 0])) > 0)
