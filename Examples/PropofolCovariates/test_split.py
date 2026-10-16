@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from split import make_split, N_PATIENTS, N_TEST, SEED
+from split import make_split, eligible_test_indices, N_PATIENTS, N_TEST, SEED
 
 
 def test_split_is_reproducible_and_disjoint():
@@ -34,3 +34,12 @@ def test_custom_split_uses_requested_seed():
     assert len(train) == 15
     assert len(test) == 5
     assert not np.array_equal(test, make_split(n_patients=20, n_test=5, seed=SEED)[1])
+
+
+def test_eligibility_precedes_development_limit():
+    ids = [10, 11, 12, 13, 14]
+    counts = {10: 2, 11: 4, 12: 3, 13: 5, 14: 6}
+    test = np.array([0, 1, 2, 3, 4])
+    assert eligible_test_indices(test, ids, counts, limit=2) == [1, 3]
+    assert eligible_test_indices(test, ids, counts) == [1, 3, 4]
+    assert eligible_test_indices(test, ids, counts, n_fit=4) == [3, 4]
