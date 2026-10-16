@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import jax.numpy as jnp
 
-from compare_covariates import make_model, write_patient_scores, validate_scores
+from compare_covariates import make_model, write_patient_scores, validate_scores, standardize_covariates
 from bet_baseline import PARAMETERS
 
 
@@ -95,3 +95,13 @@ def test_reject_empty_held_out_cohort():
     }
     with pytest.raises(ValueError, match="nonempty and unique"):
         validate_scores([], scores)
+
+
+def test_standardization_does_not_use_held_out_patients():
+    covariates = np.array([[1., 5.], [3., 5.], [100., 900.]])
+    transformed = standardize_covariates(covariates, [0, 1])
+    np.testing.assert_allclose(transformed[:2], [[-1., 0.], [1., 0.]])
+    np.testing.assert_allclose(transformed[2], [98., 895.])
+    changed_test = covariates.copy()
+    changed_test[2] = [-1000., -9000.]
+    np.testing.assert_allclose(standardize_covariates(changed_test, [0, 1])[:2], transformed[:2])
