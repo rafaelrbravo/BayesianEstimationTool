@@ -22,7 +22,7 @@ def test_solvers_agree(rates, boluses):
     independent = predict_patient(parameters, events)
     jax = np.asarray(concentrations(jnp.asarray(parameters, dtype=jnp.float32),
                                     jnp.asarray(times, dtype=jnp.float32),
-                                    jnp.asarray(rates, dtype=jnp.float32) / 60.,
+                                    jnp.asarray(rates, dtype=jnp.float32),
                                     jnp.asarray(boluses, dtype=jnp.float32)))
     np.testing.assert_allclose(jax, independent, rtol=2e-4, atol=2e-5)
 
@@ -35,6 +35,6 @@ def test_repeated_measurements_and_padding():
     # Expand repeated measurement into separate same-time JAX rows, then pad.
     jax = np.asarray(concentrations(jnp.asarray(parameters, dtype=jnp.float32),
                                     jnp.asarray([0., 0., 60., 60.], dtype=jnp.float32),
-                                    jnp.asarray([100., 100., 0., 0.], dtype=jnp.float32) / 60.,
+                                    jnp.asarray([100., 100., 0., 0.], dtype=jnp.float32),
                                     jnp.asarray([10000., 0., 0., 0.], dtype=jnp.float32)))
     np.testing.assert_allclose(jax[:3], independent, rtol=2e-4, atol=2e-5)
