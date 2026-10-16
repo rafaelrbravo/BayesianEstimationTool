@@ -7,6 +7,8 @@ This reference is not a learned covariate model and is not a substitute
 for the paired BET comparison. It checks solver/data consistency against
 the supplied patient-specific Eleveld model parameters.
 """
+import argparse
+import csv
 import numpy as np
 import jax.numpy as jnp
 
@@ -32,10 +34,12 @@ def reference_parameters(parameters, patient_ids):
     return values
 
 
-def evaluate():
+def evaluate(development=False, output_csv=None):
     tables = read_tables()
     ids = patient_ids(tables)
     _, test = make_split(len(ids))
+    if development:
+        test = test[:25]
     test_ids = [ids[i] for i in test]
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
     test_ids = [patient_id for patient_id in test_ids if counts.get(patient_id, 0) > N_FIT]
@@ -48,6 +52,13 @@ def evaluate():
         patient = {name: jnp.asarray(data[name][i]) for name in ("observed", "concentration")}
         scores.append(float(ScoreFn({"concentration": prediction}, patient)))
     scores = np.asarray(scores)
+    if not np.isfinite(scores).all():
+        raise ValueError("Nonfinite Eleveld reference errors")
+    if output_csv is not None:
+        with open(output_csv, "w", newline="", encoding="utf-8") as output:
+            writer = csv.writer(output)
+            writer.writerow(["patient_id", "eleveld_future_log_error"])
+            writer.writerows((int(patient_id), float(score)) for patient_id, score in zip(data["patient_ids"], scores))
     print(f"Eleveld reference, {len(scores)} held-out patients with >{N_FIT} measurements")
     print(f"Future-only mean absolute log error: {scores.mean():.4f}")
     print(f"Future-only median patient error: {np.median(scores):.4f}")
@@ -55,4 +66,8 @@ def evaluate():
 
 
 if __name__ == "__main__":
-    evaluate()
+    parser = argparse.ArgumentParser(description="Score supplied Eleveld PK parameters on held-out patients")
+    parser.add_argument("--development", action="store_true", help="Use first 25 held-out patients, matching BET development comparison")
+    parser.add_argument("--output-csv", help="Optional patient-level Eleveld reference errors")
+    args = parser.parse_args()
+    evaluate(development=args.development, output_csv=args.output_csv)
