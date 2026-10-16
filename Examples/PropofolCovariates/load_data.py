@@ -104,9 +104,14 @@ def load_data(directory=None, selected_ids=None, tables=None):
         arrays["concentration"][i, :n] = y
         arrays["valid"][i, :n] = 1
         age, weight, height, sex, av = patient_cov
-        if height <= 0 or weight <= 0:
-            raise ValueError(f"Invalid height/weight for ID {ids[i]}")
-        cov[i] = [age, weight, weight / (height / 100.) ** 2, sex - 1.5, av - 1.5]
+        if age <= 0 or height <= 0 or weight <= 0:
+            raise ValueError(f"Invalid age/height/weight for ID {ids[i]}")
+        if sex not in (1, 2) or av not in (1, 2):
+            raise ValueError(f"Invalid sex/route encoding for ID {ids[i]}")
+        bmi = weight / (height / 100.) ** 2
+        if not np.isfinite(bmi) or bmi <= 0:
+            raise ValueError(f"Invalid BMI for ID {ids[i]}")
+        cov[i] = [age, weight, bmi, sex - 1.5, av - 1.5]
     arrays["covariates"] = cov
     arrays["patient_ids"] = np.asarray(ids)
     return arrays
