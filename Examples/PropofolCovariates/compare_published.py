@@ -18,6 +18,24 @@ from inspect_data import read_tables, patient_ids
 from paired_stats import paired_bootstrap_interval
 from split import make_split, eligible_test_indices
 
+def validate_published_patients(equations, covariates):
+    """Check raw covariate encoding and physical PK outputs before inference."""
+    covariates = np.asarray(covariates)
+    if covariates.ndim != 2 or covariates.shape[1] != len(COVARIATE_NAMES):
+        raise ValueError(f"Expected a two-dimensional array of {len(COVARIATE_NAMES)} raw covariates")
+    if not np.isfinite(covariates).all():
+        raise ValueError("Published equations require finite raw covariates")
+    if np.any(covariates[:, :3] <= 0):
+        raise ValueError("Published equations require positive age, weight, and BMI")
+    if not np.isin(covariates[:, 3], [-0.5, 0.5]).all():
+        raise ValueError("Published equations require GDR encoded as -0.5 or +0.5")
+    if not np.isin(covariates[:, 4], [-0.5, 0.5]).all():
+        raise ValueError("Published equations require AV encoded as -0.5 or +0.5")
+    typical = np.asarray(jax.vmap(lambda row: published_parameters(equations, row))(jnp.asarray(covariates)))
+    if not np.isfinite(typical).all() or np.any(typical <= 0):
+        raise ValueError("Published equations yielded nonfinite or nonpositive PK parameters for selected patients")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Compare fixed published propofol PK equations against a BET baseline (overlapping original training cohort)")
     parser.add_argument("--equations", help="Path to Julia-exported symbolic_equations.toml")
@@ -56,24 +74,7 @@ def main():
     n_observed = arrays["observed"][selected[len(train):]].sum(axis=1)
     if (n_observed <= N_FIT).any():
         raise ValueError("Event counts and loaded concentrations disagree for held-out patients")
-    # Validate covariate layout while retaining original raw values.
-    if arrays["covariates"].shape[1] != len(COVARIATE_NAMES):
-        raise ValueError(f"Expected {len(COVARIATE_NAMES)} covariates ({COVARIATE_NAMES})")
-    # Reject malformed raw inputs before JAX tracing. In particular, never
-    # silently assign a sex-specific equation to an unexpected gender code.
-    covariates = np.asarray(arrays["covariates"])[selected]
-    if not np.isfinite(covariates).all():
-        raise ValueError("Published equations require finite raw covariates")
-    if np.any(covariates[:, 0] <= 0) or np.any(covariates[:, 1:3] <= 0):
-        raise ValueError("Published equations require positive age, weight, and BMI")
-    if not np.isin(covariates[:, 3], [-0.5, 0.5]).all():
-        raise ValueError("Published equations require GDR encoded as -0.5 or +0.5")
-    if not np.isin(covariates[:, 4], [-0.5, 0.5]).all():
-        raise ValueError("Published equations require AV encoded as -0.5 or +0.5")
-    # Catch nonphysical outputs (including singular expressions) before costly SVI.
-    typical = np.asarray(jax.vmap(lambda row: published_parameters(equations, row))(jnp.asarray(covariates)))
-    if not np.isfinite(typical).all() or np.any(typical <= 0):
-        raise ValueError("Published equations yielded nonfinite or nonpositive PK parameters for selected patients")
+    validate_published_patients(equations, np.asarray(arrays["covariates"])[selected])
     # Published equations require raw covariates; do not standardize.
     # Reorder selected patients as training followed by held-out testing.
     n_train = len(train)
