@@ -68,6 +68,13 @@ jobs:
           record["upstream_commit"] = "939d30699fa6157c14c601712882c51106b82a24"
           record["split_seed"] = 20261015
           record["conditioning_measurements"] = 3
+          record["smoke"] = {"train_patients": 10, "test_patients": 5, "train_steps": 20, "test_steps": 10}
+          record["development"] = {"train_patients": 100, "test_patients": 25, "train_steps": 1000, "test_steps": 300}
+          record["full"] = {"train_patients": 831, "test_partition_patients": 200, "train_steps": 2000, "test_steps": 500}
+          record["posterior_local_samples"] = 50
+          record["estimator_rng_seed"] = 0
+          record["bootstrap_rng_seed"] = 0
+          record["bootstrap_resamples"] = 2000
           Path("propofol-run-manifest.json").write_text(json.dumps(record, indent=2) + chr(10))
           print(json.dumps(record, indent=2))
           PY
