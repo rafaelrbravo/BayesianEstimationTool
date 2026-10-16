@@ -82,11 +82,30 @@ def validate_measurement_counts(tables, ids):
     return int(measured.reindex(ids, fill_value=0).sum())
 
 
+def validate_measurement_times(tables, ids, tolerance_seconds=1.0):
+    """Ensure observation order matches infusion-event measurement order.
+
+    Observation TIME is in minutes (rounded); infusion-event Time is seconds.
+    """
+    observations = tables["observations"]
+    events = tables["events"]
+    for patient_id in ids:
+        obs = observations.loc[(observations.ID == patient_id) & (observations.CP > 0), "TIME"].to_numpy(dtype=float) * 60.
+        rows = events.loc[events.ID == patient_id]
+        event_times = np.repeat(rows["TIME"].to_numpy(dtype=float), rows["ISMEASUREMENT"].to_numpy(dtype=int))
+        if len(obs) != len(event_times) or not np.isfinite(obs).all() or not np.isfinite(event_times).all():
+            raise ValueError(f"Invalid measurement times for ID {patient_id}")
+        if np.any(np.abs(obs - event_times) > tolerance_seconds):
+            raise ValueError(f"Observation/event measurement times disagree for ID {patient_id}")
+
+
+
 def main():
     tables = read_tables()
     ids = patient_ids(tables)
     n_measurements = validate_measurement_counts(tables, ids)
-    print(f"Validated {n_measurements} measured concentrations against event counts")
+    validate_measurement_times(tables, ids)
+    print(f"Validated {n_measurements} measured concentrations against event counts and times")
     for name, table in tables.items():
         print(f"{name}: {len(table)} rows, {table.ID.nunique()} patients")
         print("  columns:", ", ".join(table.columns))
