@@ -68,3 +68,12 @@ def test_reject_misaligned_score_lengths():
     }
     with pytest.raises(ValueError, match="Invalid patient scores"):
         validate_scores([10, 20], scores)
+
+
+def test_reject_negative_absolute_log_errors():
+    scores = {
+        "no covariates": (np.array([-0.1, 1.]), np.array([1., 2.])),
+        "covariates": (np.array([1., 2.]), np.array([1., 2.])),
+    }
+    with pytest.raises(ValueError, match="Invalid patient scores"):
+        validate_scores([10, 20], scores)
