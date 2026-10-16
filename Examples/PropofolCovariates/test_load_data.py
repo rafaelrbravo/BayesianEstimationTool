@@ -124,6 +124,28 @@ def test_multiple_repeated_measurement_events():
     np.testing.assert_array_equal(data["observed"][0], [1, 1, 0, 1, 1])
     np.testing.assert_allclose(data["concentration"][0], [1., 1.1, 0., 2., 2.1])
 
+
+def test_rejects_unknown_patient_selection():
+    with patch("load_data.patient_ids", return_value=[10]):
+        try:
+            load_data(selected_ids=[99], tables={"observations": pd.DataFrame(), "events": pd.DataFrame()})
+        except ValueError as error:
+            assert "unknown or excluded" in str(error)
+        else:
+            raise AssertionError("Unknown patient IDs must fail")
+
+
+def test_rejects_nonfinite_bolus():
+    observations = pd.DataFrame({"ID": [10], "CP": [1.5], "AGE": [40], "WGT": [80], "HT": [200], "M1F2": [1], "A1V2": [2]})
+    events = pd.DataFrame({"ID": [10], "TIME": [0.], "INFUSIONRATE": [10.], "BOLUS": [np.inf], "ISMEASUREMENT": [1]})
+    with patch("load_data.patient_ids", return_value=[10]):
+        try:
+            load_data(tables={"observations": observations, "events": events})
+        except ValueError as error:
+            assert "Invalid dosing" in str(error)
+        else:
+            raise AssertionError("Infinite bolus must fail")
+
 if __name__ == "__main__":
     test_padded_events_and_covariates()
     test_rejects_mismatched_measurements()
@@ -134,4 +156,6 @@ if __name__ == "__main__":
     test_rejects_nonfinite_infusion()
     test_rejects_empty_selection()
     test_multiple_repeated_measurement_events()
+    test_rejects_unknown_patient_selection()
+    test_rejects_nonfinite_bolus()
     print("Synthetic loader checks passed")
