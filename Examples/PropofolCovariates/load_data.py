@@ -17,7 +17,7 @@ def load_data(directory=None):
     required = {"TIME", "INFUSIONRATE", "BOLUS", "ISMEASUREMENT"}
     if not required.issubset(events.columns):
         raise ValueError(f"Missing event columns: {sorted(required - set(events.columns))}")
-    covariates = ["AGE", "WGT", "HT", "M1F2", "A1V2"]
+    covariates = ["AGE", "WGT", "HT", "M1F2", "A1V2"]\n    # The source symbolic-regression network uses AGE, WGT, BMI, sex, AV.
     if not set(covariates).issubset(obs.columns):
         raise ValueError("Missing covariate columns")
     records = []
@@ -54,7 +54,7 @@ def load_data(directory=None):
         arrays["observed"][i, :n] = mask
         arrays["concentration"][i, :n] = y
         arrays["valid"][i, :n] = 1
-        cov[i] = patient_cov
+        age, weight, height, sex, av = patient_cov\n        if height <= 0 or weight <= 0:\n            raise ValueError(f"Invalid height/weight for ID {ids[i]}")\n        cov[i] = [age, weight, weight / (height / 100.) ** 2, sex - 1.5, av - 1.5]
     arrays["covariates"] = cov
     arrays["patient_ids"] = np.asarray(ids)
     return arrays
