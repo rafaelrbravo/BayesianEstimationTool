@@ -10,7 +10,7 @@ import numpyro.distributions as dist
 
 import BayesianEstimationTool as bet
 from load_data import load_data
-from inspect_data import read_tables, patient_ids
+from inspect_data import read_tables, patient_ids, validate_measurement_counts, validate_measurement_times
 from pk_model import concentrations
 from split import make_split, eligible_test_indices
 
@@ -66,6 +66,8 @@ def ScoreFn(modelOut, data):
 def main():
     tables = read_tables()
     ids = patient_ids(tables)
+    validate_measurement_counts(tables, ids)
+    validate_measurement_times(tables, ids)
     train, test = make_split(len(ids))
     train = train[:100]
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
