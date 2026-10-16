@@ -3,7 +3,7 @@
 Run from any directory:
     python Examples/PropofolCovariates/download_data.py
 
-Existing files are never overwritten. These data remain attributed to the
+Downloads are pinned to the same upstream commit as the symbolic-model export.\nExisting files are never overwritten. These data remain attributed to the
 upstream authors and are not committed to BET.
 """
 from pathlib import Path
@@ -12,7 +12,8 @@ import os
 import tempfile
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
-BASE_URL = "https://raw.githubusercontent.com/wahlquisty/learning-pharmacometric-covariate-structures/main/symbreg/data"
+UPSTREAM_COMMIT = "939d30699fa6157c14c601712882c51106b82a24"
+BASE_URL = f"https://raw.githubusercontent.com/wahlquisty/learning-pharmacometric-covariate-structures/{UPSTREAM_COMMIT}/symbreg/data"
 FILES = ("dataframe.csv", "eleveld_infusiondata.csv", "eleveld_modelparams.csv")
 
 
