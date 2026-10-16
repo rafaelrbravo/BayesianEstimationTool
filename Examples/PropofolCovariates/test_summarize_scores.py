@@ -64,3 +64,20 @@ def test_changed_csv_schema_rejected(tmp_path):
         writer.writerow([10, 1., 1., 1., 1.])
     with pytest.raises(ValueError, match="columns"):
         read_scores(path)
+
+
+def test_summary_reports_relative_error_reduction(tmp_path, capsys):
+    path = tmp_path / "scores.csv"
+    write_example(path, [[10, 2., 1., 4., 2.], [20, 4., 2., 8., 4.]])
+    ids, scores = read_scores(path)
+    summarize(ids, scores)
+    output = capsys.readouterr().out
+    assert output.count("relative mean-error reduction=50.0%") == 2
+
+
+def test_summary_zero_baseline_mean_is_explicit(tmp_path, capsys):
+    path = tmp_path / "scores.csv"
+    write_example(path, [[10, 0., 0., 0., 0.]])
+    ids, scores = read_scores(path)
+    summarize(ids, scores)
+    assert capsys.readouterr().out.count("relative mean-error reduction=undefined") == 2
