@@ -1,10 +1,10 @@
 """Build padded patient arrays for the published propofol PK experiment.
 
-All event times are seconds, source infusion-rate values are preserved unchanged,
-boluses are micrograms, and plasma concentrations are micrograms/mL. The upstream
-reader labels rates as micrograms/minute, while the published simulator passes the
-raw values into its time-in-seconds dynamics; the effective rate unit is therefore
-ambiguous and must be checked against reference predictions. Event i records
+Event times are seconds, source infusion rates are micrograms/second (as
+documented in the upstream symbreg/data/README.md), boluses are micrograms, and
+plasma concentrations are micrograms/mL. The upstream Julia loader has a conflicting
+ug/min comment, but the data documentation and simulator's seconds-based dynamics
+support preserving the raw ug/s values. Event i records
 a bolus and concentration at its time, then applies its infusion rate until
 event i+1. Padding repeats the last time and has zero dosing and no mask.
 """
@@ -42,9 +42,9 @@ def load_data(directory=None, selected_ids=None, tables=None):
         if not (obs.ID == patient_id).any():
             raise ValueError(f"Missing covariate rows for ID {patient_id}")
         times = e.TIME.to_numpy(dtype=np.float64)
-        # Preserve upstream values to mirror the published simulator call.
-        # The upstream reader labels these ug/min, but the simulator combines
-        # raw rates with times in seconds; validate against reference predictions.
+        # Upstream symbreg/data/README.md documents these values as ug/s.
+        # Preserve them unchanged; FastPKSim integrates over seconds and outputs
+        # ug/mL, so ug/s is dimensionally consistent with the model's units.
         rate = e.INFUSIONRATE.to_numpy(dtype=np.float64)
         bolus = e.BOLUS.to_numpy(dtype=np.float64)
         raw_counts = e.ISMEASUREMENT.to_numpy(dtype=np.float64)
