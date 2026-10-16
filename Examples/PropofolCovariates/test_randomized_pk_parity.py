@@ -118,3 +118,26 @@ def test_pk_likelihood_gradient_is_finite():
     assert gradient.shape == (6,)
     assert np.isfinite(gradient).all()
     assert np.linalg.norm(gradient) > 0
+
+
+def test_pk_gradient_matches_central_difference():
+    import jax
+
+    parameters = jnp.asarray([10., 20., 30., 1., 2., 3.])
+    time = jnp.asarray([0., 15., 45., 90.])
+    rate = jnp.asarray([100., 80., 30., 0.])
+    bolus = jnp.asarray([5000., 0., 0., 0.])
+
+    def objective(log_parameters):
+        return jnp.sum(concentrations(jnp.exp(log_parameters), time, rate, bolus))
+
+    log_parameters = np.log(np.asarray(parameters, dtype=np.float64))
+    autodiff = np.asarray(jax.grad(objective)(jnp.asarray(log_parameters)))
+    step = 1e-2
+    numerical = []
+    for index in range(6):
+        perturb = np.zeros(6)
+        perturb[index] = step
+        numerical.append((float(objective(jnp.asarray(log_parameters + perturb))) -
+                          float(objective(jnp.asarray(log_parameters - perturb)))) / (2 * step))
+    np.testing.assert_allclose(autodiff, numerical, rtol=3e-2, atol=1e-4)
