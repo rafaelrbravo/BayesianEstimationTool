@@ -69,14 +69,20 @@ def main():
     validate_measurement_counts(tables, ids)
     validate_measurement_times(tables, ids)
     train, test = make_split(len(ids))
+    if len(train) < 100:
+        raise ValueError(f"Expected at least 100 training patients, found {len(train)}")
     train = train[:100]
     counts = tables["events"].groupby("ID")["ISMEASUREMENT"].sum()
     eligible_test = eligible_test_indices(test, ids, counts, n_fit=N_FIT, limit=25)
     print(f"Evaluable held-out patients selected: {len(eligible_test)}/{len(test)} (need >{N_FIT} concentrations)")
-    if not eligible_test:
-        raise ValueError("No held-out patients have enough measurements for future scoring")
+    if len(eligible_test) != 25:
+        raise ValueError(f"Expected 25 evaluable held-out patients, found {len(eligible_test)}")
     selected_ids = [ids[i] for i in list(train) + eligible_test]
     arrays = load_data(selected_ids=selected_ids, tables=tables)
+    if len(set(arrays["patient_ids"])) != len(arrays["patient_ids"]):
+        raise ValueError("Loaded patient IDs must be unique")
+    if set(arrays["patient_ids"]) != set(selected_ids):
+        raise ValueError("Loaded patient IDs do not match the requested cohort")
     positions = {patient_id: i for i, patient_id in enumerate(arrays["patient_ids"])}
     selected = [positions[patient_id] for patient_id in selected_ids]
     # Keep only development patients in the JAX arrays; remap split indices.
