@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use BayesianEstimationTool (BET) in your research, please cite this software."
+type: software
+title: "BayesianEstimationTool"
+authors:
+  - family-names: Bravo
+    given-names: Rafael
+  - family-names: Tercan
+    given-names: Bahar
+  - family-names: Lima
+    given-names: Ernesto
+  - family-names: Aguilar
+    given-names: Boris
+  - family-names: Yankeelov
+    given-names: Tom
+version: 1.0.0
+date-released: 2026-10-17
+repository-code: "https://github.com/rafaelrbravo/BayesianEstimationTool"
+url: "https://pypi.org/project/BayesianEstimationTool/"
+license: Apache-2.0
