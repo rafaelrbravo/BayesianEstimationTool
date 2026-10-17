@@ -21,7 +21,7 @@ def _evaluate(node, variables):
     if isinstance(node, ast.Expression):
         return _evaluate(node.body, variables)
     if isinstance(node, ast.Constant) and type(node.value) in (int, float):
-        return jnp.asarray(node.value)
+        return jnp.asarray(node.value, dtype=jnp.result_type(*variables.values()))
     if isinstance(node, ast.Name) and node.id in variables:
         return variables[node.id]
     if isinstance(node, ast.UnaryOp):
