@@ -31,13 +31,13 @@ python -m pip install BayesianEstimationTool
 To install the specific first release:
 
 ```bash
-python -m pip install BayesianEstimationTool==0.1.0
+python -m pip install BayesianEstimationTool==1.0.0
 ```
 
 Alternatively, install directly from the tagged GitHub source:
 
 ```bash
-python -m pip install "git+https://github.com/rafaelrbravo/BayesianEstimationTool.git@v0.1.0"
+python -m pip install "git+https://github.com/rafaelrbravo/BayesianEstimationTool.git@v1.0.0"
 ```
 
 You can also download a wheel (`.whl`) or source archive (`.tar.gz`) from [GitHub Releases](https://github.com/rafaelrbravo/BayesianEstimationTool/releases) and install it with `python -m pip install PATH_TO_DOWNLOADED_FILE`. These release assets become available after publishing.
