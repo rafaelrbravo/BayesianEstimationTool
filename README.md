@@ -22,7 +22,7 @@ The GitHub Actions test workflow regenerates the PDFs (and the Python-authored c
 
 ## Installation
 
-BET requires Python 3.10 or newer. **After the first release is published**, install the latest version from [PyPI](https://pypi.org/project/BayesianEstimationTool/):
+BET requires Python 3.10 or newer. Install the latest version from [PyPI](https://pypi.org/project/BayesianEstimationTool/):
 
 ```bash
 python -m pip install BayesianEstimationTool
@@ -31,13 +31,13 @@ python -m pip install BayesianEstimationTool
 To install the specific first release:
 
 ```bash
-python -m pip install BayesianEstimationTool==1.0.0
+python -m pip install BayesianEstimationTool==1.0.1
 ```
 
 Alternatively, install directly from the tagged GitHub source:
 
 ```bash
-python -m pip install "git+https://github.com/rafaelrbravo/BayesianEstimationTool.git@v1.0.0"
+python -m pip install "git+https://github.com/rafaelrbravo/BayesianEstimationTool.git@v1.0.1"
 ```
 
 You can also download a wheel (`.whl`) or source archive (`.tar.gz`) from [GitHub Releases](https://github.com/rafaelrbravo/BayesianEstimationTool/releases) and install it with `python -m pip install PATH_TO_DOWNLOADED_FILE`. These release assets become available after publishing.
@@ -56,6 +56,6 @@ See the manual for the minimal model and training examples.
 
 If you use BET in your research, please cite:
 
-Bravo, R., Tercan, B., Lima, E., Aguilar, B., & Yankeelov, T. (2026). *BayesianEstimationTool* (Version 1.0.0) [Computer software]. https://github.com/rafaelrbravo/BayesianEstimationTool
+Bravo, R., Tercan, B., Lima, E., Aguilar, B., & Yankeelov, T. (2026). *BayesianEstimationTool* (Version 1.0.1) [Computer software]. https://github.com/rafaelrbravo/BayesianEstimationTool
 
 GitHub also provides a **Cite this repository** option using [CITATION.cff](CITATION.cff).
