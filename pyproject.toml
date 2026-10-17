@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "BayesianEstimationTool"
-version = "1.0.0"
+version = "1.0.1"
 description = "Hierarchical Bayesian estimation and prediction for mechanistic models"
 readme = "README.md"
 requires-python = ">=3.10"
