@@ -22,24 +22,32 @@ The GitHub Actions test workflow regenerates the PDFs (and the Python-authored c
 
 ## Installation
 
-Install a released package from PyPI (once published):
+BET requires Python 3.10 or newer. **After the first release is published**, install the latest version from [PyPI](https://pypi.org/project/BayesianEstimationTool/):
 
 ```bash
 python -m pip install BayesianEstimationTool
 ```
 
-Until a PyPI release is available, install directly from GitHub:
+To install the specific first release:
 
 ```bash
-python -m pip install git+https://github.com/rafaelrbravo/BayesianEstimationTool.git
+python -m pip install BayesianEstimationTool==0.1.0
 ```
 
-For editable development from a checkout, run `python -m pip install -e .` in the repository root.
+Alternatively, install directly from the tagged GitHub source:
 
-A conda recipe is available at `conda-recipe/meta.yaml` for local builds and future conda-forge submission; it is not yet a published conda-forge package. After installation, import BET as:
-
-```python
-import BayesianEstimationTool as bet
+```bash
+python -m pip install "git+https://github.com/rafaelrbravo/BayesianEstimationTool.git@v0.1.0"
 ```
+
+You can also download a wheel (`.whl`) or source archive (`.tar.gz`) from [GitHub Releases](https://github.com/rafaelrbravo/BayesianEstimationTool/releases) and install it with `python -m pip install PATH_TO_DOWNLOADED_FILE`. These release assets become available after publishing.
+
+Verify installation:
+
+```bash
+python -c "import BayesianEstimationTool as bet; print(bet.Estimator)"
+```
+
+For editable development from a source checkout, run `python -m pip install -e .` in the repository root. The conda recipe in `conda-recipe/meta.yaml` is for local builds; BET is not yet published on conda-forge.
 
 See the manual for the minimal model and training examples.
