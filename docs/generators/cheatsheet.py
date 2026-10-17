@@ -35,10 +35,8 @@ PURPOSE = (
 DEPENDENCIES = "jax, numpyro, numpy"
 
 INSTALLATION = (
-    "Install in editable mode with `python -m pip install -e \"/path/to/BayesianEstimationTool\"` then import with "
-    "`import BayesianEstimationTool as bet`. Editable installation means "
-    "repository code changes are used without reinstalling. For repository examples, the parent folder may instead be added "
-    "to `sys.path`."
+    "Install from PyPI with `python -m pip install BayesianEstimationTool`, then import with "
+    "`import BayesianEstimationTool as bet`."
 )
 
 CONVENTIONS = [
