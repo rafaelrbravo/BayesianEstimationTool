@@ -101,7 +101,7 @@ def test_measurement_times_match_after_minute_to_second_conversion():
 def test_measurement_time_mismatch_identifies_patient():
     tables = {
         "observations": pd.DataFrame({"ID": [10], "CP": [1.], "TIME": [1.]}),
-        "events": pd.DataFrame({"ID": [10], "TIME": [90.], "ISMEASUREMENT": [1]}),
+        "events": pd.DataFrame({"ID": [10], "TIME": [100.], "ISMEASUREMENT": [1]}),
     }
     with pytest.raises(ValueError, match="times disagree for ID 10"):
         validate_measurement_times(tables, [10])
