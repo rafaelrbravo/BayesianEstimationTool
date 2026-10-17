@@ -1,0 +1,36 @@
+name: Propofol standalone example
+
+on:
+  push:
+    paths:
+      - "Examples/PropofolCovariates/example.py"
+      - ".github/workflows/propofol-standalone.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-example:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      JAX_PLATFORMS: cpu
+      XLA_PYTHON_CLIENT_PREALLOCATE: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install BET and example dependencies
+        run: python -m pip install -e . pandas "jax[cpu]" numpyro
+      - name: Run standalone example end to end
+        run: python -u Examples/PropofolCovariates/example.py 2>&1 | tee propofol-example.log
+        shell: bash
+      - name: Upload example log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: propofol-example-log
+          path: propofol-example.log
+          if-no-files-found: ignore
