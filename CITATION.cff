@@ -20,6 +20,7 @@ authors:
     orcid: "https://orcid.org/0000-0001-6201-3913"
 version: 1.0.1
 date-released: 2026-10-17
+doi: "10.5281/zenodo.23431103"
 repository-code: "https://github.com/rafaelrbravo/BayesianEstimationTool"
 url: "https://pypi.org/project/BayesianEstimationTool/"
 license: Apache-2.0
