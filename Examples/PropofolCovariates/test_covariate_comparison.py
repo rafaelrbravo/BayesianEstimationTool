@@ -23,7 +23,7 @@ def test_constant_training_covariate_stays_finite():
 
 
 def test_invalid_training_indices_rejected():
-    with pytest.raises(ValueError, match="At least one training"):
+    with pytest.raises(ValueError, match="Training positions"):
         standardize_covariates(np.ones((2, 2)), [])
     with pytest.raises(ValueError, match="finite"):
         standardize_covariates([[1., np.nan]], [0])
