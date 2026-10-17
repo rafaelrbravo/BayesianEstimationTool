@@ -51,3 +51,11 @@ python -c "import BayesianEstimationTool as bet; print(bet.Estimator)"
 For editable development from a source checkout, run `python -m pip install -e .` in the repository root. The conda recipe in `conda-recipe/meta.yaml` is for local builds; BET is not yet published on conda-forge.
 
 See the manual for the minimal model and training examples.
+
+## How to cite
+
+If you use BET in your research, please cite:
+
+Bravo, R., Tercan, B., Lima, E., Aguilar, B., & Yankeelov, T. (2026). *BayesianEstimationTool* (Version 1.0.0) [Computer software]. https://github.com/rafaelrbravo/BayesianEstimationTool
+
+GitHub also provides a **Cite this repository** option using [CITATION.cff](CITATION.cff).
