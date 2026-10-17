@@ -53,7 +53,7 @@ def standardize_covariates(covariates, train_positions):
         raise ValueError("Covariates must be a finite two-dimensional array")
     positions = np.asarray(train_positions)
     if positions.ndim != 1 or positions.size == 0:
-        raise ValueError("At least one training patient is required for covariate standardization")
+        raise ValueError("Training positions must be a nonempty one-dimensional array")
     if not np.issubdtype(positions.dtype, np.integer) or np.any(positions < 0) or np.any(positions >= len(covariates)):
         raise ValueError("Training positions must be valid nonnegative integer indices")
     if len(np.unique(positions)) != len(positions):
