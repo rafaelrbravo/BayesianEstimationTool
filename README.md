@@ -1,5 +1,7 @@
 # BayesianEstimationTool (BET)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23431103.svg)](https://doi.org/10.5281/zenodo.23431103)
+
 BayesianEstimationTool fits population-level parameters and individual-specific latent variables with NumPyro inference methods.
 
 ## Documentation
@@ -56,6 +58,6 @@ See the manual for the minimal model and training examples.
 
 If you use BET in your research, please cite:
 
-Bravo, R., Tercan, B., Lima, E., Aguilar, B., & Yankeelov, T. (2026). *BayesianEstimationTool* (Version 1.0.1) [Computer software]. https://github.com/rafaelrbravo/BayesianEstimationTool
+Bravo, R., Tercan, B., Lima, E., Aguilar, B., & Yankeelov, T. (2026). *BayesianEstimationTool* (Version 1.0.1) [Computer software]. https://doi.org/10.5281/zenodo.23431103
 
-GitHub also provides a **Cite this repository** option using [CITATION.cff](CITATION.cff).
+This DOI identifies all versions of BET. GitHub also provides a **Cite this repository** option using [CITATION.cff](CITATION.cff).
