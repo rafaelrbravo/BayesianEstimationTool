@@ -5,14 +5,19 @@ title: "BayesianEstimationTool"
 authors:
   - family-names: Bravo
     given-names: Rafael
+    orcid: "https://orcid.org/0000-0002-0065-4341"
   - family-names: Tercan
     given-names: Bahar
+    orcid: "https://orcid.org/0000-0002-5332-264X"
   - family-names: Lima
     given-names: Ernesto
+    orcid: "https://orcid.org/0000-0002-9219-8784"
   - family-names: Aguilar
     given-names: Boris
+    orcid: "https://orcid.org/0000-0002-4410-8780"
   - family-names: Yankeelov
     given-names: Tom
+    orcid: "https://orcid.org/0000-0001-6201-3913"
 version: 1.0.0
 date-released: 2026-10-17
 repository-code: "https://github.com/rafaelrbravo/BayesianEstimationTool"
