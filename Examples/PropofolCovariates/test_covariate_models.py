@@ -114,7 +114,7 @@ def test_standardization_rejects_nonfinite_covariates():
 
 
 def test_standardization_rejects_empty_training_cohort():
-    with pytest.raises(ValueError, match="At least one training patient"):
+    with pytest.raises(ValueError, match="Training positions"):
         standardize_covariates(np.array([[1., 2.]]), [])
 
 
