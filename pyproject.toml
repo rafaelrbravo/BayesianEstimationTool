@@ -19,3 +19,6 @@ packages = ["BayesianEstimationTool"]
 
 [tool.setuptools.package-dir]
 BayesianEstimationTool = "."
+
+[tool.setuptools.package-data]
+BayesianEstimationTool = ["Examples/*.py", "docs/*.pdf"]
