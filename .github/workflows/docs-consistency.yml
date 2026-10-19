@@ -1,0 +1,30 @@
+name: Documentation consistency
+
+on:
+  push:
+    paths:
+      - 'docs/Manual.md'
+      - 'Examples/**'
+      - 'tests/check_manual_examples.py'
+      - '.github/workflows/docs-consistency.yml'
+  pull_request:
+    paths:
+      - 'docs/Manual.md'
+      - 'Examples/**'
+      - 'tests/check_manual_examples.py'
+      - '.github/workflows/docs-consistency.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify manual examples match runnable scripts
+        run: python tests/check_manual_examples.py
