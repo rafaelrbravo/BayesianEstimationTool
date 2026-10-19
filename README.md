@@ -24,25 +24,19 @@ The GitHub Actions test workflow regenerates the PDFs (and the Python-authored c
 
 ## Installation
 
-BET requires Python 3.10 or newer. Install the latest version from [PyPI](https://pypi.org/project/BayesianEstimationTool/):
+BET requires Python 3.10 or newer. Install from [PyPI](https://pypi.org/project/BayesianEstimationTool/):
 
 ```bash
 python -m pip install BayesianEstimationTool
 ```
 
-To install the currently published release (1.0.1):
+Alternatively, install the latest source directly from GitHub:
 
 ```bash
-python -m pip install BayesianEstimationTool==1.0.1
+python -m pip install "git+https://github.com/rafaelrbravo/BayesianEstimationTool.git"
 ```
 
-Alternatively, install directly from the tagged GitHub source:
-
-```bash
-python -m pip install "git+https://github.com/rafaelrbravo/BayesianEstimationTool.git@v1.0.1"
-```
-
-You can also download a wheel (`.whl`) or source archive (`.tar.gz`) from [GitHub Releases](https://github.com/rafaelrbravo/BayesianEstimationTool/releases) and install it with `python -m pip install PATH_TO_DOWNLOADED_FILE`. The release assets are available now.
+You can also download a wheel (`.whl`) or source archive (`.tar.gz`) from [GitHub Releases](https://github.com/rafaelrbravo/BayesianEstimationTool/releases) and install it with `python -m pip install PATH_TO_DOWNLOADED_FILE`.
 
 Verify installation:
 
@@ -68,7 +62,7 @@ To select a different parent directory:
 python -m BayesianEstimationTool.ExampleInstaller ~/Documents
 ```
 
-This creates `BET-Examples/` with the six Python examples and a `Documentation/` subfolder containing `Manual.pdf` and `Cheatsheet.pdf`. Run a script with `python BET-Examples/1_SimpleExampleNuts.py`. The installer refuses to overwrite an existing `BET-Examples/` directory. The PDFs and examples are included in new package builds; the currently published 1.0.1 wheel predates this change.
+This creates `BET-Examples/` with the six Python examples and a `Documentation/` subfolder containing `Manual.pdf` and `Cheatsheet.pdf`. Run a script with `python BET-Examples/1_SimpleExampleNuts.py`. The installer refuses to overwrite an existing `BET-Examples/` directory. The installer is available in package builds that include bundled examples and documentation.
 
 ## How to cite
 
