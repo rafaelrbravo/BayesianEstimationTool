@@ -10,25 +10,25 @@ This approach is called **hierarchical Bayesian inference**. You do not need to 
 
 ## Installation
 
-BET requires Python 3.10 or newer. **After the first release is published**, install the latest version from [PyPI](https://pypi.org/project/BayesianEstimationTool/):
+BET requires Python 3.10 or newer. Install the latest published version from [PyPI](https://pypi.org/project/BayesianEstimationTool/):
 
 ```bash
 python -m pip install BayesianEstimationTool
 ```
 
-To install the specific first release:
+To install the currently published release (1.0.1):
 
 ```bash
-python -m pip install BayesianEstimationTool==1.0.0
+python -m pip install BayesianEstimationTool==1.0.1
 ```
 
-Alternatively, install directly from the tagged GitHub source:
+Alternatively, install that release from its GitHub tag:
 
 ```bash
-python -m pip install "git+https://github.com/rafaelrbravo/BayesianEstimationTool.git@v1.0.0"
+python -m pip install "git+https://github.com/rafaelrbravo/BayesianEstimationTool.git@v1.0.1"
 ```
 
-You can also download a wheel (`.whl`) or source archive (`.tar.gz`) from [GitHub Releases](https://github.com/rafaelrbravo/BayesianEstimationTool/releases) and install it with `python -m pip install PATH_TO_DOWNLOADED_FILE`. These release assets become available after publishing.
+You can also install a wheel (`.whl`) or source archive (`.tar.gz`) from [GitHub Releases](https://github.com/rafaelrbravo/BayesianEstimationTool/releases) using `python -m pip install PATH_TO_DOWNLOADED_FILE`.
 
 Verify installation:
 
@@ -37,6 +37,8 @@ python -c "import BayesianEstimationTool as bet; print(bet.Estimator)"
 ```
 
 For editable development from a source checkout, run `python -m pip install -e .` in the repository root. The conda recipe in `conda-recipe/meta.yaml` is for local builds; BET is not yet published on conda-forge.
+
+**Version note:** The published 1.0.1 package predates the bundled example installer and recent analytical-example/documentation updates. Until a new release is published, install the repository's current development version with `python -m pip install -e .` from a fresh checkout to use those additions.
 
 ## The workflow at a glance
 
