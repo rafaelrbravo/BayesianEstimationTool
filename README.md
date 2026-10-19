@@ -54,6 +54,22 @@ For editable development from a source checkout, run `python -m pip install -e .
 
 See the manual for the minimal model and training examples.
 
+## Bundled examples and PDF documentation
+
+After installing BET, copy its bundled runnable examples and PDF manual/cheatsheet to an editable folder in the current directory (no GitHub download needed):
+
+```bash
+python -m BayesianEstimationTool.ExampleInstaller
+```
+
+To select a different parent directory:
+
+```bash
+python -m BayesianEstimationTool.ExampleInstaller ~/Documents
+```
+
+This creates `BET-Examples/` with the six Python examples and a `Documentation/` subfolder containing `Manual.pdf` and `Cheatsheet.pdf`. Run a script with `python BET-Examples/1_SimpleExampleNuts.py`. The installer refuses to overwrite an existing `BET-Examples/` directory. The PDFs and examples are included in new package builds; the currently published 1.0.1 wheel predates this change.
+
 ## How to cite
 
 If you use BET in your research, please cite:
