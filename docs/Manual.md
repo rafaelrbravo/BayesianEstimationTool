@@ -32,6 +32,37 @@ python -c "import BayesianEstimationTool as bet; print(bet.Estimator)"
 
 For editable development from a source checkout, run `python -m pip install -e .` in the repository root. The conda recipe in `conda-recipe/meta.yaml` is for local builds; BET is not yet published on conda-forge.
 
+### Create a local examples and documentation folder
+
+After installing a BET build that includes bundled resources, run:
+
+```bash
+python -m BayesianEstimationTool.ExampleInstaller
+```
+
+This creates a `BET-Examples/` folder in your current directory containing the six runnable Python examples and a `Documentation/` subfolder with `Manual.pdf` and `Cheatsheet.pdf`. For example:
+
+```text
+BET-Examples/
+    1_SimpleExampleNuts.py
+    2_SimpleExampleSvi.py
+    3_SaveExampleNuts.py
+    4_LoadExampleNuts.py
+    5_SaveExampleSvi.py
+    6_LoadExampleSvi.py
+    Documentation/
+        Manual.pdf
+        Cheatsheet.pdf
+```
+
+To create it in a different parent directory, provide that directory as an argument:
+
+```bash
+python -m BayesianEstimationTool.ExampleInstaller /path/to/parent
+```
+
+The installer refuses to overwrite an existing `BET-Examples/` folder. Run an example from the parent directory with `python BET-Examples/1_SimpleExampleNuts.py`; run each Save example before its corresponding Load example. If the installer module is missing, install a BET build that includes the bundled resources or use the latest GitHub source installation above.
+
 ## The workflow at a glance
 
 1. **Organize observations.** Put each individual's measurements and inputs into arrays.
