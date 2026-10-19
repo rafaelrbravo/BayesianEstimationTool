@@ -41,6 +41,17 @@ jobs:
           python -m venv /tmp/bet-release-check
           /tmp/bet-release-check/bin/python -m pip install dist/*.whl
           (cd /tmp && /tmp/bet-release-check/bin/python -c "import BayesianEstimationTool as bet; assert hasattr(bet, 'Estimator')")
+      - name: Verify bundled examples and PDFs
+        run: |
+          mkdir -p /tmp/bet-resource-check
+          (cd /tmp/bet-resource-check && /tmp/bet-release-check/bin/python -m BayesianEstimationTool.ExampleInstaller)
+          test -f /tmp/bet-resource-check/BET-Examples/1_SimpleExampleNuts.py
+          test -f /tmp/bet-resource-check/BET-Examples/Documentation/Manual.pdf
+          test -f /tmp/bet-resource-check/BET-Examples/Documentation/Cheatsheet.pdf
+          if (cd /tmp/bet-resource-check && /tmp/bet-release-check/bin/python -m BayesianEstimationTool.ExampleInstaller); then
+            echo "Installer incorrectly overwrote existing destination" >&2
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: python-distributions
