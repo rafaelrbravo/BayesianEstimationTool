@@ -68,6 +68,6 @@ This creates `BET-Examples/` with the six Python examples and a `Documentation/`
 
 If you use BET in your research, please cite:
 
-Bravo, R., Tercan, B., Lima, E., Aguilar, B., & Yankeelov, T. (2026). *BayesianEstimationTool* (Version 1.0.1) [Computer software]. https://doi.org/10.5281/zenodo.23431103
+Bravo, R., Tercan, B., Lima, E., Aguilar, B., & Yankeelov, T. (2026). *BayesianEstimationTool* (Version 1.0.2) [Computer software]. https://doi.org/10.5281/zenodo.23431103
 
 This DOI identifies all versions of BET. GitHub also provides a **Cite this repository** option using [CITATION.cff](CITATION.cff).
