@@ -4,7 +4,6 @@ npo.set_host_device_count(4)
 import jax.numpy as jnp
 import numpyro.distributions as dist
 from jax import random
-from jax.experimental.ode import odeint
 
 import BayesianEstimationTool as bet
 
@@ -56,18 +55,7 @@ data={
 # Model components
 # ---------------------------------------------------------------------
 
-# Tumor growth model:
-#
-# before treatment:
-# dV/dt = gV
-#
-# during treatment:
-# dV/dt = (g-d)V
-
-def ODE(V,t,g,d,drugStart):
-    drugEffect=jnp.where(t>=drugStart,d,0.0)
-    return (g-drugEffect)*V
-
+# Analytical solution: dV/dt = gV before treatment and (g-d)V after.
 
 # localZs["g"] and localZs["d"] are standardized
 # patient-specific deviations.
@@ -78,7 +66,7 @@ def ODE(V,t,g,d,drugStart):
 def ModelFn(globalParams,localZs,data):
     g=globalParams["gMean"]+globalParams["gStd"]*localZs["g"]
     d=globalParams["dMean"]+globalParams["dStd"]*localZs["d"]
-    tumorSize=odeint(ODE,data["v0"],data["times"],g,d,data["drugStart"])
+    tumorSize=data["v0"]*jnp.exp(g*data["times"]-d*jnp.maximum(data["times"]-data["drugStart"],0.0))
     return {"tumorSize":tumorSize}
 
 
