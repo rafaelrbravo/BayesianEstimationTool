@@ -93,164 +93,150 @@ To implement this workflow:
 
 Write `ModelFn`, `TrainLikelihoodFn`, `TestLikelihoodFn`, and `ScoreFn` for one individual at a time. BET applies them across individuals and parameter samples using JAX vectorization, so you do not need to write those loops yourself. These functions should use JAX-compatible operations and avoid side effects. Vectorization enables efficient batched computation, although actual parallel execution depends on the operations and hardware.
 
-Part 2 combines these steps in a tumor growth example. Later sections explain correlated local z-scores and inference-method configuration.
+Part 2 combines these steps in an analytically solvable tumor growth example. Later sections explain correlated local z-scores and inference-method configuration.
 
 ## Part 2: Worked example
 
-### Predicting growth for someone new
+### Predicting tumor growth for new patients
 
-Suppose we measure tumor size eight times for each of ten patients. We want to learn how tumor growth rates differ across patients, then predict the last five measurements for four patients excluded from training. We will first predict using only what we learned from the other six patients, then see whether the first three measurements from each new patient improve the predictions.
+This worked example follows the runnable files [SimpleExampleNuts](../Examples/1_SimpleExampleNuts.py) and [SimpleExampleSvi](../Examples/2_SimpleExampleSvi.py). Both use the **same model and data**, changing only the inference method. We simulate eight tumor-size measurements for each of ten patients. Patients 0–4 are used for population training; patients 5–9 are held out. For the test patients, the first three observations may personalize predictions, and the final five are reserved for scoring.
 
-We generate synthetic data so you can follow the workflow without downloading a dataset. The growth equation is deliberately simple, but the workflow also applies to more detailed scientific models.
-
-#### Create example measurements and a growth model
+#### Generate the synthetic data
 
 ```python
+import numpyro as npo
+npo.set_host_device_count(4)
+
 import jax.numpy as jnp
-from jax import random
 import numpyro.distributions as dist
-from BayesianEstimationTool import Estimator, Svi
+from jax import random
+import BayesianEstimationTool as bet
 
-n_people = 10
-times = jnp.linspace(0.0, 7.0, 8)
-key_g, key_noise = random.split(random.PRNGKey(42))
-true_g = 0.15 + 0.025 * random.normal(key_g, (n_people,))
-true_y = jnp.exp(true_g[:, None] * times[None, :])
-y = true_y + 0.05 * random.normal(key_noise, true_y.shape)
-data = {"time": jnp.tile(times, (n_people, 1)), "y": y}
+keyG,keyNoise=random.split(random.PRNGKey(2),2)
+nPatients=10
+nTimes=8
+times=jnp.linspace(0,10,nTimes)
+trueG=0.15+0.03*random.normal(keyG,(nPatients,))
+v0=jnp.linspace(0.8,1.2,nPatients)
+trueTumorSize=v0[:,None]*jnp.exp(trueG[:,None]*times)
+tumorSize=trueTumorSize+0.05*random.normal(keyNoise,trueTumorSize.shape)
+data={
+    "times":jnp.tile(times,(nPatients,1)),
+    "v0":v0,
+    "tumorSize":tumorSize,
+}
+```
 
-def global_prior(shapes):
+The synthetic growth rates have mean 0.15 and standard deviation 0.03; the simulated measurement noise has standard deviation 0.05. These are **data-generating values**, not values passed to BET during inference. Each patient has a known initial size `v0`.
+
+#### Define the model, priors, and likelihoods
+
+Tumor size follows the analytical solution `V(t) = v0 * exp(g*t)`. Each patient's growth rate is the population mean plus a scaled standardized local effect.
+
+```python
+def ModelFn(globalParams,localZs,data):
+    g=globalParams["gMean"]+globalParams["gStd"]*localZs["g"]
+    return {"tumorSize":data["v0"]*jnp.exp(g*data["times"])}
+
+def GlobalPriorFn(dataShapes):
     return {
-        "g_mean": dist.Normal(0.15, 0.10),
-        "g_sd": dist.HalfNormal(0.10),
-        "noise": dist.HalfNormal(0.10),
+        "gMean":dist.Normal(0.15,0.1),
+        "gStd":dist.HalfNormal(0.1),
+        "sigma":dist.HalfNormal(0.1),
     }
 
-def model_fn(global_params, local_zs, data):
-    g = global_params["g_mean"] + global_params["g_sd"] * local_zs["g"]
-    return {"prediction": jnp.exp(g * data["time"])}
+def TrainLikelihoodFn(globalParams,localZs,data,modelOut):
+    return {"tumorSize":(data["tumorSize"],dist.Normal(modelOut["tumorSize"],globalParams["sigma"]))}
 
-def train_likelihood(global_params, local_zs, data, model_out):
-    return {"y": (data["y"], dist.Normal(model_out["prediction"], global_params["noise"]))}
+def TestLikelihoodFn(globalParams,localZs,data,modelOut):
+    nFit=3
+    tumorSize=modelOut["tumorSize"]
+    mask=jnp.arange(tumorSize.shape[-1])<nFit
+    return {"tumorSize":(data["tumorSize"],dist.Normal(tumorSize,globalParams["sigma"]).mask(mask))}
+
+def ScoreFn(modelOut,data):
+    return jnp.mean(jnp.abs(modelOut["tumorSize"][3:]-data["tumorSize"][3:]))
 ```
 
-The model has three unknown population-level quantities. `g_mean` describes a typical growth rate; `g_sd` describes how much rates differ between people; and `noise` describes random variation in measurements. The individual value `local_zs["g"]` says where one person falls relative to the typical rate. The model converts it to that person's growth rate using `g_mean + g_sd * z`.
+`ModelFn` and the likelihood functions operate on **one patient at a time**; BET handles vectorization. `TrainLikelihoodFn` uses all training measurements. `TestLikelihoodFn` masks the final five measurements so only the first three test measurements affect personalized inference. `ScoreFn` evaluates those five held-out measurements; it is not used for fitting.
 
-`global_prior` describes plausible starting ranges for the three unknown quantities. `train_likelihood` says that each measurement is expected to be near the model's prediction, with variation controlled by `noise`. The data generator uses known values only to create this synthetic example; BET does not see those values when fitting.
-
-You can run the Python blocks in this worked example in order, in one Python session. Part 5 reuses the resulting `est`, `before`, and `after` variables rather than repeating the fits. The other code blocks in the manual illustrate separate features and are not all intended to run as one script.
-
-#### Train on six individuals
+#### Train the population
 
 ```python
-est = Estimator(data, model_fn, localZNames=["g"],
-                GlobalPriorFn=global_prior, rngSeed=123)
-train_ids = list(range(6))
-test_ids = list(range(6, 10))
-
-est.Train(train_ids, train_likelihood,
-          Svi(numSteps=1500, numSamples=300, progressBar=False))
+est=bet.Estimator(data=data,ModelFn=ModelFn,localZNames=["g"],GlobalPriorFn=GlobalPriorFn,rngSeed=0)
+est.Train(trainDataIdxs=jnp.arange(5),TrainLikelihoodFn=TrainLikelihoodFn,Method=bet.Svi(numSteps=10000,numSamples=2000,stepSize=0.01),printSummary=True)
+trainScores=est.ScoreTrainSamples(ScoreFn=ScoreFn)
 ```
 
-The first six people form the *training group* used to fit the model. BET uses their measurements to estimate typical growth, between-person variation, and measurement noise. The other four form the *test group*: their measurements are excluded from training.
+This is the **SVI** configuration from `2_SimpleExampleSvi.py`. For the NUTS example, replace the method with `bet.Nuts(numWarmup=500,numSamples=500,numChains=4)`. The training scores measure fit on the training patients' last five observations; **they are not out-of-sample validation**, because training used all their observations.
 
-Here `Svi` is the inference method that estimates the unknown quantities. These settings are illustrative, not a guarantee of accurate inference. For research, check the fitted predictions and sensitivity to modeling choices.
-
-#### Predict using the group alone
-
-To see how well our predictions work, we calculate the average absolute difference between predictions and measurements for the *last five time points* (indices 3 through 7). These measurements are available for evaluation, but we must not use them to personalize the predictions.
+#### Predict before seeing test observations
 
 ```python
-def future_mae(model_out, data):
-    return jnp.mean(jnp.abs(model_out["prediction"][3:] - data["y"][3:]))
-
-est.Test(test_ids, nGlobalSamples=20, nLocalZSamples=100)
-before = est.ScoreTestSamples(future_mae)
-print("Population-only mean future MAE:", float(jnp.mean(before)))
-assert before.shape == (20, 100, 4)
+est.Test(testDataIdxs=jnp.arange(5,10),TestLikelihoodFn=None,nGlobalSamples=None,nLocalZSamples=2000)
+noInferenceScores=est.ScoreTestSamples(ScoreFn=ScoreFn)
 ```
 
-BET considers 20 plausible versions of the learned population and 100 possible growth-rate differences for each one. We did not supply a `TestLikelihoodFn` to `Test`, so BET does not use any measurements from the test patients to estimate their local latent z-scores. Instead, it samples those z-scores from the learned population, producing **population-only predictions**.
+With no test likelihood, BET draws each test patient's local effect from the trained population. `nGlobalSamples=None` uses the median trained global state, so these examples do **not** propagate full global posterior uncertainty. `nLocalZSamples=2000` controls population-drawn local effects.
 
-The score array has shape `[20, 100, 4]`: global-parameter draw, local z-score draw, and test person. Each number measures a possible prediction's error.
-
-#### Personalize predictions using three measurements
-
-Now suppose we have received the first three measurements for each test person. We can use those observations to estimate their growth rate more specifically. A **mask** marks which measurements BET is allowed to use for that update. The last five remain hidden from inference, even though we retain them to check the predictions afterward.
+#### Personalize using three early observations
 
 ```python
-def test_likelihood(global_params, local_zs, data, model_out):
-    observed = jnp.arange(data["y"].shape[0]) < 3
-    prediction = model_out["prediction"]
-    safe_y = jnp.where(observed, data["y"], prediction)
-    return {
-        "y": (safe_y, dist.Normal(prediction, global_params["noise"]).mask(observed))
-    }
+est.Test(testDataIdxs=jnp.arange(5,10),TestLikelihoodFn=TestLikelihoodFn,Method=bet.Svi,nGlobalSamples=None,printSummary=True)
+testSviScores=est.ScoreTestSamples(ScoreFn=ScoreFn)
 
-est.Test(test_ids, TestLikelihoodFn=test_likelihood,
-         Method=Svi(numSteps=800, numSamples=100, progressBar=False),
-         nGlobalSamples=20)
-after = est.ScoreTestSamples(future_mae)
-print("Conditioned mean future MAE:", float(jnp.mean(after)))
-assert after.shape == (20, 100, 4)
+print("Training score:",jnp.mean(trainScores))
+print("Test score, no inference:",jnp.mean(noInferenceScores))
+print("Test score, SVI:",jnp.mean(testSviScores))
 ```
 
-BET updates each test person's growth-rate estimate using their first three measurements and the population information learned earlier. We still score only the last five measurements, which BET did not use for the update. Calling `Test` again replaces the previous test state inside `est`, but the earlier `before` scores remain in their own variable. *Runtime tip:* The later personalized-prediction step repeats inference for each of the 20 sampled global parameter states, so it may take time. For a quicker run, reduce `nGlobalSamples` in both `Test` calls to the same value and update the corresponding shape assertions; you can also reduce the SVI step counts.
+Passing `bet.Svi` as a **class** reuses the saved SVI configuration. In the NUTS script, the matching call uses `Method=bet.Nuts` and stores `testNutsScores`. Calling `Test` again replaces the estimator's current test state, but `noInferenceScores` remains available for comparison.
 
-#### What did the extra measurements buy us?
+The last five test measurements were not used for population training or test personalization. Comparing the two test scores therefore measures how much the first three observations helped predict later values. A lower error after personalization is plausible, but not guaranteed with a small synthetic sample. These are **latent-trajectory errors**, not full posterior predictive checks including future observation noise.
 
-Both `before` and `after` have shape `[20, 100, 4]`. Their means summarize prediction errors across plausible global parameters, local z-scores, and test patients. Because we measure mean absolute error, lower values mean more accurate predictions of the held-out measurements. If the `after` mean is lower, using the first three measurements improved predictions of the remaining five on average. With only ten synthetic patients, an improvement is not guaranteed.
-
-#### Inspecting the full inference results
-
-Scoring reduces predictions to an error measure, but BET also lets you examine the underlying posterior samples directly. **`est.Save(None)` returns a dictionary of results in memory instead of writing a file.** It includes sampled global parameters (`"trainGlobals"` and `"testGlobals"`) and, when retained, individual local z-scores (`"trainLocalZs"` and `"testLocalZs"`), along with information needed to save or restore the estimator. This lets you inspect parameter uncertainty and differences between patients, not just prediction errors.
-
-To inspect predicted trajectories as well, run `Test` with `saveModelOut=True` and request those outputs when retrieving the results:
-
-```python
-samples = est.Save(None, saveTestModelOut=True)
-trajectories = samples["testModelOut"]["prediction"]
-```
-
-The matching parameter draws are in `samples["testGlobals"]` and `samples["testLocalZs"]`. Summarize the trajectories across posterior draw axes to obtain uncertainty intervals. These intervals describe latent mean trajectories; they do not automatically include new measurement noise. For stronger evaluation, repeat across random seeds and vary the number of early observations.
-
-The *Train → Test → Score* workflow also applies to more complex models, including differential-equation models.
-
-The assertions check score dimensions, not predictive accuracy; the printed MAE values are not expected to match fixed numbers. Part 7 explains how to evaluate predictions without data leakage.
+For a more comprehensive uncertainty analysis, set `nGlobalSamples` to a positive integer to sample global posterior states; this costs more computation. `Save(None)` exposes the saved parameter samples and optionally model outputs, as described in Part 6. The example scripts use the faster median-global setting.
 
 ## Part 3: Learning correlations between local z-scores
 
-The worked example has one individual-specific parameter: growth rate. BET can represent several individual differences and learn whether they tend to occur together.
+The introductory model has one patient-specific parameter, growth rate `g`. BET can also learn relationships between **multiple** standardized local effects. This section follows the correlated growth-and-drug-response model used in [SaveExampleNuts](../Examples/3_SaveExampleNuts.py) and [SaveExampleSvi](../Examples/5_SaveExampleSvi.py). Their corresponding Load scripts use the same model.
 
-BET represents individual-to-individual differences using **local z-scores** on a standardized scale. For example, `z=0` gives the model's central growth rate; positive or negative values change it according to the transformation you define. With `rate = exp(log_rate_mean + log_rate_sd * z)`, `log_rate_mean` sets the center on the log scale and `log_rate_sd` sets its spread. Before conditioning on individual observations, each z-score has a standard-normal marginal distribution.
-
-Extend the tumor-growth example by adding treatment. Each patient now has two parameters: a **growth rate**, describing how quickly the tumor grows without treatment, and a **treatment-response parameter**, describing how strongly treatment slows that growth. Both may vary between patients. For instance, patients whose tumors grow faster might also tend to respond more strongly to treatment, or the relationship might be reversed. Assuming the parameters vary independently would miss that population-level relationship.
-
-For example, this schematic treatment model transforms each patient's local z-scores into positive growth and response parameters. It illustrates the transformation, not a validated description of tumor dynamics:
+Each patient has a growth rate `g` and a drug-response effect `d`. Before treatment, `dV/dt = gV`; treatment starts at `drugStart=4`, after which `dV/dt = (g-d)V`. The exact solution is `V(t) = v0 * exp(g*t - d*max(t-drugStart,0))`. It avoids a numerical ODE solver while retaining the treatment-onset behavior.
 
 ```python
-def model_fn(global_params, local_zs, data):
-    growth = jnp.exp(global_params["log_growth_mean"] + global_params["log_growth_sd"] * local_zs["growth"])
-    response = jnp.exp(global_params["log_response_mean"] + global_params["log_response_sd"] * local_zs["response"])
-    net_rate = growth - response * data["treatment"]
-    return {"prediction": data["baseline"] * jnp.exp(net_rate * data["time"])}
+def ModelFn(globalParams,localZs,data):
+    g=globalParams["gMean"]+globalParams["gStd"]*localZs["g"]
+    d=globalParams["dMean"]+globalParams["dStd"]*localZs["d"]
+    tumorSize=data["v0"]*jnp.exp(g*data["times"]-d*jnp.maximum(data["times"]-data["drugStart"],0.0))
+    return {"tumorSize":tumorSize}
+
+def GlobalPriorFn(dataShapes):
+    return {
+        "gMean":dist.Normal(0.15,0.1),
+        "gStd":dist.HalfNormal(0.1),
+        "dMean":dist.Normal(0.25,0.1),
+        "dStd":dist.HalfNormal(0.1),
+        "sigma":dist.HalfNormal(0.1),
+    }
 ```
 
+These are the **same functions and parameter names** used in the runnable Save/Load examples. Use `localZNames=["g","d"]` when constructing the estimator. Unlike the single-local model in Part 2, BET can infer the population correlation between the standardized `g` and `d` effects.
 
-You define the global means, scales, and transformations in the model; BET does not create them automatically.
+The Save examples generate ten patients with eleven time points between 0 and 10, patient-specific initial tumor sizes, and **synthetic correlation `rho=0.8`** between local effects:
 
-Set `localZNames=["growth", "response"]` to represent both sources of patient-to-patient variation as standardized local z-scores. BET can learn their **correlation** from the training patients. A positive correlation means patients with above-average growth z-scores tend also to have above-average response z-scores; a negative correlation means higher growth z-scores tend to accompany lower response z-scores. These are correlations between the standardized effects, not necessarily between the parameters after arbitrary transformations.
+```python
+rho=0.8
+zG=random.normal(keyG,(nPatients,))
+zDIndependent=random.normal(keyD,(nPatients,))
+zD=rho*zG+jnp.sqrt(1.0-rho**2)*zDIndependent
+trueG=0.15+0.03*zG
+trueD=0.25+0.05*zD
+```
 
-BET represents this relationship using a **correlation matrix**. Internally, it uses a **Cholesky factor** of that matrix to generate correlated local z-scores. A correlation matrix specifies how pairs of effects vary together; its Cholesky factor is a triangular matrix that can transform independent standard-normal draws into correlated ones. BET places an **LKJ prior** on the correlation structure, with `lkjConcentration` controlling how strongly that prior favors correlations near zero. The inferred relationship can improve predictions for a new patient: measurements that inform their tumor growth rate can also inform their likely treatment response, even if response measurements are limited.
+This generates the example data; the true `rho` is **not** supplied to BET during training. The example uses five training patients and five held-out patients. Because this is a small dataset, the inferred correlation need not recover 0.8 accurately.
 
-*Choosing `lkjConcentration`.* The LKJ prior changes with this setting:
+BET uses a **correlation matrix** and its **Cholesky factor** to represent the relationship among local effects. The `lkjConcentration` argument controls the LKJ prior on correlation matrices: `1` gives uniform density over valid matrices, `2` (default) mildly favors weaker correlations, and larger values favor weaker correlations more strongly. Values below `1` favor more extreme structures. Correlation refers to the standardized local effects, not necessarily to arbitrary nonlinear transformations of the physical parameters.
 
-- *`lkjConcentration=1`*: All valid correlation matrices have equal prior density. With more than two local z-scores, this does not mean that each pairwise correlation is uniformly distributed.
-- *`lkjConcentration=2` (default)*: Mildly favors weaker correlations. This is a reasonable starting point for most models.
-- *`lkjConcentration=4`*: Favors weaker correlations more strongly; useful when large correlations seem unlikely before seeing the data.
-- *`lkjConcentration<1`*: Favors more extreme correlation structures; generally avoid unless strong correlations are expected.
-
-When data are limited, try more than one concentration to check how much the inferred correlations depend on the prior.
+The runnable Save examples train this correlated model with either `bet.Nuts(...)` or `bet.Svi(...)`, score the training trajectories, and save the fit. Unlike Part 2's test scores, these Save examples' training scores use **all observations** and measure training fit rather than held-out prediction. Part 6 continues with exactly this model.
 
 ## Part 4: Building blocks
 
@@ -318,45 +304,57 @@ After you define the model and observations, BET estimates plausible parameter v
 
 ## Part 6: Saving your work
 
-Once you have trained a model, you may want to return to it later without running inference again. BET can save the results of training and testing, along with enough configuration to reconstruct an estimator.
+The correlated growth-and-treatment model from Part 3 is also the model used in the four runnable Save/Load examples:
+
+- [3_SaveExampleNuts.py](../Examples/3_SaveExampleNuts.py) trains with NUTS and writes `SimpleTumorGrowthNuts.npz`; [4_LoadExampleNuts.py](../Examples/4_LoadExampleNuts.py) restores it.
+- [5_SaveExampleSvi.py](../Examples/5_SaveExampleSvi.py) trains with SVI and writes `SimpleTumorGrowthSvi.npz`; [6_LoadExampleSvi.py](../Examples/6_LoadExampleSvi.py) restores it.
+
+Run each Save script before its corresponding Load script, from the same working directory. The Load scripts recreate the identical synthetic dataset and supply `ModelFn` and `GlobalPriorFn` explicitly; functions are not serialized.
 
 ### Saving and loading
 
-`Save` preserves the fitted population posterior, training/test configuration, selected entry indices, and RNG state in a compressed `.npz` file. You can also choose whether to retain individual local-effect samples, model outputs, and the original data.
+After training the correlated model with `localZNames=["g","d"]`, the NUTS example saves it with:
 
 ```python
-est.Save("fit.npz", saveAllData=True)
-restored = Estimator.Load("fit.npz", ModelFn=model_fn, GlobalPriorFn=global_prior)
+est.Save("SimpleTumorGrowthNuts.npz")
 ```
+
+The corresponding Load example recreates `data` and the Part 3 model functions, then restores the estimator:
+
+```python
+est=bet.Estimator.Load("SimpleTumorGrowthNuts.npz",ModelFn=ModelFn,GlobalPriorFn=GlobalPriorFn,data=data)
+```
+
+The SVI pair uses `SimpleTumorGrowthSvi.npz` instead. After loading, both scripts score the restored training posterior, then test five new patients without personalization, with three observations, and with seven observations. They evaluate mean absolute error and mean squared error over **entire trajectories**. These scores illustrate the API and the effects of conditioning; the first three or seven observations are part of those scores, so they should **not** be described as wholly held-out forecasting accuracy.
+
+`Save` preserves the population posterior, training/test settings, selected indices, and RNG state. By default it also retains available training local samples; model outputs and the full input dataset are not saved unless requested.
+
+```python
+est.Save("fit.npz",saveAllData=True)
+restored=bet.Estimator.Load("fit.npz",ModelFn=ModelFn,GlobalPriorFn=GlobalPriorFn)
+```
+
+When `saveAllData=True`, the loader can reconstruct the estimator without separately supplying `data`. This **optional variation** is not what the runnable Save/Load examples use.
 
 The full signature is:
 
 ```python
-Save(fileName, saveTrainLocalZs=True, saveTestLocalZs=True,
-     saveTrainModelOut=False, saveTestModelOut=False, saveAllData=False)
+Save(fileName,saveTrainLocalZs=True,saveTestLocalZs=True,
+     saveTrainModelOut=False,saveTestModelOut=False,saveAllData=False)
 ```
 
 | Option | What it controls |
 | --- | --- |
-| `fileName` | Destination for the compressed `.npz` file. If `None`, return an in-memory nested record instead of writing a file. |
-| `saveTrainLocalZs` | Include training individuals' posterior local-effect samples. Enabled by default. |
-| `saveTestLocalZs` | Include the latest test individuals' local-effect samples and their associated sampled global/Cholesky states. Enabled by default. |
-| `saveTrainModelOut` | Include previously retained training model outputs, if available. Disabled by default. |
-| `saveTestModelOut` | Include previously retained test model outputs, if available. Disabled by default. |
-| `saveAllData` | Include the original input data, allowing loading without supplying it separately. Disabled by default. |
+| `fileName` | Destination for the compressed `.npz` file; `None` returns an in-memory record. |
+| `saveTrainLocalZs` | Include training local-effect samples (default `True`). |
+| `saveTestLocalZs` | Include latest test local effects and associated global/Cholesky states (default `True`). |
+| `saveTrainModelOut` | Include retained training model outputs, if available. |
+| `saveTestModelOut` | Include retained test model outputs, if available. |
+| `saveAllData` | Include original data so it need not be supplied on load. |
 
-Population posterior samples and saved Train/Test configuration are retained independently of these options. Omitting local samples or model outputs reduces file size but may limit subsequent scoring or require recomputation. In particular, to score a loaded training fit with local z-scores, retain training local draws or previously saved model outputs; to score loaded test predictions, retain test local draws or previously saved test model outputs. The latter outputs must have been requested during `Test` and included during `Save`. The model-output options only save outputs already retained by `Train(..., saveModelOut=True)` or `Test(..., saveModelOut=True)`; they do not generate missing outputs at save time.
+The model-output options preserve outputs **already retained** by `Train(...,saveModelOut=True)` or `Test(...,saveModelOut=True)`; they do not generate missing predictions at save time. If local samples and model outputs are omitted, later scoring may be unavailable.
 
-To restore an estimator:
-
-```python
-restored = Estimator.Load("fit.npz", ModelFn=model_fn,
-                          GlobalPriorFn=global_prior, data=data)
-```
-
-`Load(fileName, ModelFn, GlobalPriorFn=None, data=None)` reconstructs the saved estimator, including available posterior samples and configuration. Omit `data` if the file was saved with `saveAllData=True`; otherwise supply the original data. You must supply the model function and, when used, the global-prior function again because Python functions are not serialized. BET warns when their names differ from the saved names, but a matching name does not guarantee identical behavior.
-
-For inspection without reconstructing an estimator, call `Estimator.Load("fit.npz", ModelFn=None)` to obtain the saved record as a dictionary. Saved Method names and constructor arguments support reconstruction of inference configuration; they do not serialize live NUTS or SVI engine objects.
+For inspection without reconstructing an estimator, `bet.Estimator.Load("fit.npz",ModelFn=None)` returns the saved record. Method names and constructor arguments are stored to reconstruct inference configuration; live NUTS or SVI engines are not serialized.
 
 ## Part 7: Working with incomplete data and numerical models
 
