@@ -4,7 +4,6 @@ npo.set_host_device_count(4)
 import jax.numpy as jnp
 import numpyro.distributions as dist
 from jax import random
-from jax.experimental.ode import odeint
 
 import BayesianEstimationTool as bet
 
@@ -42,19 +41,14 @@ data={
 # Model components
 # ---------------------------------------------------------------------
 
-# Exponential tumor growth:
-# dV/dt = gV
-
-def ODE(V,t,g):
-    return g*V
-
+# Analytical solution of dV/dt = gV.
 
 # localZs["g"] is the standardized patient-specific deviation.
 # Convert it to the physical growth rate using the population mean/std.
 
 def ModelFn(globalParams,localZs,data):
     g=globalParams["gMean"]+globalParams["gStd"]*localZs["g"]
-    return {"tumorSize":odeint(ODE,data["v0"],data["times"],g)}
+    return {"tumorSize":data["v0"]*jnp.exp(g*data["times"])}
 
 
 # Population parameters and observation noise.
@@ -82,10 +76,10 @@ def TestLikelihoodFn(globalParams,localZs,data,modelOut):
     return {"tumorSize":(data["tumorSize"],dist.Normal(tumorSize,globalParams["sigma"]).mask(mask))}
 
 
-# Score one trajectory against all available observations.
+# Score only the last five observations; the first three may be used for fitting.
 
 def ScoreFn(modelOut,data):
-    return jnp.mean(jnp.abs(modelOut["tumorSize"]-data["tumorSize"]))
+    return jnp.mean(jnp.abs(modelOut["tumorSize"][3:]-data["tumorSize"][3:]))
 
 
 # ---------------------------------------------------------------------
@@ -119,14 +113,14 @@ trainScores=est.ScoreTrainSamples(ScoreFn=ScoreFn)
 #
 # Do not use any test-patient observations for inference.
 #
-# Use the median global parameter values from the training posterior.
+# Propagate uncertainty using 20 sampled global posterior states.
 # For each test patient, sample local Zs from the learned
 # population distribution and generate trajectories.
 #
 # numSamples controls the number of local Z samples generated.
 # ---------------------------------------------------------------------
 
-est.Test( testDataIdxs=jnp.arange(5,10), TestLikelihoodFn=None, nGlobalSamples=None, nLocalZSamples=2000)
+est.Test( testDataIdxs=jnp.arange(5,10), TestLikelihoodFn=None, nGlobalSamples=20, nLocalZSamples=100)
 noInferenceScores=est.ScoreTestSamples(ScoreFn=ScoreFn)
 
 
@@ -139,11 +133,10 @@ noInferenceScores=est.ScoreTestSamples(ScoreFn=ScoreFn)
 # TestLikelihoodFn exposes only the first nFit=3 tumor measurements,
 # so each test patient's g is updated using its early trajectory.
 #
-# ScoreFn then compares posterior trajectories against all available
-# measurements.
+# ScoreFn evaluates only the final five measurements, held out from inference.
 # ---------------------------------------------------------------------
 
-est.Test( testDataIdxs=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Method=bet.Nuts, nGlobalSamples=None, printSummary=True)
+est.Test( testDataIdxs=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Method=bet.Nuts, nGlobalSamples=20, printSummary=True)
 testNutsScores=est.ScoreTestSamples(ScoreFn=ScoreFn)
 
 
