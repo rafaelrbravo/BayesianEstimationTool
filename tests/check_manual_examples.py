@@ -78,6 +78,10 @@ def test_manual_examples():
                 for target in node.targets:
                     if isinstance(target,ast.Name):
                         result[target.id]=normalized(node.value)
+                    elif isinstance(target,ast.Tuple):
+                        for name in target.elts:
+                            if isinstance(name,ast.Name):
+                                result[name.id]=normalized(node.value)
         return result
     documented=assignments(simple_code)
     for label,source in (("simple NUTS",nuts),("simple SVI",svi)):
