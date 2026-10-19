@@ -113,14 +113,14 @@ trainScores=est.ScoreTrainSamples(ScoreFn=ScoreFn)
 #
 # Do not use any test-patient observations for inference.
 #
-# Propagate uncertainty using 20 sampled global posterior states.
+# Use the median global posterior state to keep this introductory run fast.
 # For each test patient, sample local Zs from the learned
 # population distribution and generate trajectories.
 #
 # numSamples controls the number of local Z samples generated.
 # ---------------------------------------------------------------------
 
-est.Test( testDataIdxs=jnp.arange(5,10), TestLikelihoodFn=None, nGlobalSamples=20, nLocalZSamples=100)
+est.Test( testDataIdxs=jnp.arange(5,10), TestLikelihoodFn=None, nGlobalSamples=None, nLocalZSamples=2000)
 noInferenceScores=est.ScoreTestSamples(ScoreFn=ScoreFn)
 
 
@@ -136,7 +136,7 @@ noInferenceScores=est.ScoreTestSamples(ScoreFn=ScoreFn)
 # ScoreFn evaluates only the final five measurements, held out from inference.
 # ---------------------------------------------------------------------
 
-est.Test( testDataIdxs=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Method=bet.Svi, nGlobalSamples=20, printSummary=True)
+est.Test( testDataIdxs=jnp.arange(5,10), TestLikelihoodFn=TestLikelihoodFn, Method=bet.Svi, nGlobalSamples=None, printSummary=True)
 testSviScores=est.ScoreTestSamples(ScoreFn=ScoreFn)
 
 
