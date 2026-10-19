@@ -47,6 +47,29 @@ jobs:
           python -m pip install --upgrade build twine
           python -m build
           python -m twine check dist/*
+      - name: Verify distribution versions against release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          IS_TAG_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+          from packaging.utils import parse_wheel_filename, parse_sdist_filename
+          expected = (os.environ['RELEASE_TAG'][1:] if os.environ['IS_TAG_RELEASE'] == 'true'
+                      else tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])
+          wheels = list(Path('dist').glob('*.whl'))
+          sources = list(Path('dist').glob('*.tar.gz'))
+          assert len(wheels) == 1 and len(sources) == 1, f'Unexpected distributions: {wheels}, {sources}'
+          for wheel in wheels:
+              name, version, _, _ = parse_wheel_filename(wheel.name)
+              assert name == 'bayesianestimationtool' and str(version) == expected, f'Unexpected wheel: {wheel}'
+          for source in sources:
+              name, version = parse_sdist_filename(source.name)
+              assert name == 'bayesianestimationtool' and str(version) == expected, f'Unexpected sdist: {source}'
+          print(f'Validated BET distribution version {expected}')
+          PY
       - name: Verify wheel installation
         run: |
           python -m venv /tmp/bet-release-check
