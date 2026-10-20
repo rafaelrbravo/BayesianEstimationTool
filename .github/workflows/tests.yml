@@ -2,7 +2,17 @@ name: BET tests
 
 on:
   push:
+    paths:
+      - '**/*.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - '.github/workflows/tests.yml'
   pull_request:
+    paths:
+      - '**/*.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - '.github/workflows/tests.yml'
   workflow_dispatch:
 
 concurrency:
