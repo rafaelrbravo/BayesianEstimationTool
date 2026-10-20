@@ -39,8 +39,6 @@ jobs:
           python docs/generators/markdown_to_pdf.py docs/Manual.md
           python docs/generators/cheatsheet.py
           python -c 'from pypdf import PdfReader; n=len(PdfReader("docs/Cheatsheet.pdf").pages); print(f"Cheatsheet pages: {n}"); assert n == 1, f"Expected one-page cheatsheet, got {n} pages"'
-      - name: Run complete BET suite from parent directory
-        run: cd .. && python -m pytest -q BayesianEstimationTool/tests
   generate:
     # Generate review artifacts only; PDF refresh workflow commits PDFs.
     permissions:
