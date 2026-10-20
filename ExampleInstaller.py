@@ -1,4 +1,4 @@
-"""Copy bundled BET examples and PDF documentation into an editable folder."""
+"""Copy bundled BET examples and Markdown/PDF documentation into an editable folder."""
 import argparse
 from pathlib import Path
 import shutil
@@ -20,9 +20,9 @@ def main():
     if not source.is_dir() or not list(source.glob("*.py")):
         print("BET examples are missing from this installation.", file=sys.stderr)
         return 1
-    pdfs = sorted(docs.glob("*.pdf")) if docs.is_dir() else []
-    if not pdfs:
-        print("BET documentation PDFs are missing from this installation.", file=sys.stderr)
+    documents = sorted(p for p in docs.iterdir() if p.is_file() and p.suffix.lower() in {".pdf", ".md"}) if docs.is_dir() else []
+    if not documents:
+        print("BET documentation Markdown/PDF files are missing from this installation.", file=sys.stderr)
         return 1
     if target.exists():
         print(f"Destination already exists: {target}\\nNothing was overwritten.", file=sys.stderr)
@@ -30,9 +30,9 @@ def main():
     shutil.copytree(source, target)
     docs_target = target / "Documentation"
     docs_target.mkdir()
-    for pdf in pdfs:
-        shutil.copy2(pdf, docs_target / pdf.name)
-    print(f"Copied BET examples and documentation PDFs to {target}")
+    for document in documents:
+        shutil.copy2(document, docs_target / document.name)
+    print(f"Copied BET examples and documentation to {target}")
     print("Run an example with: python BET-Examples/1_SimpleExampleNuts.py")
     return 0
 
