@@ -40,7 +40,7 @@ After installing a BET build that includes bundled resources, run:
 python -m BayesianEstimationTool.ExampleInstaller
 ```
 
-This creates a `BET-Examples/` folder in your current directory containing the six runnable Python examples and a `Documentation/` subfolder with `Manual.pdf` and `Cheatsheet.pdf`. For example:
+This creates a `BET-Examples/` folder in your current directory containing the six runnable Python examples and a `Documentation/` subfolder with Markdown and PDF versions of the manual and cheatsheet. For example:
 
 ```text
 BET-Examples/
@@ -51,7 +51,9 @@ BET-Examples/
     5_SaveExampleSvi.py
     6_LoadExampleSvi.py
     Documentation/
+        Manual.md
         Manual.pdf
+        Cheatsheet.md
         Cheatsheet.pdf
 ```
 
