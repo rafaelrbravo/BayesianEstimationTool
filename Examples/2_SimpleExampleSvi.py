@@ -93,6 +93,10 @@ est=bet.Estimator(data=data,ModelFn=ModelFn,localZNames=["g"],GlobalPriorFn=Glob
 
 
 # ---------------------------------------------------------------------
+# The analytical model runs very quickly; disabling the progress bar avoids
+# NumPyro's potentially expensive post-optimization loss-history stacking.
+# BET keeps progressBar=True by default for longer-running models.
+
 # 1. TRAINING
 #
 # Infer:
@@ -104,7 +108,7 @@ est=bet.Estimator(data=data,ModelFn=ModelFn,localZNames=["g"],GlobalPriorFn=Glob
 # using all observations from the five training patients.
 # ---------------------------------------------------------------------
 
-est.Train( trainDataIdxs=jnp.arange(5), TrainLikelihoodFn=TrainLikelihoodFn, Method=bet.Svi(numSteps=10000,numSamples=2000,stepSize=0.01), printSummary=True)
+est.Train( trainDataIdxs=jnp.arange(5), TrainLikelihoodFn=TrainLikelihoodFn, Method=bet.Svi(numSteps=10000,numSamples=2000,stepSize=0.01,progressBar=False), printSummary=True)
 trainScores=est.ScoreTrainSamples(ScoreFn=ScoreFn)
 
 
