@@ -2,8 +2,16 @@ name: Build BET documentation
 "on":
   push:
     branches: [main]
+    paths:
+      - 'docs/**'
+      - 'Examples/**'
+      - '.github/workflows/build-docs.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'docs/**'
+      - 'Examples/**'
+      - '.github/workflows/build-docs.yml'
   workflow_dispatch:
 permissions:
   contents: read
