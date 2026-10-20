@@ -21,6 +21,23 @@ BET requires Python 3.10 or newer. Install from [PyPI](https://pypi.org/project/
 python -m pip install BayesianEstimationTool
 ```
 
+## Bundled examples and documentation
+
+After installing BET, copy its bundled runnable examples and Markdown and PDF manual/cheatsheet to an editable folder in the current directory (no GitHub download needed):
+
+```bash
+python -m BayesianEstimationTool.ExampleInstaller
+```
+
+To select a different parent directory:
+
+```bash
+python -m BayesianEstimationTool.ExampleInstaller ~/Documents
+```
+
+This creates `BET-Examples/` with the six Python examples and a `Documentation/` subfolder containing `Manual.md`, `Manual.pdf`, `Cheatsheet.md`, and `Cheatsheet.pdf`. Run a script with `python BET-Examples/1_SimpleExampleNuts.py`. The installer refuses to overwrite an existing `BET-Examples/` directory. The installer is available in package builds that include bundled examples and documentation.
+
+
 Alternatively, install the latest source directly from GitHub:
 
 ```bash
@@ -38,22 +55,6 @@ python -c "import BayesianEstimationTool as bet; print(bet.Estimator)"
 For editable development from a source checkout, run `python -m pip install -e .` in the repository root. The conda recipe in `conda-recipe/meta.yaml` is for local builds; BET is not yet published on conda-forge.
 
 See the manual for the minimal model and training examples.
-
-## Bundled examples and documentation
-
-After installing BET, copy its bundled runnable examples and Markdown and PDF manual/cheatsheet to an editable folder in the current directory (no GitHub download needed):
-
-```bash
-python -m BayesianEstimationTool.ExampleInstaller
-```
-
-To select a different parent directory:
-
-```bash
-python -m BayesianEstimationTool.ExampleInstaller ~/Documents
-```
-
-This creates `BET-Examples/` with the six Python examples and a `Documentation/` subfolder containing `Manual.md`, `Manual.pdf`, `Cheatsheet.md`, and `Cheatsheet.pdf`. Run a script with `python BET-Examples/1_SimpleExampleNuts.py`. The installer refuses to overwrite an existing `BET-Examples/` directory. The installer is available in package builds that include bundled examples and documentation.
 
 ## How to cite
 
