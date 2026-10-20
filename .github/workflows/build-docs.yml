@@ -7,6 +7,10 @@ name: Build BET documentation
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     permissions:
@@ -30,10 +34,9 @@ jobs:
       - name: Run complete BET suite from parent directory
         run: cd .. && python -m pytest -q BayesianEstimationTool/tests
   generate:
-    # Publishing requires write access; skip this job for untrusted PR code.
-    if: github.event_name != 'pull_request'
+    # Generate review artifacts only; PDF refresh workflow commits PDFs.
     permissions:
-      contents: write
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,13 +64,3 @@ jobs:
             docs/Manual.pdf
             docs/Cheatsheet.md
             docs/Cheatsheet.pdf
-      - name: Commit generated docs
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/Manual.pdf docs/Cheatsheet.md docs/Cheatsheet.pdf
-          if ! git diff --cached --quiet; then
-            git commit -m 'Generate PDFs from authoritative manual Markdown and cheatsheet source'
-            git push origin HEAD:refs/heads/${{ github.ref_name }}
-          fi
