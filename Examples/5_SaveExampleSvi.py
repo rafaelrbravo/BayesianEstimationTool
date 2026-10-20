@@ -118,7 +118,9 @@ est=bet.Estimator(data=data,ModelFn=ModelFn,localZNames=["g","d"],GlobalPriorFn=
 # using all observations from the five training patients.
 # ---------------------------------------------------------------------
 
-est.Train(trainDataIdxs=jnp.arange(5),TrainLikelihoodFn=TrainLikelihoodFn,Method=bet.Svi(numSteps=10000,numSamples=500),printSummary=True)
+# This simple model fits quickly, so progressBar=False avoids NumPyro's
+# loss-history overhead. Keep the default True for longer-running models.
+est.Train(trainDataIdxs=jnp.arange(5),TrainLikelihoodFn=TrainLikelihoodFn,Method=bet.Svi(numSteps=10000,numSamples=500,progressBar=False),printSummary=True)
 
 
 # ---------------------------------------------------------------------
