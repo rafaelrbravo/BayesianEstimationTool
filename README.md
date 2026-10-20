@@ -4,6 +4,22 @@
 
 BayesianEstimationTool fits population-level parameters and individual-specific latent variables with NumPyro inference methods.
 
+## Installation and examples
+
+BET requires Python 3.10 or newer. Install from [PyPI](https://pypi.org/project/BayesianEstimationTool/):
+
+```bash
+python -m pip install BayesianEstimationTool
+```
+
+Copy the bundled runnable examples and PDF/Markdown documentation into an editable `BET-Examples/` folder in your current directory:
+
+```bash
+python -m BayesianEstimationTool.ExampleInstaller
+```
+
+Run an example with `python BET-Examples/1_SimpleExampleNuts.py`. The installer creates a `Documentation/` subfolder with the manual and cheatsheet in Markdown and PDF; it does not download from GitHub or overwrite an existing `BET-Examples/` folder.
+
 ## Documentation
 
 Start here:
@@ -13,29 +29,13 @@ Start here:
 - **[Cheatsheet (Markdown)](docs/Cheatsheet.md)** — compact API reference and common workflows.
 - **[Cheatsheet (PDF)](docs/Cheatsheet.pdf)** — one-page printable reference. If GitHub cannot preview the PDF, download it to view locally.
 
-## Installation
+## Installation details
 
-BET requires Python 3.10 or newer. Install from [PyPI](https://pypi.org/project/BayesianEstimationTool/):
-
-```bash
-python -m pip install BayesianEstimationTool
-```
-
-## Bundled examples and documentation
-
-After installing BET, copy its bundled runnable examples and Markdown and PDF manual/cheatsheet to an editable folder in the current directory (no GitHub download needed):
-
-```bash
-python -m BayesianEstimationTool.ExampleInstaller
-```
-
-To select a different parent directory:
+To copy examples to a different parent directory:
 
 ```bash
 python -m BayesianEstimationTool.ExampleInstaller ~/Documents
 ```
-
-This creates `BET-Examples/` with the six Python examples and a `Documentation/` subfolder containing `Manual.md`, `Manual.pdf`, `Cheatsheet.md`, and `Cheatsheet.pdf`. Run a script with `python BET-Examples/1_SimpleExampleNuts.py`. The installer refuses to overwrite an existing `BET-Examples/` directory. The installer is available in package builds that include bundled examples and documentation.
 
 ## Alternative installation methods
 
