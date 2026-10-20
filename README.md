@@ -13,15 +13,6 @@ Start here:
 - **[Cheatsheet (Markdown)](docs/Cheatsheet.md)** — compact API reference and common workflows.
 - **[Cheatsheet (PDF)](docs/Cheatsheet.pdf)** — one-page printable reference. If GitHub cannot preview the PDF, download it to view locally.
 
-**Manual.md is the authoritative manual.** Its PDF is rendered directly from that file using GitHub-like styling and print pagination. The cheatsheet is a separate compact, Python-generated reference. To regenerate locally, install `requests`, `playwright`, and `reportlab`, install Playwright Chromium (`python -m playwright install chromium`), and set `GITHUB_TOKEN` to a token permitted to call GitHub's Markdown API for this repository. The manual generator uses GitHub's Markdown rendering API and Playwright; the cheatsheet generator uses ReportLab:
-
-```bash
-python docs/generators/markdown_to_pdf.py docs/Manual.md
-python docs/generators/cheatsheet.py
-```
-
-The GitHub Actions test workflow regenerates the PDFs (and the Python-authored cheatsheet Markdown), checks that the cheatsheet is exactly one PDF page, uploads the outputs as a `bet-docs` artifact, and runs the test suite.
-
 ## Installation
 
 BET requires Python 3.10 or newer. Install from [PyPI](https://pypi.org/project/BayesianEstimationTool/):
@@ -47,6 +38,17 @@ python -c "import BayesianEstimationTool as bet; print(bet.Estimator)"
 For editable development from a source checkout, run `python -m pip install -e .` in the repository root. The conda recipe in `conda-recipe/meta.yaml` is for local builds; BET is not yet published on conda-forge.
 
 See the manual for the minimal model and training examples.
+
+## Regenerating documentation
+
+**Manual.md is the authoritative manual.** Its PDF is rendered directly from that file using GitHub-like styling and print pagination. The cheatsheet is a separate compact, Python-generated reference. To regenerate locally, install `requests`, `playwright`, and `reportlab`, install Playwright Chromium (`python -m playwright install chromium`), and set `GITHUB_TOKEN` to a token permitted to call GitHub's Markdown API for this repository. The manual generator uses GitHub's Markdown rendering API and Playwright; the cheatsheet generator uses ReportLab:
+
+```bash
+python docs/generators/markdown_to_pdf.py docs/Manual.md
+python docs/generators/cheatsheet.py
+```
+
+The GitHub Actions test workflow regenerates the PDFs (and the Python-authored cheatsheet Markdown), checks that the cheatsheet is exactly one PDF page, uploads the outputs as a `bet-docs` artifact, and runs the test suite.
 
 ## Bundled examples and documentation
 
