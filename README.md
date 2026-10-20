@@ -37,6 +37,7 @@ python -m BayesianEstimationTool.ExampleInstaller ~/Documents
 
 This creates `BET-Examples/` with the six Python examples and a `Documentation/` subfolder containing `Manual.md`, `Manual.pdf`, `Cheatsheet.md`, and `Cheatsheet.pdf`. Run a script with `python BET-Examples/1_SimpleExampleNuts.py`. The installer refuses to overwrite an existing `BET-Examples/` directory. The installer is available in package builds that include bundled examples and documentation.
 
+## Alternative installation methods
 
 Alternatively, install the latest source directly from GitHub:
 
