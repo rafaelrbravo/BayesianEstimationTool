@@ -1,6 +1,7 @@
 cff-version: 1.2.0
 message: "If you use BayesianEstimationTool (BET) in your research, please cite this software."
 type: software
+version: 1.0.2
 title: "BayesianEstimationTool"
 authors:
   - family-names: Bravo
